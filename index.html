@@ -840,7 +840,8 @@ window.renderBudget=function(){
     '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
     '<div class="stabs"><button class="stab'+(s.type==="income"?" active":"")+'" onclick="budSt(\'type\',\'income\')">↑ Gelir</button><button class="stab'+(s.type==="expense"?" active":"")+'" onclick="budSt(\'type\',\'expense\')">↓ Gider</button></div>'+
     '<div class="stabs"><button class="stab'+(s.view==="table"?" active":"")+'" onclick="budSt(\'view\',\'table\')">Tablo</button><button class="stab'+(s.view==="chart"?" active":"")+'" onclick="budSt(\'view\',\'chart\')">Grafik</button></div>'+
-    '</div><button class="btn btn-ghost btn-sm" onclick="openCatModal()">🏷️ Kategoriler</button></div>'+
+    '</div>'+
+    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCatModal()">🏷️ Kategori Ekle/Düzenle</button></div>'+
     '<div class="lbl">Ay seçimi (birden fazla seçebilirsin):</div>'+moSelHtml("budget")+
     '<div class="tbl-h" style="grid-template-columns:'+cols+'"><span>Kategori</span><span>'+(isSingle?MONTHS[selMs[0]]+" Bütçesi":"Dönem Toplamı")+'</span><span>Yıllık Bütçe</span><span>Ort/Ay</span><span>İşlem</span></div>'+
     rows.join("")+
@@ -1115,7 +1116,7 @@ window.renderActual=function(){
     '<div class="stabs"><button class="stab'+(s.type==="income"?" active":"")+'" onclick="actSt(\'type\',\'income\')">↑ Gelir</button><button class="stab'+(s.type==="expense"?" active":"")+'" onclick="actSt(\'type\',\'expense\')">↓ Gider</button></div>'+
     '<div class="stabs"><button class="stab'+(s.view==="table"?" active":"")+'" onclick="actSt(\'view\',\'table\')">Tablo</button><button class="stab'+(s.view==="chart"?" active":"")+'" onclick="actSt(\'view\',\'chart\')">Grafik</button></div>'+
     '</div>'+
-    '<button class="btn btn-ghost btn-sm" onclick="openCatModal()">🏷️ Kategoriler</button>'+
+    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCatModal()">🏷️ Kategori Ekle/Düzenle</button>'+
     '</div>'+
     '<div class="lbl">Ay seçimi (tek ay = detay, çok ay = özet):</div>'+moSelHtml("actual")+
     tableH+
@@ -1561,7 +1562,10 @@ window.renderTxAdd=function(){
   var s=states.txadd,typeCats=cats[s.type];
   document.getElementById("tab-txadd").innerHTML='<div class="fade" style="max-width:500px;margin:0 auto">'+
     '<div class="card cb">'+
-    '<div style="font-size:17px;font-weight:700;margin-bottom:18px">➕ Yeni İşlem Ekle</div>'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'+
+    '<div style="font-size:17px;font-weight:700">➕ Yeni İşlem Ekle</div>'+
+    '<button class="btn btn-ghost btn-sm" onclick="openCatModal()">🏷️ Kategori Ekle/Düzenle</button>'+
+    '</div>'+
     '<div style="display:flex;gap:8px;margin-bottom:16px">'+
     '<button class="btn'+(s.type==="income"?" btn-p":" btn-ghost")+'" style="flex:1" onclick="txaSt(\'income\')">↑ Gelir</button>'+
     '<button class="btn'+(s.type==="expense"?" btn-p":" btn-ghost")+'" style="flex:1" onclick="txaSt(\'expense\')">↓ Gider</button>'+
