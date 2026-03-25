@@ -182,6 +182,7 @@ canvas{display:block;width:100%}
       <button class="nav-btn" id="dnav-actual" onclick="goTab('actual',this)">✅ Gerçekleşen</button>
       <button class="nav-btn" id="dnav-variance" onclick="goTab('variance',this)">📐 Fark</button>
       <button class="nav-btn" id="dnav-invest" onclick="goTab('invest',this)">💎 Yatırım</button>
+      <button class="nav-btn" id="dnav-analiz" onclick="goTab('analiz',this)">🧠 Analiz</button>
       <button class="nav-btn" id="dnav-txadd" onclick="goTab('txadd',this)">➕ Ekle</button>
       <button class="nav-btn" id="dnav-history" onclick="goTab('history',this)">📋 Geçmiş</button>
     </div>
@@ -194,6 +195,7 @@ canvas{display:block;width:100%}
   <div id="tab-actual" style="display:none"></div>
   <div id="tab-variance" style="display:none"></div>
   <div id="tab-invest" style="display:none"></div>
+  <div id="tab-analiz" style="display:none"></div>
   <div id="tab-txadd" style="display:none"></div>
   <div id="tab-history" style="display:none"></div>
 </div>
@@ -209,11 +211,11 @@ canvas{display:block;width:100%}
     <button class="bnav-btn" id="mnav-actual" onclick="mGoTab('actual',this)">
       <span class="bi">✅</span><span class="bl">Gerçekleşen</span>
     </button>
-    <button class="bnav-btn" id="mnav-variance" onclick="mGoTab('variance',this)">
-      <span class="bi">📐</span><span class="bl">Fark</span>
-    </button>
     <button class="bnav-btn" id="mnav-invest" onclick="mGoTab('invest',this)">
       <span class="bi">💎</span><span class="bl">Yatırım</span>
+    </button>
+    <button class="bnav-btn" id="mnav-analiz" onclick="mGoTab('analiz',this)">
+      <span class="bi">🧠</span><span class="bl">Analiz</span>
     </button>
     <button class="bnav-btn" id="mnav-txadd" onclick="mGoTab('txadd',this)">
       <span class="bi">➕</span><span class="bl">Ekle</span>
@@ -431,30 +433,12 @@ function applyTheme(t){
 window.toggleTheme=function(){applyTheme(_theme==="dark"?"light":"dark");};
 applyTheme(_theme);
 
-// Mobil tab geçişi — alt nav butonlarını günceller
-window.mGoTab=function(tab,btn){
-  // Mobil nav butonlarını güncelle
-  ["budget","actual","variance","invest","txadd","history"].forEach(function(t){
-    var b=document.getElementById("mnav-"+t);
-    if(b) b.className="bnav-btn"+(t===tab?" active":"");
-  });
-  // Masaüstü nav butonlarını da güncelle
-  ["budget","actual","variance","invest","txadd","history"].forEach(function(t){
-    var b=document.getElementById("dnav-"+t);
-    if(b) b.className="nav-btn"+(t===tab?" active":"");
-  });
-  // Sekmeyi göster
-  ["budget","actual","variance","invest","txadd","history"].forEach(function(t){
-    document.getElementById("tab-"+t).style.display=t===tab?"":"none";
-  });
-  curTab=tab;render(tab);
-  // Sayfayı yukarı kaydır
-  window.scrollTo(0,0);
-};
+// Mobil tab geçişi — goTab ile birleştirildi
 
 // ── INIT ───────────────────────────────────────────────────
 (async function(){
   await loadSettings();
+  await loadGoals();
   listenTransactions();
   listenInvestments();
   renderBudget();
@@ -710,21 +694,36 @@ var curTab="budget";
 window.goTab=function(tab,btn){
   document.querySelectorAll(".nav-btn").forEach(function(b){b.classList.remove("active");});
   btn.classList.add("active");
-  // Mobil nav'ı da güncelle
-  ["budget","actual","variance","invest","txadd","history"].forEach(function(t){
+  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
     var mb=document.getElementById("mnav-"+t);
     if(mb) mb.className="bnav-btn"+(t===tab?" active":"");
   });
-  ["budget","actual","variance","invest","txadd","history"].forEach(function(t){
+  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
     document.getElementById("tab-"+t).style.display=t===tab?"":"none";
   });
   curTab=tab;render(tab);
+};
+window.mGoTab=function(tab,btn){
+  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
+    var b=document.getElementById("mnav-"+t);
+    if(b) b.className="bnav-btn"+(t===tab?" active":"");
+  });
+  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
+    var b=document.getElementById("dnav-"+t);
+    if(b) b.className="nav-btn"+(t===tab?" active":"");
+  });
+  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
+    document.getElementById("tab-"+t).style.display=t===tab?"":"none";
+  });
+  curTab=tab;render(tab);
+  window.scrollTo(0,0);
 };
 function render(tab){
   if(tab==="budget")renderBudget();
   else if(tab==="actual")renderActual();
   else if(tab==="variance")renderVariance();
   else if(tab==="invest")renderInvest();
+  else if(tab==="analiz")renderAnaliz();
   else if(tab==="txadd")renderTxAdd();
   else if(tab==="history")renderHistory();
 }
@@ -1554,6 +1553,225 @@ window.doAddInv=function(){
   if(miktarEl) miktarEl.value="";
 };
 window.doDelInv=function(fid){deleteInvestment(fid);};
+
+// ═══════════════════════════════════════════════
+// ANALİZ TAB — Hedef, Uyarı, Trend, Skor
+// ═══════════════════════════════════════════════
+
+// Hedefler Firebase'de kaydedilir
+var _goals=[];
+async function loadGoals(){
+  try{
+    var snap=await getDoc(doc(db,"data","goals"));
+    if(snap.exists()&&snap.data().list) _goals=JSON.parse(snap.data().list);
+  }catch(e){_goals=[];}
+}
+async function saveGoals(){
+  try{await setDoc(doc(db,"data","goals"),{list:JSON.stringify(_goals)});}
+  catch(e){showToast("⚠️ Hedef kaydedilemedi");}
+}
+
+window.renderAnaliz=function(){
+  var html='<div class="fade">';
+
+  // ── 1. BÜTÇE AŞIMI UYARILARI ──────────────────
+  var alerts=[];
+  cats.expense.forEach(function(c){
+    var act=sumTx("expense",c.id,CUR_M);
+    var bud=getBudget(c.id,CUR_M);
+    if(bud>0&&act>bud){
+      alerts.push({cat:c,act:act,bud:bud,pct:Math.round(act/bud*100)});
+    } else if(bud>0&&act/bud>=0.85){
+      alerts.push({cat:c,act:act,bud:bud,pct:Math.round(act/bud*100),warn:true});
+    }
+  });
+  var alertHtml='<div class="card cb" style="margin-bottom:0">'+
+    '<div style="font-size:15px;font-weight:700;margin-bottom:12px">🚨 Bütçe Uyarıları — '+MONTHS[CUR_M]+'</div>'+
+    (alerts.length===0?
+      '<div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(52,211,153,.08);border-radius:9px;border:1px solid rgba(52,211,153,.2)">'+
+      '<span style="font-size:22px">✅</span><span style="color:#34d399;font-weight:600">Tüm kategoriler bütçe dahilinde!</span></div>':
+      alerts.map(function(a){
+        var isOver=!a.warn;
+        var col=isOver?"#f87171":"#fbbf24";
+        var bg=isOver?"rgba(248,113,113,.08)":"rgba(251,191,36,.08)";
+        var brd=isOver?"rgba(248,113,113,.25)":"rgba(251,191,36,.25)";
+        var aşım=a.act-a.bud;
+        return '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:'+bg+';border-radius:9px;border:1px solid '+brd+';margin-bottom:8px">'+
+          '<div style="display:flex;align-items:center;gap:10px">'+
+          '<span style="font-size:18px">'+a.cat.icon+'</span>'+
+          '<div><div style="font-weight:600;font-size:13px">'+a.cat.name+'</div>'+
+          '<div style="font-size:11px;color:var(--text3)">Bütçe: '+fmt(a.bud)+' · Gerçek: '+fmt(a.act)+'</div></div>'+
+          '</div>'+
+          '<div style="text-align:right">'+
+          '<div style="font-weight:700;color:'+col+'">%'+a.pct+'</div>'+
+          '<div style="font-size:11px;color:'+col+'">'+
+          (isOver?'▲ '+fmt(aşım)+' aşım':'⚠️ Sınıra yakın')+
+          '</div></div></div>';
+      }).join(""))
+    +'</div>';
+
+  // ── 2. HARCAMA SKORU ──────────────────────────
+  var totalBudExp=cats.expense.reduce(function(s,c){return s+getBudget(c.id,CUR_M);},0);
+  var totalActExp=cats.expense.reduce(function(s,c){return s+sumTx("expense",c.id,CUR_M);},0);
+  var totalBudInc=cats.income.reduce(function(s,c){return s+getBudget(c.id,CUR_M);},0);
+  var totalActInc=cats.income.reduce(function(s,c){return s+sumTx("income",c.id,CUR_M);},0);
+  // Skor hesaplama: bütçeye uyum + tasarruf oranı + gelir hedefi
+  var expScore=totalBudExp>0?Math.max(0,Math.min(100,Math.round((1-(totalActExp-totalBudExp)/totalBudExp)*50+50))):50;
+  var savScore=totalActInc>0?Math.min(100,Math.round((totalActInc-totalActExp)/totalActInc*100)):0;
+  var incScore=totalBudInc>0?Math.min(100,Math.round(totalActInc/totalBudInc*100)):50;
+  var totalScore=Math.round((expScore*0.4+Math.max(0,savScore)*0.4+incScore*0.2));
+  totalScore=Math.max(0,Math.min(100,totalScore));
+  var scoreColor=totalScore>=80?"#34d399":totalScore>=60?"#fbbf24":"#f87171";
+  var scoreLbl=totalScore>=80?"Mükemmel 🏆":totalScore>=60?"İyi 👍":totalScore>=40?"Orta ⚠️":"Kritik 🚨";
+  var scoreHtml='<div class="card cb">'+
+    '<div style="font-size:15px;font-weight:700;margin-bottom:14px">🏆 Harcama Skoru — '+MONTHS[CUR_M]+'</div>'+
+    '<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">'+
+    '<div style="text-align:center">'+
+    '<div style="font-size:52px;font-weight:800;color:'+scoreColor+'">'+totalScore+'</div>'+
+    '<div style="font-size:13px;font-weight:600;color:'+scoreColor+'">'+scoreLbl+'</div>'+
+    '<div style="font-size:11px;color:var(--text3);margin-top:4px">/ 100 puan</div>'+
+    '</div>'+
+    '<div style="flex:1;min-width:200px">'+
+    [
+      {l:"Bütçeye Uyum",v:expScore,c:"#a78bfa",info:"Gider bütçesine ne kadar sadık kaldın"},
+      {l:"Tasarruf Oranı",v:Math.max(0,savScore),c:"#34d399",info:"Gelirin ne kadarını biriktirdin"},
+      {l:"Gelir Hedefi",v:incScore,c:"#60a5fa",info:"Gelir bütçenin ne kadarına ulaştın"}
+    ].map(function(item){
+      return '<div style="margin-bottom:10px">'+
+        '<div style="display:flex;justify-content:space-between;margin-bottom:3px">'+
+        '<span style="font-size:12px;color:var(--text2)">'+item.l+'</span>'+
+        '<span style="font-size:12px;font-weight:700;color:'+item.c+'">'+item.v+'</span>'+
+        '</div>'+
+        '<div class="pbar" style="height:8px"><div class="pfill" style="width:'+item.v+'%;background:'+item.c+'"></div></div>'+
+        '<div style="font-size:10px;color:var(--text4);margin-top:2px">'+item.info+'</div>'+
+        '</div>';
+    }).join("")+
+    '</div></div></div>';
+
+  // ── 3. AYLIK HARCAMA TRENDİ & TAHMİN ─────────
+  var trendRows=cats.expense.map(function(c){
+    var vals=MSHORT.map(function(_,i){return i<=CUR_M?sumTx("expense",c.id,i):null;}).filter(function(v){return v!==null;});
+    if(vals.length<2) return null;
+    // Basit lineer trend
+    var n=vals.length,sumX=0,sumY=0,sumXY=0,sumX2=0;
+    vals.forEach(function(v,i){sumX+=i;sumY+=v;sumXY+=i*v;sumX2+=i*i;});
+    var slope=(n*sumXY-sumX*sumY)/(n*sumX2-sumX*sumX)||0;
+    var intercept=(sumY-slope*sumX)/n;
+    var nextVal=Math.max(0,Math.round(slope*(n)+intercept));
+    var avg=Math.round(sumY/n);
+    var trend=slope>50?"📈 Artıyor":slope<-50?"📉 Azalıyor":"➡️ Sabit";
+    return{cat:c,avg:avg,next:nextVal,trend:trend,slope:slope};
+  }).filter(Boolean);
+
+  var trendHtml='<div class="card cb">'+
+    '<div style="font-size:15px;font-weight:700;margin-bottom:14px">📈 Harcama Trendi & Tahmin</div>'+
+    '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Geçmiş verilere göre bir sonraki ay tahmini</div>'+
+    '<div class="tbl-h" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr">'+
+    '<span>Kategori</span><span>Ort/Ay</span><span>Bu Ay</span><span>Tahmin</span><span>Trend</span></div>'+
+    (trendRows.length===0?'<div class="empty">Yeterli veri yok</div>':
+      trendRows.sort(function(a,b){return b.slope-a.slope;}).map(function(r){
+        var curAct=sumTx("expense",r.cat.id,CUR_M);
+        var trendCol=r.slope>100?"#f87171":r.slope>50?"#fbbf24":r.slope<-50?"#34d399":"#94a3b8";
+        return '<div class="tbl-r" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr">'+
+          '<div style="display:flex;align-items:center;gap:7px">'+
+          '<span style="font-size:14px">'+r.cat.icon+'</span><span style="font-weight:500">'+r.cat.name+'</span></div>'+
+          '<span style="color:var(--text2)">'+fmt(r.avg)+'</span>'+
+          '<span style="color:#f87171;font-weight:600">'+fmt(curAct)+'</span>'+
+          '<span style="color:#a78bfa;font-weight:600">'+fmt(r.next)+'</span>'+
+          '<span style="color:'+trendCol+';font-size:12px">'+r.trend+'</span>'+
+          '</div>';
+      }).join(""))
+    +'</div>';
+
+  // ── 4. HEDEF TASARRUF SİSTEMİ ────────────────
+  var goalHtml='<div class="card cb" id="goal-section">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'+
+    '<div style="font-size:15px;font-weight:700">🎯 Tasarruf Hedefleri</div>'+
+    '<button class="btn btn-p btn-sm" onclick="openGoalModal()">+ Hedef Ekle</button>'+
+    '</div>'+
+    (_goals.length===0?
+      '<div style="padding:20px;text-align:center;color:var(--text5)">Henüz hedef eklenmedi.<br><span style="font-size:12px">Hedef ekleyerek tasarrufunu takip et!</span></div>':
+      _goals.map(function(g,gi){
+        var saved=g.saved||0;
+        var pct=g.target>0?Math.min(100,Math.round(saved/g.target*100)):0;
+        var col=pct>=100?"#34d399":pct>=60?"#a78bfa":"#60a5fa";
+        var remaining=Math.max(0,g.target-saved);
+        var daysLeft=g.deadline?Math.round((new Date(g.deadline)-new Date())/(1000*60*60*24)):null;
+        return '<div style="padding:14px;background:var(--bg4);border-radius:10px;margin-bottom:10px;border:1px solid var(--border2)">'+
+          '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">'+
+          '<div style="display:flex;align-items:center;gap:8px">'+
+          '<span style="font-size:20px">'+g.icon+'</span>'+
+          '<div><div style="font-weight:600;font-size:13px">'+g.name+'</div>'+
+          (daysLeft!==null?'<div style="font-size:10px;color:var(--text3)">'+(daysLeft>0?daysLeft+' gün kaldı':'⏰ Süre doldu')+'</div>':'')+
+          '</div></div>'+
+          '<div style="text-align:right">'+
+          '<div style="font-size:13px;font-weight:700;color:'+col+'">%'+pct+'</div>'+
+          '<div style="font-size:10px;color:var(--text3)">'+fmt(saved)+' / '+fmt(g.target)+'</div>'+
+          '</div></div>'+
+          '<div class="pbar" style="height:10px"><div class="pfill" style="width:'+pct+'%;background:'+col+'"></div></div>'+
+          '<div style="display:flex;justify-content:space-between;margin-top:8px">'+
+          '<span style="font-size:11px;color:var(--text3)">Kalan: <b style="color:var(--text)">'+fmt(remaining)+'</b></span>'+
+          '<div style="display:flex;gap:6px">'+
+          '<button class="btn btn-ghost btn-xs" onclick="addGoalSaving('+gi+')">+ Ekle</button>'+
+          '<button class="btn btn-danger btn-xs" onclick="delGoal('+gi+')">Sil</button>'+
+          '</div></div></div>';
+      }).join(""))
+    +'</div>';
+
+  html+=alertHtml+'<div class="g2">'+scoreHtml+trendHtml+'</div>'+goalHtml+'</div>';
+  document.getElementById("tab-analiz").innerHTML=html;
+};
+
+// ── HEDEF MODAL ──────────────────────────────
+window.openGoalModal=function(){
+  var existing=document.getElementById("goal-modal-bg");
+  if(existing)existing.remove();
+  var bg=document.createElement("div");
+  bg.id="goal-modal-bg";
+  bg.style.cssText="position:fixed;inset:0;background:var(--modal-bg);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px";
+  bg.innerHTML='<div style="background:var(--bg3);border:1px solid var(--border2);border-radius:14px;padding:20px;width:400px;max-width:100%">'+
+    '<div style="font-weight:700;font-size:15px;margin-bottom:16px">🎯 Yeni Hedef Ekle</div>'+
+    '<div class="fg"><div class="lbl">Hedef Adı</div><input id="goal-name" placeholder="Örn: Tatil Fonu" style="width:100%"></div>'+
+    '<div class="fg"><div class="lbl">Simge</div><input id="goal-icon" placeholder="🎯" style="width:80px;text-align:center" value="🎯"></div>'+
+    '<div class="fg"><div class="lbl">Hedef Tutar (₺)</div><input id="goal-target" type="number" placeholder="10000" style="width:100%"></div>'+
+    '<div class="fg"><div class="lbl">Başlangıç Birikimi (₺)</div><input id="goal-saved" type="number" placeholder="0" style="width:100%" value="0"></div>'+
+    '<div class="fg"><div class="lbl">Hedef Tarih (opsiyonel)</div><input id="goal-deadline" type="date" style="width:100%"></div>'+
+    '<div id="goal-err" class="errmsg" style="margin-bottom:8px"></div>'+
+    '<div style="display:flex;gap:8px;justify-content:flex-end">'+
+    '<button class="btn btn-ghost" onclick="document.getElementById(\'goal-modal-bg\').remove()">İptal</button>'+
+    '<button class="btn btn-p" onclick="saveGoalModal()">Kaydet</button>'+
+    '</div></div>';
+  document.body.appendChild(bg);
+  bg.onclick=function(e){if(e.target===bg)bg.remove();};
+};
+window.saveGoalModal=function(){
+  var name=document.getElementById("goal-name").value.trim();
+  var target=parseFloat(document.getElementById("goal-target").value)||0;
+  if(!name){document.getElementById("goal-err").textContent="İsim gerekli.";return;}
+  if(!target){document.getElementById("goal-err").textContent="Hedef tutar gerekli.";return;}
+  _goals.push({
+    name:name,
+    icon:document.getElementById("goal-icon").value.trim()||"🎯",
+    target:target,
+    saved:parseFloat(document.getElementById("goal-saved").value)||0,
+    deadline:document.getElementById("goal-deadline").value||null
+  });
+  saveGoals();
+  document.getElementById("goal-modal-bg").remove();
+  renderAnaliz();
+};
+window.addGoalSaving=function(idx){
+  var amt=parseFloat(prompt("Kaç TL eklemek istiyorsun?")||"0");
+  if(amt>0){
+    _goals[idx].saved=(_goals[idx].saved||0)+amt;
+    saveGoals();renderAnaliz();
+  }
+};
+window.delGoal=function(idx){
+  if(confirm("Bu hedef silinsin mi?")){
+    _goals.splice(idx,1);saveGoals();renderAnaliz();
+  }
+};
 
 // ═══════════════════════════════════════════════
 // TX ADD TAB
