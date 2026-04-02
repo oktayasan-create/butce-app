@@ -404,7 +404,11 @@ async function addTransaction(tx){
 }
 async function deleteTransaction(firebaseId){
   setSyncStatus("syncing");
-  try{await deleteDoc(doc(db,COL_TX,firebaseId));setSyncStatus("ok");}
+  try{
+    await deleteDoc(doc(db,COL_TX,firebaseId));
+    setSyncStatus("ok");
+    showToast("🗑️ İşlem silindi");
+  }
   catch(e){setSyncStatus("error");showToast("⚠️ Silinemedi");}
 }
 async function addInvestment(inv){
@@ -734,6 +738,7 @@ var states={
   actual:  {months:[CUR_M],type:"expense",view:"table"},
   variance:{months:Array.from({length:CUR_M+1},function(_,i){return i;}),type:"expense",view:"table"},
   invest:  {months:[CUR_M]},
+  analiz:  {month:CUR_M},
   txadd:   {type:"expense",cat:"food"},
   history: {filter:"all"}
 };
@@ -997,9 +1002,9 @@ window.saveActModal=function(){
   addTransaction({type:txType,cat:actModalCat,amt:amt,
     note:document.getElementById("act-modal-note").value||"Hızlı giriş",
     date:document.getElementById("act-modal-date").value});
-  document.getElementById("act-modal-amt").value="";
-  document.getElementById("act-modal-note").value="";
-  document.getElementById("act-modal-err").textContent="";
+  // Başarı mesajı göster ve modalı kapat
+  showToast("✅ Başarıyla kaydedildi");
+  closeModal("modal-act");
 };
 
 window.renderActual=function(){
@@ -1219,34 +1224,39 @@ window.renderVariance=function(){
   var rows=typeCats.map(function(c){
     var bud=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m);},0);
     var act=selMs.reduce(function(ss,m){return ss+sumTx(txType,c.id,m);},0);
+    if(act===0&&bud===0) return null; // ikisi de sıfırsa satırı gizle
     var vari=bud-act;
-    // Bütçe payı: bu kategorinin toplam bütçeye oranı
     var budShare=totBud>0?Math.round(bud/totBud*100):0;
-    // Gerçekleşen payı: bu kategorinin toplam gerçekleşene oranı
     var actShare=totAct>0?Math.round(act/totAct*100):0;
-    // Pay farkı (bütçe payı - gerçekleşen payı)
     var shareDiff=budShare-actShare;
-    // Kullanım oranı: gerçekleşen/bütçe
-    var usePct=bud>0?Math.round(act/bud*100):0;
-    var bc=usePct>100?"#f87171":usePct>80?"#fbbf24":"#34d399";
-    var stCls=usePct>100?"badge-r":usePct>80?"badge-y":"badge-g";
-    var stTxt=usePct>100?"Aşıldı":usePct>80?"Dikkat":"İyi";
     var sdColor=shareDiff>0?"#34d399":shareDiff<0?"#f87171":"#64748b";
-    return '<div class="tbl-r" style="grid-template-columns:'+cols+'">'+
+    // Bütçe yoksa ama harcama varsa → bütçelenmemiş uyarısı
+    var isUnbudgeted=(bud===0&&act>0);
+    var usePct=bud>0?Math.round(act/bud*100):0;
+    var bc=isUnbudgeted?"#f97316":usePct>100?"#f87171":usePct>80?"#fbbf24":"#34d399";
+    var stCls=isUnbudgeted?"badge-y":usePct>100?"badge-r":usePct>80?"badge-y":"badge-g";
+    var stTxt=isUnbudgeted?"⚠️ Bütçelenmemiş":usePct>100?"Aşıldı":usePct>80?"Dikkat":"İyi";
+    return '<div class="tbl-r" style="grid-template-columns:'+cols+(isUnbudgeted?';background:rgba(249,115,22,.05)':'')+'">'+
       '<div style="display:flex;align-items:center;gap:7px"><span style="font-size:14px">'+c.icon+'</span><span style="font-weight:500">'+c.name+'</span></div>'+
-      '<span style="color:#64748b">'+fmt(bud)+'</span>'+
+      '<span style="color:'+(bud>0?"#64748b":"#3a3a5a")+'">'+(bud>0?fmt(bud):'—')+'</span>'+
       '<span style="color:'+(txType==="income"?"#34d399":"#f87171")+';font-weight:600">'+fmt(act)+'</span>'+
-      '<span style="color:'+(vari>=0?"#34d399":"#f87171")+';font-weight:600">'+(vari>=0?"▼ ":"▲ ")+fmt(Math.abs(vari))+'</span>'+
+      (isUnbudgeted?
+        '<span style="color:#f97316;font-size:11px">Bütçe tanımsız</span>':
+        '<span style="color:'+(vari>=0?"#34d399":"#f87171")+';font-weight:600">'+(vari>=0?"▼ ":"▲ ")+fmt(Math.abs(vari))+'</span>')+
       '<div style="display:flex;gap:4px;align-items:center">'+
-      '<span style="font-size:11px;color:#a78bfa">%'+budShare+'</span>'+
-      '<span style="color:#3a3a5a">→</span>'+
-      '<span style="font-size:11px;color:'+(txType==="income"?"#34d399":"#f87171")+'">%'+actShare+'</span>'+
-      '<span style="font-size:11px;color:'+sdColor+'">'+(shareDiff>0?'(+'+shareDiff+')':(shareDiff<0?'('+shareDiff+')':''))+'</span>'+
+      (isUnbudgeted?
+        '<span style="font-size:11px;color:#f97316">—</span>':
+        '<span style="font-size:11px;color:#a78bfa">%'+budShare+'</span>'+
+        '<span style="color:var(--text5)">→</span>'+
+        '<span style="font-size:11px;color:'+(txType==="income"?"#34d399":"#f87171")+'">%'+actShare+'</span>'+
+        '<span style="font-size:11px;color:'+sdColor+'">'+(shareDiff>0?'(+'+shareDiff+')':(shareDiff<0?'('+shareDiff+')':''))+'</span>')+
       '</div>'+
-      '<div><span style="font-size:12px;font-weight:600;color:'+bc+'">%'+usePct+'</span><div class="pbar"><div class="pfill" style="width:'+Math.min(usePct,100)+'%;background:'+bc+'"></div></div></div>'+
+      (isUnbudgeted?
+        '<span style="font-size:11px;color:#f97316">—</span>':
+        '<div><span style="font-size:12px;font-weight:600;color:'+bc+'">%'+usePct+'</span><div class="pbar"><div class="pfill" style="width:'+Math.min(usePct,100)+'%;background:'+bc+'"></div></div></div>')+
       '<span class="badge '+stCls+'">'+stTxt+'</span>'+
       '</div>';
-  });
+  }).filter(Boolean);
 
   var chartH="";
   if(s.view==="chart"){
@@ -1572,13 +1582,27 @@ async function saveGoals(){
 }
 
 window.renderAnaliz=function(){
+  var selM=states.analiz?states.analiz.month:CUR_M;
+  if(!states.analiz) states.analiz={month:CUR_M};
+
   var html='<div class="fade">';
+
+  // Ay seçici
+  html+='<div class="card cb" style="margin-bottom:0">'+
+    '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'+
+    '<span style="font-size:13px;font-weight:600;color:var(--text2)">Analiz Ayı:</span>'+
+    '<div style="display:flex;flex-wrap:wrap;gap:4px">'+
+    MSHORT.map(function(m,i){
+      var isFuture=i>CUR_M;
+      return '<button class="mo-btn'+(i===selM?" active":"")+(i===CUR_M?" cur":"")+'" onclick="setAnalizMonth('+i+')" '+(isFuture?'style="opacity:.4"':'')+'>'+m+'</button>';
+    }).join("")+
+    '</div></div></div>';
 
   // ── 1. BÜTÇE AŞIMI UYARILARI ──────────────────
   var alerts=[];
   cats.expense.forEach(function(c){
-    var act=sumTx("expense",c.id,CUR_M);
-    var bud=getBudget(c.id,CUR_M);
+    var act=sumTx("expense",c.id,selM);
+    var bud=getBudget(c.id,selM);
     if(bud>0&&act>bud){
       alerts.push({cat:c,act:act,bud:bud,pct:Math.round(act/bud*100)});
     } else if(bud>0&&act/bud>=0.85){
@@ -1586,7 +1610,7 @@ window.renderAnaliz=function(){
     }
   });
   var alertHtml='<div class="card cb" style="margin-bottom:0">'+
-    '<div style="font-size:15px;font-weight:700;margin-bottom:12px">🚨 Bütçe Uyarıları — '+MONTHS[CUR_M]+'</div>'+
+    '<div style="font-size:15px;font-weight:700;margin-bottom:12px">🚨 Bütçe Uyarıları — '+MONTHS[selM]+'</div>'+
     (alerts.length===0?
       '<div style="display:flex;align-items:center;gap:10px;padding:12px;background:rgba(52,211,153,.08);border-radius:9px;border:1px solid rgba(52,211,153,.2)">'+
       '<span style="font-size:22px">✅</span><span style="color:#34d399;font-weight:600">Tüm kategoriler bütçe dahilinde!</span></div>':
@@ -1611,10 +1635,10 @@ window.renderAnaliz=function(){
     +'</div>';
 
   // ── 2. HARCAMA SKORU ──────────────────────────
-  var totalBudExp=cats.expense.reduce(function(s,c){return s+getBudget(c.id,CUR_M);},0);
-  var totalActExp=cats.expense.reduce(function(s,c){return s+sumTx("expense",c.id,CUR_M);},0);
-  var totalBudInc=cats.income.reduce(function(s,c){return s+getBudget(c.id,CUR_M);},0);
-  var totalActInc=cats.income.reduce(function(s,c){return s+sumTx("income",c.id,CUR_M);},0);
+  var totalBudExp=cats.expense.reduce(function(s,c){return s+getBudget(c.id,selM);},0);
+  var totalActExp=cats.expense.reduce(function(s,c){return s+sumTx("expense",c.id,selM);},0);
+  var totalBudInc=cats.income.reduce(function(s,c){return s+getBudget(c.id,selM);},0);
+  var totalActInc=cats.income.reduce(function(s,c){return s+sumTx("income",c.id,selM);},0);
   // Skor hesaplama: bütçeye uyum + tasarruf oranı + gelir hedefi
   var expScore=totalBudExp>0?Math.max(0,Math.min(100,Math.round((1-(totalActExp-totalBudExp)/totalBudExp)*50+50))):50;
   var savScore=totalActInc>0?Math.min(100,Math.round((totalActInc-totalActExp)/totalActInc*100)):0;
@@ -1624,7 +1648,7 @@ window.renderAnaliz=function(){
   var scoreColor=totalScore>=80?"#34d399":totalScore>=60?"#fbbf24":"#f87171";
   var scoreLbl=totalScore>=80?"Mükemmel 🏆":totalScore>=60?"İyi 👍":totalScore>=40?"Orta ⚠️":"Kritik 🚨";
   var scoreHtml='<div class="card cb">'+
-    '<div style="font-size:15px;font-weight:700;margin-bottom:14px">🏆 Harcama Skoru — '+MONTHS[CUR_M]+'</div>'+
+    '<div style="font-size:15px;font-weight:700;margin-bottom:14px">🏆 Harcama Skoru — '+MONTHS[selM]+'</div>'+
     '<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">'+
     '<div style="text-align:center">'+
     '<div style="font-size:52px;font-weight:800;color:'+scoreColor+'">'+totalScore+'</div>'+
@@ -1670,7 +1694,7 @@ window.renderAnaliz=function(){
     '<span>Kategori</span><span>Ort/Ay</span><span>Bu Ay</span><span>Tahmin</span><span>Trend</span></div>'+
     (trendRows.length===0?'<div class="empty">Yeterli veri yok</div>':
       trendRows.sort(function(a,b){return b.slope-a.slope;}).map(function(r){
-        var curAct=sumTx("expense",r.cat.id,CUR_M);
+        var curAct=sumTx("expense",r.cat.id,selM);
         var trendCol=r.slope>100?"#f87171":r.slope>50?"#fbbf24":r.slope<-50?"#34d399":"#94a3b8";
         return '<div class="tbl-r" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr">'+
           '<div style="display:flex;align-items:center;gap:7px">'+
@@ -1705,8 +1729,9 @@ window.renderAnaliz=function(){
         var saved=g.saved||0;
         var isInvGoal=g.invLinked&&g.invType;
         if(isInvGoal){
-          if(g.invType==="all") saved=totalInvAll;
-          else saved=sumInvType(g.invType);
+          // Her zaman gerçek yatırım verisinden al
+          if(g.invType==="all") saved=investments.reduce(function(a,i){return a+i.amt;},0);
+          else saved=investments.filter(function(i){return i.invType===g.invType;}).reduce(function(a,i){return a+i.amt;},0);
         }
         var pct=g.target>0?Math.min(100,Math.round(saved/g.target*100)):0;
         var col=pct>=100?"#34d399":pct>=60?"#a78bfa":"#60a5fa";
@@ -1744,7 +1769,7 @@ window.renderAnaliz=function(){
   document.getElementById("tab-analiz").innerHTML=html;
 };
 
-// ── HEDEF MODAL ──────────────────────────────
+window.setAnalizMonth=function(m){states.analiz.month=m;renderAnaliz();};
 window.openGoalModal=function(){
   var existing=document.getElementById("goal-modal-bg");
   if(existing)existing.remove();
