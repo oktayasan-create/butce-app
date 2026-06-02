@@ -484,18 +484,22 @@ function sumInvType(invTypeId){
   return investments.filter(function(i){return i.invType===invTypeId;}).reduce(function(s,i){return s+i.amt;},0);
 }
 function getBudget(catId,month,year){
-  // Bütçeler yıl başına ayrı saklanır: budgets[catId+"_"+year][month] veya eski format
   var y=year!=null?year:CUR_Y;
-  var key=catId+"_"+y;
-  if(budgets[key]) return budgets[key][month]||0;
-  // 2026 için eski format fallback
+  var keyNew=catId+"_"+y;
+  // Yeni format varsa kullan
+  if(budgets[keyNew]&&budgets[keyNew][month]!=null) return budgets[keyNew][month]||0;
+  // 2026 için eski format fallback (geriye dönük uyumluluk)
   if(y===2026&&budgets[catId]) return budgets[catId][month]||0;
   return 0;
 }
 function setBudgetVal(catId,month,val,year){
   var y=year!=null?year:CUR_Y;
-  var key=y===2026?catId:catId+"_"+y; // 2026 eski format ile uyumlu
-  if(!budgets[key]) budgets[key]=Array(12).fill(0);
+  var key=catId+"_"+y;
+  if(!budgets[key]){
+    // 2026 eski formatından kopyala
+    if(y===2026&&budgets[catId]) budgets[key]=budgets[catId].slice();
+    else budgets[key]=Array(12).fill(0);
+  }
   budgets[key][month]=val;
 }
 function monthIncome(m,year){return cats.income.reduce(function(s,c){return s+sumTx("income",c.id,m,year);},0);}
@@ -1078,21 +1082,23 @@ window.renderBudget=function(){
 window.budSt=function(k,v){states.budget[k]=v;renderBudget();};
 window.openBudGrid=function(catId){
   budGridCatId=catId;
+  var selY=states.budget?states.budget.year||CUR_Y:CUR_Y;
   var c=getCat(catId);
-  document.getElementById("mbg-catname").textContent=c.icon+" "+c.name;
+  document.getElementById("mbg-catname").textContent=c.icon+" "+c.name+" ("+selY+")";
   document.getElementById("mbg-grid").innerHTML=MONTHS.map(function(m,i){
-    return '<div><div class="lbl">'+m+'</div><input type="number" id="bg-'+i+'" value="'+getBudget(catId,i)+'" style="width:100%"></div>';
+    return '<div><div class="lbl">'+m+'</div><input type="number" id="bg-'+i+'" value="'+getBudget(catId,i,selY)+'" style="width:100%"></div>';
   }).join("");
   openModal("modal-budgrid");
 };
 window.saveBudGrid=function(){
   if(!budGridCatId)return;
-  if(!budgets[budGridCatId])budgets[budGridCatId]=Array(12).fill(0);
+  var selY=states.budget?states.budget.year||CUR_Y:CUR_Y;
   for(var i=0;i<12;i++){
     var el=document.getElementById("bg-"+i);
-    if(el){var v=parseFloat(el.value);budgets[budGridCatId][i]=isNaN(v)?0:v;}
+    if(el){var v=parseFloat(el.value);setBudgetVal(budGridCatId,i,isNaN(v)?0:v,selY);}
   }
   saveSettings();
+  showToast("✅ "+selY+" bütçesi kaydedildi");
   closeModal("modal-budgrid");
   render(curTab);
 };
@@ -1857,25 +1863,33 @@ window.renderAnaliz=function(){
   // Seçili yılın tüm aylarından veri al
   var trendRows=cats.expense.map(function(c){
     var maxM=selY===CUR_Y_REAL?CUR_M_REAL:11;
-    var vals=MSHORT.map(function(_,i){return i<=maxM?sumTx("expense",c.id,i,selY):null;}).filter(function(v){return v!==null;});
-    if(vals.length<2) return null;
+    var allVals=MSHORT.map(function(_,i){return sumTx("expense",c.id,i,selY);});
+    var vals=allVals.slice(0,maxM+1);
+    var nonZero=vals.filter(function(v){return v>0;});
+    if(nonZero.length<2){
+      // Tek ay verisi varsa sadece göster, trend yok
+      var curAct2=sumTx("expense",c.id,selM,selY);
+      if(curAct2===0) return null;
+      return{cat:c,avg:curAct2,next:curAct2,trend:"➡️ Sabit",slope:0,noTrend:true};
+    }
     var n=vals.length,sumX=0,sumY2=0,sumXY=0,sumX2=0;
     vals.forEach(function(v,i){sumX+=i;sumY2+=v;sumXY+=i*v;sumX2+=i*i;});
-    var slope=(n*sumXY-sumX*sumY2)/(n*sumX2-sumX*sumX)||0;
+    var denom=n*sumX2-sumX*sumX;
+    var slope=denom!==0?(n*sumXY-sumX*sumY2)/denom:0;
     var intercept=(sumY2-slope*sumX)/n;
     var nextVal=Math.max(0,Math.round(slope*(n)+intercept));
-    var avg=Math.round(sumY2/n);
+    var avg=Math.round(nonZero.reduce(function(a,b){return a+b;},0)/nonZero.length);
     var trend=slope>50?"📈 Artıyor":slope<-50?"📉 Azalıyor":"➡️ Sabit";
-    return{cat:c,avg:avg,next:nextVal,trend:trend,slope:slope};
+    return{cat:c,avg:avg,next:nextVal,trend:trend,slope:slope,noTrend:false};
   }).filter(Boolean);
 
   var trendHtml='<div class="card cb">'+
     '<div style="font-size:15px;font-weight:700;margin-bottom:14px">📈 Harcama Trendi & Tahmin — '+selY+'</div>'+
     '<div style="font-size:11px;color:var(--text3);margin-bottom:12px">Seçilen yılın verilerine göre tahmin</div>'+
     '<div class="tbl-h" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr">'+
-    '<span>Kategori</span><span>Ort/Ay</span><span>Seçili Ay</span><span>Tahmin</span><span>Trend</span></div>'+
-    (trendRows.length===0?'<div class="empty">Yeterli veri yok</div>':
-      trendRows.sort(function(a,b){return b.slope-a.slope;}).map(function(r){
+    '<span>Kategori</span><span>Ort/Ay</span><span>Seçili Ay</span><span>Sonraki Ay Tahmini</span><span>Trend</span></div>'+
+    (trendRows.length===0?'<div class="empty">Henüz veri yok</div>':
+      trendRows.sort(function(a,b){return b.avg-a.avg;}).map(function(r){
         var curAct=sumTx("expense",r.cat.id,selM,selY);
         var trendCol=r.slope>100?"#f87171":r.slope>50?"#fbbf24":r.slope<-50?"#34d399":"#94a3b8";
         return '<div class="tbl-r" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr">'+
@@ -1883,8 +1897,8 @@ window.renderAnaliz=function(){
           '<span style="font-size:14px">'+r.cat.icon+'</span><span style="font-weight:500">'+r.cat.name+'</span></div>'+
           '<span style="color:var(--text2)">'+fmt(r.avg)+'</span>'+
           '<span style="color:#f87171;font-weight:600">'+fmt(curAct)+'</span>'+
-          '<span style="color:#a78bfa;font-weight:600">'+fmt(r.next)+'</span>'+
-          '<span style="color:'+trendCol+';font-size:12px">'+r.trend+'</span>'+
+          '<span style="color:#a78bfa;font-weight:600">'+(r.noTrend?'<span style="color:var(--text4);font-size:11px">Az veri</span>':fmt(r.next))+'</span>'+
+          '<span style="color:'+trendCol+';font-size:12px">'+(r.noTrend?'<span style="color:var(--text4)">—</span>':r.trend)+'</span>'+
           '</div>';
       }).join(""))
     +'</div>';
@@ -1911,9 +1925,12 @@ window.renderAnaliz=function(){
         var saved=g.saved||0;
         var isInvGoal=g.invLinked&&g.invType;
         if(isInvGoal){
-          // Her zaman gerçek yatırım verisinden al
-          if(g.invType==="all") saved=investments.reduce(function(a,i){return a+i.amt;},0);
-          else saved=investments.filter(function(i){return i.invType===g.invType;}).reduce(function(a,i){return a+i.amt;},0);
+          // Direkt investments dizisinden hesapla — her zaman güncel
+          if(g.invType==="all"){
+            saved=investments.reduce(function(a,i){return a+i.amt;},0);
+          } else {
+            saved=investments.filter(function(i){return i.invType===g.invType;}).reduce(function(a,i){return a+i.amt;},0);
+          }
         }
         var pct=g.target>0?Math.min(100,Math.round(saved/g.target*100)):0;
         var col=pct>=100?"#34d399":pct>=60?"#a78bfa":"#60a5fa";
