@@ -271,6 +271,43 @@ canvas{display:block;width:100%}
   </div>
 </div>
 
+<!-- MODAL: Copy budget from previous period -->
+<div class="modal-bg" id="modal-copyyear">
+  <div class="modal" style="width:480px">
+    <div class="modal-title">📋 Bütçe Kopyala</div>
+
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <button id="copy-mode-year" class="btn btn-p" style="flex:1" onclick="copyModeSwitch('year')">📅 Tüm Yıl</button>
+      <button id="copy-mode-month" class="btn btn-ghost" style="flex:1" onclick="copyModeSwitch('month')">🗓️ Belirli Aylar</button>
+    </div>
+
+    <div class="g2">
+      <div class="fg"><div class="lbl">Kaynak Yıl</div><select id="copy-from-year" style="width:100%" onchange="refreshCopyMonthPickers()"></select></div>
+      <div class="fg"><div class="lbl">Hedef Yıl</div><select id="copy-to-year" style="width:100%" onchange="refreshCopyMonthPickers()"></select></div>
+    </div>
+
+    <!-- Ay bazlı kopyalama alanı -->
+    <div id="copy-month-section" style="display:none">
+      <div class="lbl">Kaynak Aylar (kopyalanacak veri)</div>
+      <div id="copy-from-months" class="mo-sel" style="margin-bottom:10px"></div>
+      <div class="lbl">Hedef Aylar (yapıştırılacak yer)</div>
+      <div id="copy-to-months" class="mo-sel" style="margin-bottom:6px"></div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Kaynak ve hedef aynı sayıda ay seçilmeli. Sırayla eşleştirilir (örn. 1. kaynak ay → 1. hedef ay).</div>
+    </div>
+
+    <div class="fg">
+      <div class="lbl">Artış Oranı (%)</div>
+      <input type="number" id="copy-increase-pct" placeholder="0" value="0" style="width:100%">
+      <div style="font-size:11px;color:var(--text3);margin-top:4px">Kopyalanan tutarlar bu yüzde ile artırılır. Örn: enflasyon için %15 yazın.</div>
+    </div>
+    <div id="copy-year-err" class="errmsg" style="margin-bottom:8px"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn btn-ghost" onclick="closeModal('modal-copyyear')">İptal</button>
+      <button class="btn btn-p" onclick="doCopyYear()">Kopyala</button>
+    </div>
+  </div>
+</div>
+
 <!-- Firebase SDK -->
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -926,10 +963,10 @@ window.renderBudget=function(){
   var selY=s.year||CUR_Y;
   CUR_Y=selY; // global yılı güncelle
   var typeCats=cats[s.type];
-  var kInc=cats.income.reduce(function(s2,c){return s2+selMs.reduce(function(ss,m){return ss+getBudget(c.id,m);},0);},0);
-  var kExp=cats.expense.reduce(function(s2,c){return s2+selMs.reduce(function(ss,m){return ss+getBudget(c.id,m);},0);},0);
-  var annInc=cats.income.reduce(function(s2,c){return s2+(budgets[c.id]||Array(12).fill(0)).reduce(function(a,b){return a+b;},0);},0);
-  var annExp=cats.expense.reduce(function(s2,c){return s2+(budgets[c.id]||Array(12).fill(0)).reduce(function(a,b){return a+b;},0);},0);
+  var kInc=cats.income.reduce(function(s2,c){return s2+selMs.reduce(function(ss,m){return ss+getBudget(c.id,m,selY);},0);},0);
+  var kExp=cats.expense.reduce(function(s2,c){return s2+selMs.reduce(function(ss,m){return ss+getBudget(c.id,m,selY);},0);},0);
+  var annInc=cats.income.reduce(function(s2,c){return s2+MSHORT.reduce(function(ss,_,m){return ss+getBudget(c.id,m,selY);},0);},0);
+  var annExp=cats.expense.reduce(function(s2,c){return s2+MSHORT.reduce(function(ss,_,m){return ss+getBudget(c.id,m,selY);},0);},0);
 
   var kpiH='<div class="g5">'+
     [{l:"Dönem Gelir Bütçesi",v:kInc,c:"#34d399"},
@@ -941,16 +978,16 @@ window.renderBudget=function(){
 
   var cols="2.2fr 1.1fr 1.1fr 1.1fr 90px";
   var sortedCats=getSortedCats(s.type,"budget",selMs,function(c){
-    return selMs.reduce(function(ss,m){return ss+getBudget(c.id,m);},0);
+    return selMs.reduce(function(ss,m){return ss+getBudget(c.id,m,selY);},0);
   });
   var rows=sortedCats.map(function(c){
-    var selTotal=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m);},0);
-    var annTotal=(budgets[c.id]||Array(12).fill(0)).reduce(function(a,b){return a+b;},0);
+    var selTotal=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m,selY);},0);
+    var annTotal=MSHORT.reduce(function(a,_,m){return a+getBudget(c.id,m,selY);},0);
     return '<div class="tbl-r" style="grid-template-columns:'+cols+'" data-catid="'+c.id+'">'+
       '<div style="display:flex;align-items:center;gap:7px">'+
       '<span style="font-size:11px;color:var(--text5);cursor:grab;padding:0 4px" title="Sırayı değiştir">⠿</span>'+
       '<span style="font-size:14px">'+c.icon+'</span><span style="font-weight:500">'+c.name+'</span></div>'+
-      '<span style="color:var(--text);font-weight:600">'+fmt(isSingle?getBudget(c.id,selMs[0]):selTotal)+'</span>'+
+      '<span style="color:var(--text);font-weight:600">'+fmt(isSingle?getBudget(c.id,selMs[0],selY):selTotal)+'</span>'+
       '<span style="color:var(--text3)">'+fmt(annTotal)+'</span>'+
       '<span style="color:var(--text4)">'+(selMs.length>1?fmt(selTotal/selMs.length)+"/ay":"—")+'</span>'+
       '<button class="btn btn-ghost btn-xs" onclick="openBudGrid(\''+c.id+'\')">📅 Aylar</button>'+
@@ -1002,7 +1039,8 @@ window.renderBudget=function(){
     '<div class="stabs"><button class="stab'+(s.type==="income"?" active":"")+'" onclick="budSt(\'type\',\'income\')">↑ Gelir</button><button class="stab'+(s.type==="expense"?" active":"")+'" onclick="budSt(\'type\',\'expense\')">↓ Gider</button></div>'+
     '<div class="stabs"><button class="stab'+(s.view==="table"?" active":"")+'" onclick="budSt(\'view\',\'table\')">Tablo</button><button class="stab'+(s.view==="chart"?" active":"")+'" onclick="budSt(\'view\',\'chart\')">Grafik</button></div>'+
     '</div>'+
-    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCatModal()">🏷️ Kategori Ekle/Düzenle</button></div>'+
+    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCatModal()">🏷️ Kategori Ekle/Düzenle</button>'+
+    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCopyYearModal()">📋 Önceki Yıldan Kopyala</button></div>'+
     '<div class="lbl">Ay seçimi (birden fazla seçebilirsin):</div>'+
     yearSelHtml("budget")+
     moSelHtml("budget")+
@@ -1015,7 +1053,7 @@ window.renderBudget=function(){
     if(s.view==="chart"){
       // Tüm kategori items — büyükten küçüğe
       var allBudItems=typeCats.map(function(c){
-        var v=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m);},0);
+        var v=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m,selY);},0);
         return{id:c.id,label:c.name.slice(0,9),icon:c.icon,fullLabel:c.name,value:v,color:c.color};
       }).filter(function(x){return x.value>0;}).sort(function(a,b){return b.value-a.value;});
       window._budItems=allBudItems;
@@ -1070,7 +1108,7 @@ window.renderBudget=function(){
       // Çok ay seçiliyse aylık toplam bar
       if(selMs.length>1){
         var mItems=selMs.map(function(m){
-          var v=typeCats.reduce(function(ss,c){return ss+getBudget(c.id,m);},0);
+          var v=typeCats.reduce(function(ss,c){return ss+getBudget(c.id,m,selY);},0);
           return{label:MSHORT[m],icon:"",fullLabel:MONTHS[m],value:v,color:s.type==="income"?"#34d399":"#f87171"};
         });
         window._budMonthItems=mItems;
@@ -1100,6 +1138,106 @@ window.saveBudGrid=function(){
   saveSettings();
   showToast("✅ "+selY+" bütçesi kaydedildi");
   closeModal("modal-budgrid");
+  render(curTab);
+};
+
+// ── YIL/AY KOPYALAMA ────────────────────────────────────────
+var copyMode="year";
+var copyFromMonths=[];
+var copyToMonths=[];
+
+window.openCopyYearModal=function(){
+  var selY=states.budget?states.budget.year||CUR_Y:CUR_Y;
+  var fromSel=document.getElementById("copy-from-year");
+  var toSel=document.getElementById("copy-to-year");
+  fromSel.innerHTML=AVAIL_YEARS.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join("");
+  toSel.innerHTML=AVAIL_YEARS.map(function(y){return '<option value="'+y+'">'+y+'</option>';}).join("");
+  var prevY=selY-1;
+  fromSel.value=AVAIL_YEARS.indexOf(prevY)>=0?prevY:selY;
+  toSel.value=selY;
+  document.getElementById("copy-increase-pct").value="0";
+  document.getElementById("copy-year-err").textContent="";
+  copyFromMonths=[];
+  copyToMonths=[];
+  copyModeSwitch("year");
+  refreshCopyMonthPickers();
+  openModal("modal-copyyear");
+};
+
+window.copyModeSwitch=function(mode){
+  copyMode=mode;
+  document.getElementById("copy-mode-year").className="btn "+(mode==="year"?"btn-p":"btn-ghost")+" ";
+  document.getElementById("copy-mode-month").className="btn "+(mode==="month"?"btn-p":"btn-ghost")+" ";
+  document.getElementById("copy-month-section").style.display=mode==="month"?"":"none";
+  if(mode==="month") refreshCopyMonthPickers();
+};
+
+window.refreshCopyMonthPickers=function(){
+  if(copyMode!=="month") return;
+  var fromBox=document.getElementById("copy-from-months");
+  var toBox=document.getElementById("copy-to-months");
+  fromBox.innerHTML=MSHORT.map(function(m,i){
+    var sel=copyFromMonths.indexOf(i)>=0;
+    return '<button type="button" class="mo-btn'+(sel?" active":"")+'" onclick="toggleCopyMonth(\'from\','+i+')">'+m+'</button>';
+  }).join("");
+  toBox.innerHTML=MSHORT.map(function(m,i){
+    var sel=copyToMonths.indexOf(i)>=0;
+    return '<button type="button" class="mo-btn'+(sel?" active":"")+'" onclick="toggleCopyMonth(\'to\','+i+')">'+m+'</button>';
+  }).join("");
+};
+
+window.toggleCopyMonth=function(which,idx){
+  var arr=which==="from"?copyFromMonths:copyToMonths;
+  var pos=arr.indexOf(idx);
+  if(pos>=0) arr.splice(pos,1);
+  else arr.push(idx);
+  arr.sort(function(a,b){return a-b;});
+  refreshCopyMonthPickers();
+};
+
+window.doCopyYear=function(){
+  var fromY=parseInt(document.getElementById("copy-from-year").value);
+  var toY=parseInt(document.getElementById("copy-to-year").value);
+  var pct=parseFloat(document.getElementById("copy-increase-pct").value)||0;
+  var multiplier=1+(pct/100);
+  var errEl=document.getElementById("copy-year-err");
+
+  if(fromY===toY&&copyMode==="year"){errEl.textContent="Kaynak ve hedef yıl aynı olamaz.";return;}
+
+  var monthPairs=[]; // [{from:i, to:j}]
+
+  if(copyMode==="year"){
+    // Tüm 12 ay aynı sırayla eşleşir
+    for(var m=0;m<12;m++) monthPairs.push({from:m,to:m});
+  } else {
+    if(copyFromMonths.length===0||copyToMonths.length===0){errEl.textContent="Kaynak ve hedef ay seçin.";return;}
+    if(copyFromMonths.length!==copyToMonths.length){errEl.textContent="Kaynak ve hedef ay sayısı eşit olmalı ("+copyFromMonths.length+" ≠ "+copyToMonths.length+").";return;}
+    for(var i=0;i<copyFromMonths.length;i++) monthPairs.push({from:copyFromMonths[i],to:copyToMonths[i]});
+  }
+
+  var copiedCount=0;
+  allCats().forEach(function(c){
+    var hasAnyData=false;
+    monthPairs.forEach(function(pair){
+      var val=getBudget(c.id,pair.from,fromY);
+      if(val>0) hasAnyData=true;
+      var newVal=Math.round(val*multiplier);
+      setBudgetVal(c.id,pair.to,newVal,toY);
+    });
+    if(hasAnyData) copiedCount++;
+  });
+  saveSettings();
+  closeModal("modal-copyyear");
+
+  var modeDesc=copyMode==="year"?
+    (fromY+" → "+toY):
+    (copyFromMonths.map(function(m){return MSHORT[m];}).join(",")+" ("+fromY+") → "+copyToMonths.map(function(m){return MSHORT[m];}).join(",")+" ("+toY+")");
+  showToast("✅ Kopyalandı: "+modeDesc+(pct!==0?" (%"+pct+" artış)":""));
+
+  // Hedef yıla/aya geç
+  states.budget.year=toY;
+  if(copyMode==="month"&&copyToMonths.length) states.budget.months=copyToMonths.slice();
+  else states.budget.months=[getCurMonthForYear(toY)>=0?getCurMonthForYear(toY):0];
   render(curTab);
 };
 
@@ -1304,7 +1442,7 @@ window.renderActual=function(){
       // Tüm kategori items — büyükten küçüğe
       var allActItems=typeCats.map(function(c){
         var v=selMs.reduce(function(ss,m){return ss+sumTx(txT,c.id,m);},0);
-        var v2=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m);},0);
+        var v2=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m,selY);},0);
         return{id:c.id,label:c.name.slice(0,9),icon:c.icon,fullLabel:c.name,value:v,value2:v2,color:c.color};
       }).sort(function(a,b){return b.value-a.value;});
       window._actCompare=false;
@@ -1379,7 +1517,7 @@ window.renderVariance=function(){
   var s=states.variance,selMs=s.months,txType=s.type,typeCats=cats[txType];
   var selY=s.year||CUR_Y;
   CUR_Y=selY;
-  var totBud=selMs.reduce(function(ss,m){return ss+typeCats.reduce(function(s2,c){return s2+getBudget(c.id,m);},0);},0);
+  var totBud=selMs.reduce(function(ss,m){return ss+typeCats.reduce(function(s2,c){return s2+getBudget(c.id,m,selY);},0);},0);
   var totAct=selMs.reduce(function(ss,m){return ss+typeCats.reduce(function(s2,c){return s2+sumTx(txType,c.id,m);},0);},0);
   var totVar=totBud-totAct;
   var pctTotal=totBud>0?Math.round(totAct/totBud*100):0;
@@ -1396,7 +1534,7 @@ window.renderVariance=function(){
     return selMs.reduce(function(ss,m){return ss+sumTx(txType,c.id,m);},0);
   });
   var rows=sortedVarCats.map(function(c){
-    var bud=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m);},0);
+    var bud=selMs.reduce(function(ss,m){return ss+getBudget(c.id,m,selY);},0);
     var act=selMs.reduce(function(ss,m){return ss+sumTx(txType,c.id,m);},0);
     if(act===0&&bud===0) return null; // ikisi de sıfırsa satırı gizle
     var vari=bud-act;
