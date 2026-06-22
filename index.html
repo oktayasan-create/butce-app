@@ -254,8 +254,11 @@ canvas{display:block;width:100%}
 <!-- MODAL: Monthly Budget Grid -->
 <div class="modal-bg" id="modal-budgrid">
   <div class="modal" style="width:660px">
-    <div class="modal-title">📅 Aylık Bütçe — <span id="mbg-catname"></span></div>
-    <p style="font-size:12px;color:#64748b;margin-bottom:12px">Her ay için farklı bütçe girebilirsiniz.</p>
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:4px">
+      <div class="modal-title" style="margin-bottom:0">📅 Aylık Bütçe — <span id="mbg-catname"></span></div>
+      <button class="btn btn-ghost btn-xs" onclick="switchToCopyFromBudGrid()">📋 Bu Kategoriyi Kopyala</button>
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin-bottom:12px">Her ay için farklı bütçe girebilirsiniz.</p>
     <div id="mbg-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:9px"></div>
     <div style="margin-top:14px;display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeModal('modal-budgrid')">İptal</button>
@@ -274,11 +277,16 @@ canvas{display:block;width:100%}
 <!-- MODAL: Copy budget from previous period -->
 <div class="modal-bg" id="modal-copyyear">
   <div class="modal" style="width:480px">
-    <div class="modal-title">📋 Bütçe Kopyala</div>
+    <div class="modal-title" id="copyyear-title">📋 Geçmiş Dönemlerden Kopyala</div>
+    <div id="copy-scope-info" style="display:none;font-size:12px;color:#a78bfa;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.25);border-radius:8px;padding:8px 12px;margin-bottom:12px">
+      Sadece <b id="copy-scope-catname"></b> kategorisi kopyalanacak.
+      <a href="#" onclick="copyScopeReset();return false;" style="color:#a78bfa;text-decoration:underline;margin-left:4px">Tüm kategoriler için yap</a>
+    </div>
 
     <div style="display:flex;gap:8px;margin-bottom:14px">
       <button id="copy-mode-year" class="btn btn-p" style="flex:1" onclick="copyModeSwitch('year')">📅 Tüm Yıl</button>
       <button id="copy-mode-month" class="btn btn-ghost" style="flex:1" onclick="copyModeSwitch('month')">🗓️ Belirli Aylar</button>
+      <button id="copy-mode-chain" class="btn btn-ghost" style="flex:1" onclick="copyModeSwitch('chain')">📈 Zincirleme Artış</button>
     </div>
 
     <div class="g2">
@@ -295,7 +303,19 @@ canvas{display:block;width:100%}
       <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Kaynak ve hedef aynı sayıda ay seçilmeli. Sırayla eşleştirilir (örn. 1. kaynak ay → 1. hedef ay).</div>
     </div>
 
-    <div class="fg">
+    <!-- Zincirleme artış alanı -->
+    <div id="copy-chain-section" style="display:none">
+      <div class="lbl">Kaynak Ay (başlangıç değeri)</div>
+      <div id="copy-chain-from-month" class="mo-sel" style="margin-bottom:10px"></div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">Bu ayın değeri baz alınır, hedef yılın <b>Ocak</b> ayından başlayarak her ay öncekinden %<span id="chain-pct-display">2</span> artırılarak devam eder.</div>
+      <div class="fg">
+        <div class="lbl">Aylık Artış Oranı (%)</div>
+        <input type="number" id="copy-chain-pct" placeholder="2" value="2" style="width:100%" oninput="document.getElementById('chain-pct-display').textContent=this.value||0">
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Örn: %2 girersen Ocak=baz, Şubat=baz×1.02, Mart=baz×1.02², ... Aralık=baz×1.02¹¹</div>
+      </div>
+    </div>
+
+    <div class="fg" id="copy-generic-pct-section">
       <div class="lbl">Artış Oranı (%)</div>
       <input type="number" id="copy-increase-pct" placeholder="0" value="0" style="width:100%">
       <div style="font-size:11px;color:var(--text3);margin-top:4px">Kopyalanan tutarlar bu yüzde ile artırılır. Örn: enflasyon için %15 yazın.</div>
@@ -1034,13 +1054,14 @@ window.renderBudget=function(){
 
   document.getElementById("tab-budget").innerHTML='<div class="fade">'+kpiH+
     '<div class="card cb">'+
-    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">'+
-    '<div style="display:flex;gap:6px;flex-wrap:wrap">'+
+    '<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px">'+
     '<div class="stabs"><button class="stab'+(s.type==="income"?" active":"")+'" onclick="budSt(\'type\',\'income\')">↑ Gelir</button><button class="stab'+(s.type==="expense"?" active":"")+'" onclick="budSt(\'type\',\'expense\')">↓ Gider</button></div>'+
     '<div class="stabs"><button class="stab'+(s.view==="table"?" active":"")+'" onclick="budSt(\'view\',\'table\')">Tablo</button><button class="stab'+(s.view==="chart"?" active":"")+'" onclick="budSt(\'view\',\'chart\')">Grafik</button></div>'+
     '</div>'+
-    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCatModal()">🏷️ Kategori Ekle/Düzenle</button>'+
-    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap" onclick="openCopyYearModal()">📋 Önceki Yıldan Kopyala</button></div>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">'+
+    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap;flex:1;min-width:140px" onclick="openCatModal()">🏷️ Kategori Ekle/Düzenle</button>'+
+    '<button class="btn btn-ghost btn-sm" style="white-space:nowrap;flex:1;min-width:140px" onclick="openCopyYearModal()">📋 Geçmiş Dönemlerden Kopyala</button>'+
+    '</div>'+
     '<div class="lbl">Ay seçimi (birden fazla seçebilirsin):</div>'+
     yearSelHtml("budget")+
     moSelHtml("budget")+
@@ -1145,8 +1166,26 @@ window.saveBudGrid=function(){
 var copyMode="year";
 var copyFromMonths=[];
 var copyToMonths=[];
+var copyScopeCatId=null; // null = tüm kategoriler, dolu = sadece o kategori
 
-window.openCopyYearModal=function(){
+window.switchToCopyFromBudGrid=function(){
+  var catId=budGridCatId;
+  closeModal("modal-budgrid");
+  setTimeout(function(){
+    openCopyYearModal(catId);
+  },150);
+};
+
+window.openCopyYearModal=function(catId){
+  copyScopeCatId=catId||null;
+  var scopeInfo=document.getElementById("copy-scope-info");
+  if(copyScopeCatId){
+    var c=getCat(copyScopeCatId);
+    document.getElementById("copy-scope-catname").innerHTML=c.icon+" "+c.name;
+    scopeInfo.style.display="block";
+  } else {
+    scopeInfo.style.display="none";
+  }
   var selY=states.budget?states.budget.year||CUR_Y:CUR_Y;
   var fromSel=document.getElementById("copy-from-year");
   var toSel=document.getElementById("copy-to-year");
@@ -1159,17 +1198,43 @@ window.openCopyYearModal=function(){
   document.getElementById("copy-year-err").textContent="";
   copyFromMonths=[];
   copyToMonths=[];
+  copyChainFromMonth=null;
+  document.getElementById("copy-chain-pct").value="2";
+  document.getElementById("chain-pct-display").textContent="2";
   copyModeSwitch("year");
   refreshCopyMonthPickers();
   openModal("modal-copyyear");
+};
+
+window.copyScopeReset=function(){
+  copyScopeCatId=null;
+  document.getElementById("copy-scope-info").style.display="none";
 };
 
 window.copyModeSwitch=function(mode){
   copyMode=mode;
   document.getElementById("copy-mode-year").className="btn "+(mode==="year"?"btn-p":"btn-ghost")+" ";
   document.getElementById("copy-mode-month").className="btn "+(mode==="month"?"btn-p":"btn-ghost")+" ";
+  document.getElementById("copy-mode-chain").className="btn "+(mode==="chain"?"btn-p":"btn-ghost")+" ";
   document.getElementById("copy-month-section").style.display=mode==="month"?"":"none";
+  document.getElementById("copy-chain-section").style.display=mode==="chain"?"":"none";
+  document.getElementById("copy-generic-pct-section").style.display=mode==="chain"?"none":"";
   if(mode==="month") refreshCopyMonthPickers();
+  if(mode==="chain") refreshChainMonthPicker();
+};
+
+var copyChainFromMonth=null;
+function refreshChainMonthPicker(){
+  var box=document.getElementById("copy-chain-from-month");
+  if(!box) return;
+  box.innerHTML=MSHORT.map(function(m,i){
+    var sel=copyChainFromMonth===i;
+    return '<button type="button" class="mo-btn'+(sel?" active":"")+'" onclick="setChainFromMonth('+i+')">'+m+'</button>';
+  }).join("");
+}
+window.setChainFromMonth=function(idx){
+  copyChainFromMonth=idx;
+  refreshChainMonthPicker();
 };
 
 window.refreshCopyMonthPickers=function(){
@@ -1198,25 +1263,54 @@ window.toggleCopyMonth=function(which,idx){
 window.doCopyYear=function(){
   var fromY=parseInt(document.getElementById("copy-from-year").value);
   var toY=parseInt(document.getElementById("copy-to-year").value);
-  var pct=parseFloat(document.getElementById("copy-increase-pct").value)||0;
-  var multiplier=1+(pct/100);
   var errEl=document.getElementById("copy-year-err");
 
-  if(fromY===toY&&copyMode==="year"){errEl.textContent="Kaynak ve hedef yıl aynı olamaz.";return;}
+  if(fromY===toY&&copyMode!=="chain"){errEl.textContent="Kaynak ve hedef yıl aynı olamaz.";return;}
 
+  // ── ZİNCİRLEME ARTIŞ MODU ──
+  if(copyMode==="chain"){
+    if(copyChainFromMonth===null){errEl.textContent="Kaynak ay seçin.";return;}
+    var chainPct=parseFloat(document.getElementById("copy-chain-pct").value);
+    if(isNaN(chainPct)){errEl.textContent="Geçerli bir artış oranı girin.";return;}
+    var chainMult=1+(chainPct/100);
+    var targetCats=copyScopeCatId?[getCat(copyScopeCatId)]:allCats();
+    var copiedCount=0;
+    targetCats.forEach(function(c){
+      var baseVal=getBudget(c.id,copyChainFromMonth,fromY);
+      if(baseVal>0) copiedCount++;
+      for(var m=0;m<12;m++){
+        // Ocak = baz, Şubat = baz*mult, ... her ay öncekinden %pct artar
+        var newVal=Math.round(baseVal*Math.pow(chainMult,m));
+        setBudgetVal(c.id,m,newVal,toY);
+      }
+    });
+    saveSettings();
+    closeModal("modal-copyyear");
+    var scopeDesc1=copyScopeCatId?(" — "+getCat(copyScopeCatId).name):"";
+    showToast("✅ "+MSHORT[copyChainFromMonth]+" "+fromY+" baz alındı, "+toY+" yılı %"+chainPct+" aylık artışla dolduruldu"+scopeDesc1);
+    states.budget.year=toY;
+    states.budget.months=[0];
+    copyScopeCatId=null;
+    render(curTab);
+    return;
+  }
+
+  // ── TÜM YIL / BELİRLİ AYLAR MODU ──
+  var pct=parseFloat(document.getElementById("copy-increase-pct").value)||0;
+  var multiplier=1+(pct/100);
   var monthPairs=[]; // [{from:i, to:j}]
 
   if(copyMode==="year"){
-    // Tüm 12 ay aynı sırayla eşleşir
-    for(var m=0;m<12;m++) monthPairs.push({from:m,to:m});
+    for(var m2=0;m2<12;m2++) monthPairs.push({from:m2,to:m2});
   } else {
     if(copyFromMonths.length===0||copyToMonths.length===0){errEl.textContent="Kaynak ve hedef ay seçin.";return;}
     if(copyFromMonths.length!==copyToMonths.length){errEl.textContent="Kaynak ve hedef ay sayısı eşit olmalı ("+copyFromMonths.length+" ≠ "+copyToMonths.length+").";return;}
     for(var i=0;i<copyFromMonths.length;i++) monthPairs.push({from:copyFromMonths[i],to:copyToMonths[i]});
   }
 
-  var copiedCount=0;
-  allCats().forEach(function(c){
+  var targetCats2=copyScopeCatId?[getCat(copyScopeCatId)]:allCats();
+  var copiedCount2=0;
+  targetCats2.forEach(function(c){
     var hasAnyData=false;
     monthPairs.forEach(function(pair){
       var val=getBudget(c.id,pair.from,fromY);
@@ -1224,7 +1318,7 @@ window.doCopyYear=function(){
       var newVal=Math.round(val*multiplier);
       setBudgetVal(c.id,pair.to,newVal,toY);
     });
-    if(hasAnyData) copiedCount++;
+    if(hasAnyData) copiedCount2++;
   });
   saveSettings();
   closeModal("modal-copyyear");
@@ -1232,12 +1326,13 @@ window.doCopyYear=function(){
   var modeDesc=copyMode==="year"?
     (fromY+" → "+toY):
     (copyFromMonths.map(function(m){return MSHORT[m];}).join(",")+" ("+fromY+") → "+copyToMonths.map(function(m){return MSHORT[m];}).join(",")+" ("+toY+")");
-  showToast("✅ Kopyalandı: "+modeDesc+(pct!==0?" (%"+pct+" artış)":""));
+  var scopeDesc2=copyScopeCatId?(" — "+getCat(copyScopeCatId).name):"";
+  showToast("✅ Kopyalandı: "+modeDesc+scopeDesc2+(pct!==0?" (%"+pct+" artış)":""));
 
-  // Hedef yıla/aya geç
   states.budget.year=toY;
   if(copyMode==="month"&&copyToMonths.length) states.budget.months=copyToMonths.slice();
   else states.budget.months=[getCurMonthForYear(toY)>=0?getCurMonthForYear(toY):0];
+  copyScopeCatId=null;
   render(curTab);
 };
 
