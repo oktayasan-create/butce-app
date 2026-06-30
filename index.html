@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-title" content="BütçeApp"/>
 <title>BütçeApp</title>
 <link rel="manifest" href="manifest.json"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 
@@ -324,6 +325,52 @@ canvas{display:block;width:100%}
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn btn-ghost" onclick="closeModal('modal-copyyear')">İptal</button>
       <button class="btn btn-p" onclick="doCopyYear()">Kopyala</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: Excel Import -->
+<div class="modal-bg" id="modal-import">
+  <div class="modal" style="width:580px;max-width:96vw">
+    <div class="modal-title">📥 Excel'den İçe Aktar</div>
+    <div id="import-step-upload">
+      <p style="font-size:12px;color:var(--text3);margin-bottom:14px">Her veri türü için ayrı şablon indirin, doldurun ve ayrı ayrı yükleyin.</p>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg4);border-radius:10px;border:1px solid var(--border2)">
+          <span style="font-size:20px">💰</span>
+          <div style="flex:1"><div style="font-weight:600;font-size:13px">İşlemler</div><div style="font-size:10px;color:var(--text3)">Gelir/gider kayıtları</div></div>
+          <button class="btn btn-ghost btn-xs" onclick="downloadTemplate('tx')">📄 İndir</button>
+          <label class="btn btn-p btn-xs" style="cursor:pointer">📁 Yükle<input type="file" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event,'tx')"></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg4);border-radius:10px;border:1px solid var(--border2)">
+          <span style="font-size:20px">📊</span>
+          <div style="flex:1"><div style="font-weight:600;font-size:13px">Bütçe</div><div style="font-size:10px;color:var(--text3)">Kategori × ay tutarları</div></div>
+          <button class="btn btn-ghost btn-xs" onclick="downloadTemplate('budget')">📄 İndir</button>
+          <label class="btn btn-p btn-xs" style="cursor:pointer">📁 Yükle<input type="file" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event,'budget')"></label>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg4);border-radius:10px;border:1px solid var(--border2)">
+          <span style="font-size:20px">💎</span>
+          <div style="flex:1"><div style="font-weight:600;font-size:13px">Yatırım</div><div style="font-size:10px;color:var(--text3)">Yatırım işlemleri</div></div>
+          <button class="btn btn-ghost btn-xs" onclick="downloadTemplate('invest')">📄 İndir</button>
+          <label class="btn btn-p btn-xs" style="cursor:pointer">📁 Yükle<input type="file" accept=".xlsx,.xls" style="display:none" onchange="handleImportFile(event,'invest')"></label>
+        </div>
+      </div>
+      <div id="import-file-status" style="font-size:12px;color:var(--text3)"></div>
+    </div>
+    <div id="import-step-preview" style="display:none">
+      <div id="import-preview-content"></div>
+      <div id="import-err" class="errmsg" style="margin:8px 0"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+        <button class="btn btn-ghost" onclick="closeModal('modal-import')">İptal</button>
+        <button class="btn btn-p" id="import-confirm-btn" onclick="confirmImport()">✅ İçe Aktar</button>
+      </div>
+    </div>
+    <div id="import-step-done" style="display:none;text-align:center;padding:20px 0">
+      <div style="font-size:40px;margin-bottom:10px">✅</div>
+      <div style="font-weight:700;font-size:15px;margin-bottom:6px">İçe Aktarma Tamamlandı!</div>
+      <div id="import-done-summary" style="font-size:12px;color:var(--text3);margin-bottom:16px"></div>
+      <button class="btn btn-p" onclick="closeModal('modal-import')">Kapat</button>
     </div>
   </div>
 </div>
@@ -2300,11 +2347,490 @@ window.delGoal=function(idx){
 };
 
 // ═══════════════════════════════════════════════
+// EXCEL İÇE AKTARMA
+// ═══════════════════════════════════════════════
+var _importParsed=null; // {transactions:[], budgets:[], investments:[]}
+
+// ── DİNAMİK ŞABLON OLUŞTURMA ─────────────────────────────────
+// ── ORTAK STİL YARDIMCILARI ──────────────────────────────────
+var XLSX_PURPLE="A78BFA",XLSX_DARK="1E1E2E",XLSX_LIGHT_PURPLE="F3E8FF";
+var XLSX_GREEN="34D399",XLSX_RED="F87171",XLSX_GOLD="FBBF24";
+
+function styleTitle(ws,ref,text,colspan){
+  ws[ref]={t:"s",v:text,s:{
+    font:{bold:true,sz:15,color:{rgb:XLSX_DARK},name:"Calibri"},
+    alignment:{horizontal:"left",vertical:"center"}
+  }};
+}
+function styleSubtitle(ws,ref,text){
+  ws[ref]={t:"s",v:text,s:{
+    font:{italic:true,sz:10,color:{rgb:"6B7280"},name:"Calibri"},
+    alignment:{horizontal:"left",vertical:"center",wrapText:true}
+  }};
+}
+function styleHeaderCell(ws,ref,text){
+  ws[ref]={t:"s",v:text,s:{
+    font:{bold:true,sz:11,color:{rgb:"FFFFFF"},name:"Calibri"},
+    fill:{patternType:"solid",fgColor:{rgb:XLSX_PURPLE}},
+    alignment:{horizontal:"center",vertical:"center",wrapText:true},
+    border:{top:{style:"thin",color:{rgb:"8B5CF6"}},bottom:{style:"thin",color:{rgb:"8B5CF6"}},left:{style:"thin",color:{rgb:"8B5CF6"}},right:{style:"thin",color:{rgb:"8B5CF6"}}}
+  }};
+}
+function styleDataCell(ws,ref,val,opts){
+  opts=opts||{};
+  var cell={v:val,s:{
+    font:{sz:10,name:"Calibri",bold:opts.bold||false,color:{rgb:opts.color||"1F2937"}},
+    alignment:{horizontal:opts.align||"left",vertical:"center"},
+    border:{top:{style:"thin",color:{rgb:"E5E7EB"}},bottom:{style:"thin",color:{rgb:"E5E7EB"}},left:{style:"thin",color:{rgb:"E5E7EB"}},right:{style:"thin",color:{rgb:"E5E7EB"}}},
+    fill:opts.fill?{patternType:"solid",fgColor:{rgb:opts.fill}}:undefined
+  }};
+  if(typeof val==="number"){cell.t="n";if(opts.numFmt)cell.s.numFmt=opts.numFmt;}
+  else{cell.t="s";}
+  ws[ref]=cell;
+}
+function styleExampleCell(ws,ref,val,isNum){
+  var cell={v:val,s:{
+    font:{sz:10,name:"Calibri",italic:true,color:{rgb:"9CA3AF"}},
+    alignment:{horizontal:isNum?"right":"left",vertical:"center"},
+    fill:{patternType:"solid",fgColor:{rgb:"F9FAFB"}},
+    border:{top:{style:"thin",color:{rgb:"E5E7EB"}},bottom:{style:"thin",color:{rgb:"E5E7EB"}},left:{style:"thin",color:{rgb:"E5E7EB"}},right:{style:"thin",color:{rgb:"E5E7EB"}}}
+  }};
+  if(isNum){cell.t="n";cell.s.numFmt="#,##0";}else{cell.t="s";}
+  ws[ref]=cell;
+}
+
+// ── ŞABLON 1: İŞLEMLER ───────────────────────────────────────
+function buildTxTemplate(){
+  var wb=XLSX.utils.book_new();
+  var ws={};
+  ws["!ref"]="A1:E110";
+
+  styleTitle(ws,"A1","💰 BütçeApp — İşlem İçe Aktarma Şablonu");
+  styleSubtitle(ws,"A2","Her satıra bir gelir veya gider işlemi girin. Tarih formatı: GG.AA.YYYY (örnek: 15.03.2026). 4. satırdan itibaren veri girebilirsiniz.");
+
+  var headers=["Tarih","Tür","Kategori","Tutar (₺)","Not"];
+  headers.forEach(function(h,i){styleHeaderCell(ws,XLSX.utils.encode_cell({r:3,c:i}),h);});
+
+  // Örnek satırlar (gri italik)
+  var examples=[
+    ["15.03.2026","Gelir",cats.income[0]?cats.income[0].name:"Maaş",25000,"↳ örnek satır, silebilirsiniz"],
+    ["02.03.2026","Gider",cats.expense[0]?cats.expense[0].name:"Kira",8000,"↳ örnek satır, silebilirsiniz"]
+  ];
+  examples.forEach(function(row,ri){
+    row.forEach(function(val,ci){
+      styleExampleCell(ws,XLSX.utils.encode_cell({r:4+ri,c:ci}),val,ci===3);
+    });
+  });
+
+  // Boş veri satırları (beyaz zebra + hafif gri alternatif)
+  for(var r=6;r<109;r++){
+    for(var c=0;c<5;c++){
+      var ref=XLSX.utils.encode_cell({r:r,c:c});
+      styleDataCell(ws,ref,"",{align:c===3?"right":"left",numFmt:c===3?"#,##0":undefined});
+    }
+  }
+
+  ws["!cols"]=[{wch:14},{wch:10},{wch:22},{wch:14},{wch:32}];
+  ws["!rows"]=[{hpt:24},{hpt:30}];
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:4}},{s:{r:1,c:0},e:{r:1,c:4}}];
+  ws["!freeze"]={xSplit:0,ySplit:4};
+
+  XLSX.utils.book_append_sheet(wb,ws,"İşlemler");
+
+  // Veri doğrulama (dropdown)
+  var dvType={type:"list",sqref:"B5:B109",formula1:'"Gelir,Gider"'};
+  var catList=allCats().map(function(c){return c.name;}).join(",");
+  var dvCat={type:"list",sqref:"C5:C109",formula1:'"'+catList+'"'};
+  ws["!dataValidation"]=[dvType,dvCat];
+
+  addGuideSheet(wb,"tx");
+  return wb;
+}
+
+// ── ŞABLON 2: BÜTÇE ──────────────────────────────────────────
+function buildBudgetTemplate(){
+  var selY=states.budget?states.budget.year||CUR_Y:CUR_Y;
+  var wb=XLSX.utils.book_new();
+  var ws={};
+  var lastCol=13; // A..N (Kategori,Tür,12 ay)
+  ws["!ref"]="A1:N"+(8+cats.income.length+cats.expense.length+2);
+
+  styleTitle(ws,"A1","📊 BütçeApp — Bütçe İçe Aktarma Şablonu");
+  styleSubtitle(ws,"A2","B4 hücresinden yıl seçin. Her kategori için aylık bütçe tutarlarını girin. Bu şablon güncel verilerinizle önceden dolduruldu.");
+
+  ws["A4"]={t:"s",v:"Yıl:",s:{font:{bold:true,sz:11,name:"Calibri"},alignment:{horizontal:"right",vertical:"center"}}};
+  ws["B4"]={t:"n",v:selY,s:{
+    font:{bold:true,sz:13,color:{rgb:XLSX_PURPLE},name:"Calibri"},
+    fill:{patternType:"solid",fgColor:{rgb:XLSX_LIGHT_PURPLE}},
+    alignment:{horizontal:"center",vertical:"center"},
+    border:{top:{style:"medium",color:{rgb:XLSX_PURPLE}},bottom:{style:"medium",color:{rgb:XLSX_PURPLE}},left:{style:"medium",color:{rgb:XLSX_PURPLE}},right:{style:"medium",color:{rgb:XLSX_PURPLE}}}
+  }};
+
+  var headers=["Kategori","Tür"].concat(MONTHS);
+  headers.forEach(function(h,i){styleHeaderCell(ws,XLSX.utils.encode_cell({r:5,c:i}),h);});
+
+  var rowPtr=6;
+  cats.income.forEach(function(c){
+    styleDataCell(ws,XLSX.utils.encode_cell({r:rowPtr,c:0}),c.icon+" "+c.name,{bold:true});
+    styleDataCell(ws,XLSX.utils.encode_cell({r:rowPtr,c:1}),"Gelir",{align:"center",color:"059669",fill:"ECFDF5"});
+    for(var m=0;m<12;m++){
+      var val=getBudget(c.id,m,selY)||0;
+      styleDataCell(ws,XLSX.utils.encode_cell({r:rowPtr,c:2+m}),val,{align:"right",numFmt:"#,##0"});
+    }
+    rowPtr++;
+  });
+  cats.expense.forEach(function(c){
+    styleDataCell(ws,XLSX.utils.encode_cell({r:rowPtr,c:0}),c.icon+" "+c.name,{bold:true});
+    styleDataCell(ws,XLSX.utils.encode_cell({r:rowPtr,c:1}),"Gider",{align:"center",color:"DC2626",fill:"FEF2F2"});
+    for(var m2=0;m2<12;m2++){
+      var val2=getBudget(c.id,m2,selY)||0;
+      styleDataCell(ws,XLSX.utils.encode_cell({r:rowPtr,c:2+m2}),val2,{align:"right",numFmt:"#,##0"});
+    }
+    rowPtr++;
+  });
+
+  ws["!cols"]=[{wch:20},{wch:9}].concat(Array(12).fill({wch:10}));
+  ws["!rows"]=[{hpt:26},{hpt:32},{},{hpt:20},{},{hpt:32}];
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:13}},{s:{r:1,c:0},e:{r:1,c:13}}];
+  ws["!freeze"]={xSplit:2,ySplit:6};
+
+  XLSX.utils.book_append_sheet(wb,ws,"Bütçe");
+
+  var dvYear={type:"list",sqref:"B4",formula1:'"2025,2026,2027,2028,2029,2030"'};
+  ws["!dataValidation"]=[dvYear];
+
+  addGuideSheet(wb,"budget");
+  return wb;
+}
+
+// ── ŞABLON 3: YATIRIM ────────────────────────────────────────
+function buildInvestTemplate(){
+  var wb=XLSX.utils.book_new();
+  var ws={};
+  ws["!ref"]="A1:F110";
+
+  styleTitle(ws,"A1","💎 BütçeApp — Yatırım İçe Aktarma Şablonu");
+  styleSubtitle(ws,"A2","Yatırım işlemlerinizi girin. Altın/Gümüş için Fiyat ve Miktar doldurulursa otomatik kar/zarar hesaplanır, diğer türlerde sadece Tutar yeterlidir.");
+
+  var headers=["Tarih","Tür","Tutar (₺)","Fiyat (₺/gr)","Miktar (gr)","Not"];
+  headers.forEach(function(h,i){styleHeaderCell(ws,XLSX.utils.encode_cell({r:3,c:i}),h);});
+
+  var examples=[
+    ["15.03.2026",INV_TYPES[1]?INV_TYPES[1].name:"Altın",3000,6500,0.46,"↳ örnek satır, silebilirsiniz"],
+    ["10.03.2026",INV_TYPES[0]?INV_TYPES[0].name:"Hisse Senedi",2000,"","","↳ örnek satır, silebilirsiniz"]
+  ];
+  examples.forEach(function(row,ri){
+    row.forEach(function(val,ci){
+      var isNum=(ci===2||ci===3||ci===4)&&val!=="";
+      styleExampleCell(ws,XLSX.utils.encode_cell({r:4+ri,c:ci}),val,isNum);
+    });
+  });
+
+  for(var r=6;r<109;r++){
+    for(var c=0;c<6;c++){
+      var ref=XLSX.utils.encode_cell({r:r,c:c});
+      var isNumCol=(c===2||c===3||c===4);
+      styleDataCell(ws,ref,"",{align:isNumCol?"right":"left",numFmt:isNumCol?(c===4?"0.00":"#,##0"):undefined});
+    }
+  }
+
+  ws["!cols"]=[{wch:14},{wch:16},{wch:14},{wch:14},{wch:13},{wch:30}];
+  ws["!rows"]=[{hpt:24},{hpt:30}];
+  ws["!merges"]=[{s:{r:0,c:0},e:{r:0,c:5}},{s:{r:1,c:0},e:{r:1,c:5}}];
+  ws["!freeze"]={xSplit:0,ySplit:4};
+
+  XLSX.utils.book_append_sheet(wb,ws,"Yatırım");
+
+  var dvInv={type:"list",sqref:"B5:B109",formula1:'"'+INV_TYPES.map(function(t){return t.name;}).join(",")+'"'};
+  ws["!dataValidation"]=[dvInv];
+
+  addGuideSheet(wb,"invest");
+  return wb;
+}
+
+// ── KILAVUZ SAYFASI (her şablona özel) ───────────────────────
+function addGuideSheet(wb,kind){
+  var ws={};
+  var lines=[];
+  lines.push([{t:"s",v:"📋 Kullanım Kılavuzu",s:{font:{bold:true,sz:16,color:{rgb:XLSX_DARK},name:"Calibri"}}}]);
+  lines.push([]);
+
+  if(kind==="tx"){
+    lines.push([{t:"s",v:"Bu şablon GELİR/GİDER İŞLEMLERİ içindir.",s:{font:{bold:true,sz:11}}}]);
+    lines.push([{t:"s",v:"• Tarih: GG.AA.YYYY formatında girin (örn: 15.03.2026)"}]);
+    lines.push([{t:"s",v:"• Tür: 'Gelir' veya 'Gider' (hücreye tıklayınca dropdown çıkar)"}]);
+    lines.push([{t:"s",v:"• Kategori: Aşağıdaki geçerli kategorilerden birini seçin"}]);
+    lines.push([{t:"s",v:"• Tutar: Sadece sayı yazın, ₺ otomatik eklenir"}]);
+    lines.push([]);
+    lines.push([{t:"s",v:"✅ Geçerli Gelir Kategorileri:",s:{font:{bold:true,color:{rgb:"059669"}}}}]);
+    cats.income.forEach(function(c){lines.push([{t:"s",v:"   "+c.icon+" "+c.name}]);});
+    lines.push([]);
+    lines.push([{t:"s",v:"✅ Geçerli Gider Kategorileri:",s:{font:{bold:true,color:{rgb:"DC2626"}}}}]);
+    cats.expense.forEach(function(c){lines.push([{t:"s",v:"   "+c.icon+" "+c.name}]);});
+  } else if(kind==="budget"){
+    lines.push([{t:"s",v:"Bu şablon BÜTÇE TUTARLARI içindir.",s:{font:{bold:true,sz:11}}}]);
+    lines.push([{t:"s",v:"• B4 hücresinden hangi yıl için bütçe gireceğinizi seçin"}]);
+    lines.push([{t:"s",v:"• Her kategori satırında, ilgili ayın altına bütçe tutarını yazın"}]);
+    lines.push([{t:"s",v:"• Mevcut bütçe tutarlarınız önceden dolduruldu, üzerine yazabilirsiniz"}]);
+    lines.push([{t:"s",v:"• Boş bırakılan hücreler 0 olarak kabul edilir"}]);
+    lines.push([]);
+    lines.push([{t:"s",v:"⚠️ Bu dosyayı yüklediğinizde, seçtiğiniz yılın o kategorideki TÜM ayları güncellenir.",s:{font:{italic:true,color:{rgb:"DC2626"}}}}]);
+  } else if(kind==="invest"){
+    lines.push([{t:"s",v:"Bu şablon YATIRIM İŞLEMLERİ içindir.",s:{font:{bold:true,sz:11}}}]);
+    lines.push([{t:"s",v:"• Tarih: GG.AA.YYYY formatında girin"}]);
+    lines.push([{t:"s",v:"• Tür: Aşağıdaki geçerli yatırım türlerinden seçin"}]);
+    lines.push([{t:"s",v:"• Altın/Gümüş: Fiyat (₺/gr) ve Miktar (gr) doldurursanız otomatik kâr/zarar hesaplanır"}]);
+    lines.push([{t:"s",v:"• Diğer türler: Sadece Tutar girmeniz yeterlidir"}]);
+    lines.push([]);
+    lines.push([{t:"s",v:"✅ Geçerli Yatırım Türleri:",s:{font:{bold:true,color:{rgb:XLSX_PURPLE}}}}]);
+    INV_TYPES.forEach(function(t){lines.push([{t:"s",v:"   "+t.icon+" "+t.name}]);});
+  }
+
+  lines.push([]);
+  lines.push([{t:"s",v:"4️⃣ Doldurduktan sonra: uygulamada ➕ Ekle sekmesi → 📥 İçe Aktar → ilgili '📁 Yükle' butonu",s:{font:{bold:true}}}]);
+
+  XLSX.utils.sheet_add_aoa(ws,lines,{origin:"A1"});
+  ws["!ref"]="A1:A"+(lines.length+2);
+  ws["!cols"]=[{wch:95}];
+  XLSX.utils.book_append_sheet(wb,ws,"Kılavuz");
+}
+
+window.downloadTemplate=function(kind){
+  var wb,filename;
+  var selY=states.budget?states.budget.year||CUR_Y:CUR_Y;
+  if(kind==="tx"){wb=buildTxTemplate();filename="butce_islemler_sablon.xlsx";}
+  else if(kind==="budget"){wb=buildBudgetTemplate();filename="butce_bütçe_sablon_"+selY+".xlsx";}
+  else if(kind==="invest"){wb=buildInvestTemplate();filename="butce_yatirim_sablon.xlsx";}
+  else return;
+  XLSX.writeFile(wb,filename);
+  showToast("✅ Şablon indirildi");
+};
+
+window.openImportModal=function(){
+  document.getElementById("import-step-upload").style.display="";
+  document.getElementById("import-step-preview").style.display="none";
+  document.getElementById("import-step-done").style.display="none";
+  document.getElementById("import-file-status").textContent="";
+  _importParsed=null;
+  openModal("modal-import");
+};
+
+function trDateToISO(val){
+  // "15.03.2026" string formatı veya Excel serial sayısı olabilir
+  if(val==null||val==="") return null;
+  if(typeof val==="number"){
+    // Excel serial date -> UTC tabanlı parse (zaman dilimi kaymasını önler)
+    var d=XLSX.SSF.parse_date_code(val);
+    if(d) return d.y+"-"+String(d.m).padStart(2,"0")+"-"+String(d.d).padStart(2,"0");
+    return null;
+  }
+  if(val instanceof Date){
+    // UTC değerlerini kullan (cellDates true ise UTC tabanlı oluşturulur)
+    return val.getUTCFullYear()+"-"+String(val.getUTCMonth()+1).padStart(2,"0")+"-"+String(val.getUTCDate()).padStart(2,"0");
+  }
+  var s=String(val).trim();
+  var m=s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+  if(m) return m[3]+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0");
+  var m2=s.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})$/);
+  if(m2) return m2[1]+"-"+m2[2].padStart(2,"0")+"-"+m2[3].padStart(2,"0");
+  return null;
+}
+
+function findCatByName(name,type){
+  if(!name) return null;
+  var pool=type?cats[type]:allCats();
+  var found=pool.find(function(c){return c.name.trim().toLowerCase()===String(name).trim().toLowerCase();});
+  return found?found.id:null;
+}
+function findInvTypeByName(name){
+  if(!name) return null;
+  var found=INV_TYPES.find(function(t){return t.name.trim().toLowerCase()===String(name).trim().toLowerCase();});
+  return found?found.id:null;
+}
+
+window.handleImportFile=function(ev,kind){
+  var file=ev.target.files[0];
+  if(!file) return;
+  var kindLabel=kind==="tx"?"İşlemler":kind==="budget"?"Bütçe":kind==="invest"?"Yatırım":"Dosya";
+  document.getElementById("import-file-status").textContent="⏳ "+kindLabel+" okunuyor: "+file.name;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    try{
+      var data=new Uint8Array(e.target.result);
+      var wb=XLSX.read(data,{type:"array",cellDates:false,cellText:true});
+      var result={transactions:[],budgets:[],investments:[],errors:[]};
+
+      // İŞLEMLER sekmesi
+      if(wb.SheetNames.indexOf("İşlemler")>=0){
+        var rows=XLSX.utils.sheet_to_json(wb.Sheets["İşlemler"],{header:1,range:4,defval:"",raw:false});
+        rows.forEach(function(row,idx){
+          var dateRaw=row[0],typeRaw=row[1],catRaw=row[2],amtRaw=row[3],noteRaw=row[4];
+          if(!dateRaw&&!typeRaw&&!catRaw&&!amtRaw) return; // boş satır
+          var iso=trDateToISO(dateRaw);
+          var type=String(typeRaw).trim()==="Gelir"?"income":String(typeRaw).trim()==="Gider"?"expense":null;
+          var catId=findCatByName(catRaw,type);
+          var amt=parseFloat(amtRaw);
+          if(!iso||!type||!catId||!amt||amt<=0){
+            result.errors.push("İşlemler satır "+(idx+5)+": eksik/hatalı veri ("+(dateRaw||"-")+", "+(typeRaw||"-")+", "+(catRaw||"-")+", "+(amtRaw||"-")+")");
+            return;
+          }
+          result.transactions.push({type:type,cat:catId,amt:amt,note:noteRaw||"",date:iso});
+        });
+      }
+
+      // BÜTÇE sekmesi
+      if(wb.SheetNames.indexOf("Bütçe")>=0){
+        var sheet=wb.Sheets["Bütçe"];
+        var yearCell=sheet["B4"];
+        var year=yearCell?parseInt(yearCell.v):CUR_Y;
+        var budRows=XLSX.utils.sheet_to_json(sheet,{header:1,range:6,defval:0});
+        budRows.forEach(function(row,idx){
+          var catName=row[0];
+          if(!catName) return;
+          var catId=findCatByName(catName);
+          if(!catId){
+            result.errors.push("Bütçe satır "+(idx+7)+": kategori bulunamadı (\""+catName+"\")");
+            return;
+          }
+          var monthVals=row.slice(2,14).map(function(v){return parseFloat(v)||0;});
+          result.budgets.push({catId:catId,year:year,months:monthVals,catName:catName});
+        });
+      }
+
+      // YATIRIM sekmesi
+      if(wb.SheetNames.indexOf("Yatırım")>=0){
+        var invRows=XLSX.utils.sheet_to_json(wb.Sheets["Yatırım"],{header:1,range:4,defval:"",raw:false});
+        invRows.forEach(function(row,idx){
+          var dateRaw=row[0],typeRaw=row[1],amtRaw=row[2],priceRaw=row[3],miktarRaw=row[4],noteRaw=row[5];
+          if(!dateRaw&&!typeRaw&&!amtRaw) return;
+          var iso=trDateToISO(dateRaw);
+          var invType=findInvTypeByName(typeRaw);
+          var amt=parseFloat(amtRaw);
+          if(!iso||!invType||!amt||amt<=0){
+            result.errors.push("Yatırım satır "+(idx+5)+": eksik/hatalı veri");
+            return;
+          }
+          var invObj={invType:invType,amt:amt,note:noteRaw||"",date:iso};
+          var price=parseFloat(priceRaw),miktar=parseFloat(miktarRaw);
+          if(price>0) invObj.price=price;
+          if(miktar>0) invObj.miktar=miktar;
+          result.investments.push(invObj);
+        });
+      }
+
+      _importParsed=result;
+      showImportPreview(result);
+    }catch(err){
+      document.getElementById("import-file-status").textContent="⚠️ Dosya okunamadı: "+err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+function showImportPreview(result){
+  document.getElementById("import-step-upload").style.display="none";
+  document.getElementById("import-step-preview").style.display="";
+  var html="";
+
+  html+='<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">'+
+    '<div class="card kpi" style="flex:1;min-width:100px"><div class="klbl">İşlemler</div><div class="kval" style="color:#34d399">'+result.transactions.length+'</div></div>'+
+    '<div class="card kpi" style="flex:1;min-width:100px"><div class="klbl">Bütçe Satırı</div><div class="kval" style="color:#a78bfa">'+result.budgets.length+'</div></div>'+
+    '<div class="card kpi" style="flex:1;min-width:100px"><div class="klbl">Yatırım</div><div class="kval" style="color:#fbbf24">'+result.investments.length+'</div></div>'+
+    '</div>';
+
+  if(result.errors.length>0){
+    html+='<div style="background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.25);border-radius:9px;padding:10px 14px;margin-bottom:14px;max-height:140px;overflow-y:auto">'+
+      '<div style="font-weight:600;color:#f87171;font-size:12px;margin-bottom:6px">⚠️ '+result.errors.length+' satır atlanacak:</div>'+
+      result.errors.slice(0,15).map(function(e){return '<div style="font-size:11px;color:#f87171;margin-bottom:2px">'+e+'</div>';}).join("")+
+      (result.errors.length>15?'<div style="font-size:11px;color:var(--text3)">... ve '+(result.errors.length-15)+' tane daha</div>':'')+
+      '</div>';
+  }
+
+  if(result.transactions.length>0){
+    html+='<div style="font-size:12px;font-weight:600;margin-bottom:6px">İlk birkaç işlem:</div>';
+    html+='<div style="max-height:140px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-bottom:14px">';
+    result.transactions.slice(0,8).forEach(function(t){
+      var c=getCat(t.cat);
+      html+='<div class="tx-row" style="padding:7px 12px">'+
+        '<div style="font-size:11px">'+c.icon+' '+c.name+' · '+t.date+'</div>'+
+        '<div style="font-size:12px;font-weight:600;color:'+(t.type==="income"?"#34d399":"#f87171")+'">'+fmt(t.amt)+'</div></div>';
+    });
+    if(result.transactions.length>8) html+='<div style="padding:7px 12px;font-size:11px;color:var(--text3)">... ve '+(result.transactions.length-8)+' tane daha</div>';
+    html+='</div>';
+  }
+
+  if(result.budgets.length>0){
+    var by=result.budgets[0].year;
+    html+='<div style="font-size:12px;color:var(--text3);margin-bottom:14px">📊 '+by+' yılı için '+result.budgets.length+' kategori bütçesi güncellenecek.</div>';
+  }
+
+  if(result.transactions.length===0&&result.budgets.length===0&&result.investments.length===0){
+    html+='<div class="empty">İçe aktarılacak geçerli veri bulunamadı. Lütfen şablonu kontrol edin.</div>';
+    document.getElementById("import-confirm-btn").style.display="none";
+  } else {
+    document.getElementById("import-confirm-btn").style.display="";
+  }
+
+  document.getElementById("import-preview-content").innerHTML=html;
+}
+
+window.confirmImport=async function(){
+  if(!_importParsed) return;
+  var btn=document.getElementById("import-confirm-btn");
+  btn.textContent="⏳ Kaydediliyor...";
+  btn.disabled=true;
+
+  var txCount=0,budCount=0,invCount=0;
+
+  // İşlemleri tek tek Firebase'e ekle
+  for(var i=0;i<_importParsed.transactions.length;i++){
+    try{
+      await addDoc(collection(db,COL_TX),_importParsed.transactions[i]);
+      txCount++;
+    }catch(e){}
+  }
+
+  // Yatırımları ekle
+  for(var j=0;j<_importParsed.investments.length;j++){
+    try{
+      await addDoc(collection(db,COL_INV),_importParsed.investments[j]);
+      invCount++;
+    }catch(e){}
+  }
+
+  // Bütçeleri güncelle (lokal + tek seferde kaydet)
+  _importParsed.budgets.forEach(function(b){
+    for(var m=0;m<12;m++){
+      setBudgetVal(b.catId,m,b.months[m]||0,b.year);
+    }
+    budCount++;
+  });
+  if(budCount>0) await saveSettings();
+
+  document.getElementById("import-step-preview").style.display="none";
+  document.getElementById("import-step-done").style.display="";
+  document.getElementById("import-done-summary").innerHTML=
+    txCount+" işlem, "+budCount+" kategori bütçesi, "+invCount+" yatırım kaydedildi.";
+
+  showToast("✅ İçe aktarma tamamlandı");
+  render(curTab);
+};
+
+// ═══════════════════════════════════════════════
 // TX ADD TAB
 // ═══════════════════════════════════════════════
 window.renderTxAdd=function(){
   var s=states.txadd,typeCats=cats[s.type];
   document.getElementById("tab-txadd").innerHTML='<div class="fade" style="max-width:500px;margin:0 auto">'+
+    '<div class="card cb" style="margin-bottom:14px;background:rgba(167,139,250,.06);border-color:rgba(167,139,250,.25)">'+
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">'+
+    '<div style="font-size:24px">📊</div>'+
+    '<div style="flex:1;min-width:180px">'+
+    '<div style="font-weight:700;font-size:14px">Excel ile Toplu Veri Yükle</div>'+
+    '<div style="font-size:11px;color:var(--text3)">İşlem, bütçe ve yatırım verilerini Excel\'den içe aktar</div>'+
+    '</div>'+
+    '<button class="btn btn-inv btn-sm" onclick="openImportModal()">📥 İçe Aktar</button>'+
+    '</div></div>'+
     '<div class="card cb">'+
     '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">'+
     '<div style="font-size:17px;font-weight:700">➕ Yeni İşlem Ekle</div>'+
