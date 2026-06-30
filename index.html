@@ -2423,10 +2423,11 @@ function buildTxTemplate(){
   });
 
   // Boş veri satırları (beyaz zebra + hafif gri alternatif)
+  // Tarih sütunu (c=0) METİN formatında zorlanır — Excel'in otomatik tarihe çevirmesini engeller
   for(var r=6;r<109;r++){
     for(var c=0;c<5;c++){
       var ref=XLSX.utils.encode_cell({r:r,c:c});
-      styleDataCell(ws,ref,"",{align:c===3?"right":"left",numFmt:c===3?"#,##0":undefined});
+      styleDataCell(ws,ref,"",{align:c===3?"right":"left",numFmt:c===3?"#,##0":(c===0?"@":undefined)});
     }
   }
 
@@ -2530,7 +2531,7 @@ function buildInvestTemplate(){
     for(var c=0;c<6;c++){
       var ref=XLSX.utils.encode_cell({r:r,c:c});
       var isNumCol=(c===2||c===3||c===4);
-      styleDataCell(ws,ref,"",{align:isNumCol?"right":"left",numFmt:isNumCol?(c===4?"0.00":"#,##0"):undefined});
+      styleDataCell(ws,ref,"",{align:isNumCol?"right":"left",numFmt:isNumCol?(c===4?"0.00":"#,##0"):(c===0?"@":undefined)});
     }
   }
 
@@ -2616,35 +2617,47 @@ window.openImportModal=function(){
 };
 
 function trDateToISO(val){
-  // "15.03.2026" string formatı veya Excel serial sayısı olabilir
   if(val==null||val==="") return null;
   if(typeof val==="number"){
-    // Excel serial date -> UTC tabanlı parse (zaman dilimi kaymasını önler)
     var d=XLSX.SSF.parse_date_code(val);
     if(d) return d.y+"-"+String(d.m).padStart(2,"0")+"-"+String(d.d).padStart(2,"0");
     return null;
   }
   if(val instanceof Date){
-    // UTC değerlerini kullan (cellDates true ise UTC tabanlı oluşturulur)
     return val.getUTCFullYear()+"-"+String(val.getUTCMonth()+1).padStart(2,"0")+"-"+String(val.getUTCDate()).padStart(2,"0");
   }
   var s=String(val).trim();
-  var m=s.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{4})$/);
+  // GG.AA.YYYY veya GG-AA-YYYY (4 haneli yıl, nokta/tire — Türkçe format)
+  var m=s.match(/^(\d{1,2})[.\-](\d{1,2})[.\-](\d{4})$/);
   if(m) return m[3]+"-"+m[2].padStart(2,"0")+"-"+m[1].padStart(2,"0");
-  var m2=s.match(/^(\d{4})[.\/-](\d{1,2})[.\/-](\d{1,2})$/);
+  // YYYY-AA-GG (ISO format)
+  var m2=s.match(/^(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})$/);
   if(m2) return m2[1]+"-"+m2[2].padStart(2,"0")+"-"+m2[3].padStart(2,"0");
+  // M/D/YY veya M/D/YYYY (Excel'in otomatik dönüştürdüğü Amerikan formatı, "/" ayraçlı)
+  var m3=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if(m3){
+    var mm=parseInt(m3[1]),dd=parseInt(m3[2]),yy=m3[3];
+    if(yy.length===2) yy="20"+yy;
+    // Excel "/" formatı genelde Ay/Gün/Yıl şeklindedir
+    return yy+"-"+String(mm).padStart(2,"0")+"-"+String(dd).padStart(2,"0");
+  }
   return null;
 }
 
+function normalizeStr(s){
+  return String(s||"").trim().toLocaleLowerCase("tr").replace(/\s+/g," ");
+}
 function findCatByName(name,type){
   if(!name) return null;
+  var target=normalizeStr(name);
   var pool=type?cats[type]:allCats();
-  var found=pool.find(function(c){return c.name.trim().toLowerCase()===String(name).trim().toLowerCase();});
+  var found=pool.find(function(c){return normalizeStr(c.name)===target;});
   return found?found.id:null;
 }
 function findInvTypeByName(name){
   if(!name) return null;
-  var found=INV_TYPES.find(function(t){return t.name.trim().toLowerCase()===String(name).trim().toLowerCase();});
+  var target=normalizeStr(name);
+  var found=INV_TYPES.find(function(t){return normalizeStr(t.name)===target;});
   return found?found.id:null;
 }
 
@@ -2667,11 +2680,16 @@ window.handleImportFile=function(ev,kind){
           var dateRaw=row[0],typeRaw=row[1],catRaw=row[2],amtRaw=row[3],noteRaw=row[4];
           if(!dateRaw&&!typeRaw&&!catRaw&&!amtRaw) return; // boş satır
           var iso=trDateToISO(dateRaw);
-          var type=String(typeRaw).trim()==="Gelir"?"income":String(typeRaw).trim()==="Gider"?"expense":null;
+          var type=normalizeStr(typeRaw)==="gelir"?"income":normalizeStr(typeRaw)==="gider"?"expense":null;
           var catId=findCatByName(catRaw,type);
           var amt=parseFloat(amtRaw);
-          if(!iso||!type||!catId||!amt||amt<=0){
-            result.errors.push("İşlemler satır "+(idx+5)+": eksik/hatalı veri ("+(dateRaw||"-")+", "+(typeRaw||"-")+", "+(catRaw||"-")+", "+(amtRaw||"-")+")");
+          var problems=[];
+          if(!iso) problems.push("tarih anlaşılamadı (\""+dateRaw+"\")");
+          if(!type) problems.push("tür 'Gelir' veya 'Gider' olmalı (\""+typeRaw+"\")");
+          if(type&&!catId) problems.push("kategori bulunamadı (\""+catRaw+"\" — uygulamadaki isimle birebir eşleşmeli)");
+          if(!amt||amt<=0) problems.push("tutar geçersiz veya 0 (\""+amtRaw+"\")");
+          if(problems.length){
+            result.errors.push("Satır "+(idx+5)+": "+problems.join(", "));
             return;
           }
           result.transactions.push({type:type,cat:catId,amt:amt,note:noteRaw||"",date:iso});
@@ -2706,8 +2724,12 @@ window.handleImportFile=function(ev,kind){
           var iso=trDateToISO(dateRaw);
           var invType=findInvTypeByName(typeRaw);
           var amt=parseFloat(amtRaw);
-          if(!iso||!invType||!amt||amt<=0){
-            result.errors.push("Yatırım satır "+(idx+5)+": eksik/hatalı veri");
+          var problems=[];
+          if(!iso) problems.push("tarih anlaşılamadı (\""+dateRaw+"\")");
+          if(!invType) problems.push("yatırım türü bulunamadı (\""+typeRaw+"\")");
+          if(!amt||amt<=0) problems.push("tutar geçersiz veya 0 (\""+amtRaw+"\")");
+          if(problems.length){
+            result.errors.push("Satır "+(idx+5)+": "+problems.join(", "));
             return;
           }
           var invObj={invType:invType,amt:amt,note:noteRaw||"",date:iso};
