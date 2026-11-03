@@ -463,7 +463,7 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── FIREBASE CONFIG ────────────────────────────────────────
 const firebaseConfig = {
@@ -537,10 +537,11 @@ onAuthStateChanged(auth, async function(user) {
   try {
     // The app must not open until Firestore has accepted the signed-in user.
     // Current data/settings document exists in this project's original schema.
-    const probe = await getDoc(doc(db, "data", "settings"));
+    const probe = await getDocFromServer(doc(db, "data", "settings"));
     if (!probe.exists()) throw new Error("Missing existing settings document");
     if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
-    await initAppLifecycle();
+    const completed = await initAppLifecycle(() => revision === authRevision && auth.currentUser?.uid === user.uid);
+    if (!completed) return;
     if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
     initializedForUid = user.uid;
     authStatus.textContent = "";
@@ -636,7 +637,7 @@ async function loadSettings(){
     }
     initDefaultBudgets();
     setSyncStatus("ok");
-  }catch(e){setSyncStatus("error");initDefaultBudgets();}
+  }catch(e){setSyncStatus("error");throw e;}
 }
 
 var transactions=[];
@@ -2075,7 +2076,7 @@ async function loadGoals(){
   try{
     var snap=await getDoc(doc(db,"data","goals"));
     if(snap.exists()&&snap.data().list) _goals=JSON.parse(snap.data().list);
-  }catch(e){_goals=[];}
+  }catch(e){_goals=[];throw e;}
 }
 async function saveGoals(){
   try{await setDoc(doc(db,"data","goals"),{list:JSON.stringify(_goals)});}
@@ -2748,7 +2749,7 @@ document.querySelectorAll(".modal-bg").forEach(function(el){
 });
 
 // ── ASYNC INITIALIZER ──
-async function initAppLifecycle(){
+async function initAppLifecycle(isCurrent){
   states.budget.months = [CUR_M_REAL];
   states.actual.months = [CUR_M_REAL];
   states.variance.months = Array.from({length: CUR_M_REAL + 1}, function(_, i){return i;});
@@ -2757,10 +2758,13 @@ async function initAppLifecycle(){
   invSumState.months = Array.from({length: CUR_M_REAL + 1}, function(_, i){return i;});
 
   await loadSettings();
+  if (!isCurrent()) return false;
   await loadGoals();
+  if (!isCurrent()) return false;
   listenTransactions();
   listenInvestments();
   renderBudget();
+  return true;
 }
 </script>
 <script>if ("serviceWorker" in navigator) { window.addEventListener("load", function(){ navigator.serviceWorker.register("./sw.js").catch(function(e){ console.warn("PWA service worker:",e); }); }); }</script>
