@@ -18,10 +18,13 @@ try {
   assert.equal(syntax.status,0,'Application JS syntax error: '+syntax.stderr);
 } finally { try {fs.unlinkSync(tmp)}catch {} }
 
+assert(html.includes('function safeHtml(value)'), 'User-supplied labels must be HTML-escaped');
+assert(html.includes('validateCategories(JSON.parse(d.cats))'), 'Loaded categories should be validated');
 assert(html.includes('onAuthStateChanged(auth,'), 'Must have Firebase auth state gate');
 assert(html.includes('browserSessionPersistence'), 'Session should not be indefinitely retained');
-assert(html.includes('const probe = await getDoc(doc(db, "data", "settings"))'), 'Verify Firestore access before showing data');
+assert(html.includes('const probe = await getDocFromServer(doc(db, "data", "settings"))'), 'Verify Firestore access before showing data');
 assert(html.includes('if (!probe.exists())'), 'Existing settings document must be verified');
+assert(html.includes('if (!isCurrent()) return false;'), 'Stale load must stop before attaching listeners');
 assert(html.includes('auth.currentUser?.uid !== user.uid'), 'Prevent stale async auth state from unlocking app');
 assert(html.includes('document.body.classList.remove("auth-locked")'), 'Unlock only after verifying access');
 assert(html.includes('authGate.hidden = true'), 'Successful login must remove gate');
