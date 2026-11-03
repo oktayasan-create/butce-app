@@ -209,10 +209,15 @@ canvas { display:block; width:100%; }
 .auth-panel input{padding:13px;border-radius:10px;border:1px solid #475569;background:#11131a;color:#fff;font-size:16px;width:100%}
 .auth-panel button{background:#8b5cf6;border:0;border-radius:10px;color:white;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
 .auth-panel button:disabled{opacity:.6}
+.auth-panel .secondary-action{background:transparent;border:1px solid #475569;color:#cbd5e1}
+body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-btn{visibility:hidden}
+#auth-status{font-size:13px;color:#a5b4fc;min-height:16px}
+#logout-button{white-space:nowrap;font-size:12px}
+@media(max-width:768px){#logout-button{padding:8px 10px;font-size:11px}.page-title{font-size:19px}}
 #auth-error{color:#fca5a5;min-height:20px;font-size:13px}
 </style></head>
-<body>
-<div id="auth-gate"><form class="auth-panel" id="auth-form"><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button></form></div>
+<body class="auth-locked">
+<div id="auth-gate"><form class="auth-panel" id="auth-form"><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-status" role="status"></div><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button><button id="auth-switch" class="secondary-action" type="button" hidden>Oturumu kapat / hesap değiştir</button></form></div>
 
 <div class="app-layout">
   
@@ -457,7 +462,7 @@ canvas { display:block; width:100%; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── FIREBASE CONFIG ────────────────────────────────────────
@@ -475,47 +480,76 @@ const auth = getAuth(app);
 const authGate = document.getElementById("auth-gate");
 const authForm = document.getElementById("auth-form");
 const authError = document.getElementById("auth-error");
-authForm.addEventListener("submit", async function(event) {
-  event.preventDefault();
-  const button = document.getElementById("auth-submit");
-  button.disabled = true;
-  authError.textContent = "";
-  try {
-    await signInWithEmailAndPassword(auth, document.getElementById("auth-email").value.trim(), document.getElementById("auth-password").value);
-    document.getElementById("auth-password").value = "";
-  } catch(e) {
-    authError.textContent = "Giriş başarısız. E-posta, şifre ve Firebase yetkilerini kontrol et.";
-  } finally { button.disabled = false; }
-});
-window.budgetSignOut = function(){ return signOut(auth); };
+const authStatus = document.getElementById("auth-status");
+const authSwitch = document.getElementById("auth-switch");
+const authSubmit = document.getElementById("auth-submit");
 const logoutButton = document.createElement("button");
 logoutButton.type = "button";
+logoutButton.id = "logout-button";
 logoutButton.textContent = "🔒 Güvenli çıkış";
-logoutButton.className = "nav-btn";
+logoutButton.className = "btn btn-ghost btn-sm";
+document.querySelector(".page-header")?.appendChild(logoutButton);
 logoutButton.addEventListener("click", () => signOut(auth));
-document.querySelector(".sidebar")?.appendChild(logoutButton);
+authSwitch.addEventListener("click", () => signOut(auth));
+window.budgetSignOut = function() { return signOut(auth); };
+authForm.addEventListener("submit", async function(event) {
+  event.preventDefault();
+  authSubmit.disabled = true;
+  authError.textContent = "";
+  authStatus.textContent = "Kimlik doğrulanıyor...";
+  try {
+    await setPersistence(auth, browserSessionPersistence);
+    await signInWithEmailAndPassword(auth, document.getElementById("auth-email").value.trim(), document.getElementById("auth-password").value);
+    document.getElementById("auth-password").value = "";
+  } catch (e) {
+    authError.textContent = "Giriş yapılamadı. E-posta ve şifreni kontrol et.";
+    authStatus.textContent = "";
+  } finally {
+    authSubmit.disabled = false;
+  }
+});
 let initializedForUid = null;
+let authRevision = 0;
 onAuthStateChanged(auth, async function(user) {
+  const revision = ++authRevision;
+  authGate.hidden = false;
+  document.body.classList.add("auth-locked");
+  document.getElementById("auth-password").value = "";
+  if (txUnsub) { txUnsub(); txUnsub = null; }
+  if (invUnsub) { invUnsub(); invUnsub = null; }
+  initializedForUid = null;
+  transactions = [];
+  investments = [];
+  cats = {income: [], expense: []};
+  budgets = {};
+  _goals = [];
   if (!user) {
-    authGate.hidden = false;
-    if (txUnsub) { txUnsub(); txUnsub = null; }
-    if (invUnsub) { invUnsub(); invUnsub = null; }
-    initializedForUid = null;
-    transactions = []; investments = [];
-    cats = {income:[],expense:[]}; budgets = {}; _goals = [];
-    document.querySelectorAll(".main-content").forEach(function(el){el.style.visibility="hidden";});
+    authStatus.textContent = "";
+    authError.textContent = "";
+    authSwitch.hidden = true;
+    authSubmit.hidden = false;
     return;
   }
-  if (initializedForUid === user.uid) return;
-  initializedForUid = user.uid;
+  authSwitch.hidden = false;
+  authSubmit.hidden = true;
+  authError.textContent = "";
+  authStatus.textContent = "Hesap doğrulandı. Veritabanı yetkisi kontrol ediliyor...";
   try {
+    // The app must not open until Firestore has accepted the signed-in user.
+    // Current data/settings document exists in this project's original schema.
+    const probe = await getDoc(doc(db, "data", "settings"));
+    if (!probe.exists()) throw new Error("Missing existing settings document");
+    if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
     await initAppLifecycle();
-    document.querySelectorAll(".main-content").forEach(function(el){el.style.visibility="visible";});
+    if (revision !== authRevision || auth.currentUser?.uid !== user.uid) return;
+    initializedForUid = user.uid;
+    authStatus.textContent = "";
+    document.body.classList.remove("auth-locked");
     authGate.hidden = true;
-  } catch(e) {
-    initializedForUid = null;
-    authGate.hidden = false;
-    authError.textContent = "Veriler yüklenemedi. Firebase kurallarını kontrol et.";
+  } catch (e) {
+    if (revision !== authRevision) return;
+    authStatus.textContent = "";
+    authError.textContent = "Oturum açıldı ancak bütçe verilerine erişim doğrulanamadı. Firebase güvenlik kuralları henüz kapalı olabilir. Verilerin değiştirilmedi.";
   }
 });
 
