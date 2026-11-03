@@ -9,7 +9,7 @@ const manifest = JSON.parse(fs.readFileSync('manifest.json','utf8'));
 const rules = fs.readFileSync('firestore.rules.example','utf8');
 const sw = fs.readFileSync('sw.js','utf8');
 
-const moduleMatch = html.match(/<script\\s+type="module">([\\s\\S]*?)<\\/script>/);
+const moduleMatch = html.match(/<script\s+type="module">([\s\S]*?)<\/script>/);
 assert(moduleMatch, 'Main JavaScript module must exist');
 const tmp = path.join(os.tmpdir(), 'butceapp-security-check.mjs');
 try {
@@ -31,7 +31,7 @@ assert(html.includes('authSwitch'), 'User must be able to sign out when Firestor
 
 assert(rules.includes('request.auth.uid'), 'Rules must bind access to an authenticated UID');
 assert(rules.includes('REPLACE_WITH_YOUR_FIREBASE_AUTH_UID'), 'Do not commit a real owner UID');
-assert(!/allow\\s+read\\s*,\\s*write\\s*:\\s*if\\s+true/.test(rules), 'Unrestricted database rules are forbidden');
+assert(!/allow\s+read\s*,\s*write\s*:\s*if\s+true/.test(rules), 'Unrestricted database rules are forbidden');
 
 assert.equal(manifest.display, 'standalone');
 assert(manifest.icons.length > 0);
