@@ -202,8 +202,17 @@ canvas { display:block; width:100%; }
   .toast { bottom:calc(80px + env(safe-area-inset-bottom)); }
 }
 </style>
-</head>
+<style>
+#auth-gate{position:fixed;inset:0;z-index:99999;background:#0b0c10;color:#e2e8f0;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,sans-serif}
+#auth-gate[hidden]{display:none}
+.auth-panel{width:min(100%,390px);background:#161821;border:1px solid #2d3142;border-radius:20px;padding:30px;display:grid;gap:15px}
+.auth-panel input{padding:13px;border-radius:10px;border:1px solid #475569;background:#11131a;color:#fff;font-size:16px;width:100%}
+.auth-panel button{background:#8b5cf6;border:0;border-radius:10px;color:white;padding:13px;font-size:15px;font-weight:700;cursor:pointer}
+.auth-panel button:disabled{opacity:.6}
+#auth-error{color:#fca5a5;min-height:20px;font-size:13px}
+</style></head>
 <body>
+<div id="auth-gate"><form class="auth-panel" id="auth-form"><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button></form></div>
 
 <div class="app-layout">
   
@@ -448,6 +457,7 @@ canvas { display:block; width:100%; }
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 // ── FIREBASE CONFIG ────────────────────────────────────────
@@ -461,6 +471,38 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+const authGate = document.getElementById("auth-gate");
+const authForm = document.getElementById("auth-form");
+const authError = document.getElementById("auth-error");
+authForm.addEventListener("submit", async function(event) {
+  event.preventDefault();
+  const button = document.getElementById("auth-submit");
+  button.disabled = true;
+  authError.textContent = "";
+  try {
+    await signInWithEmailAndPassword(auth, document.getElementById("auth-email").value.trim(), document.getElementById("auth-password").value);
+    document.getElementById("auth-password").value = "";
+  } catch(e) {
+    authError.textContent = "Giriş başarısız. E-posta, şifre ve Firebase yetkilerini kontrol et.";
+  } finally { button.disabled = false; }
+});
+window.budgetSignOut = function(){ return signOut(auth); };
+let initializedForUid = null;
+onAuthStateChanged(auth, async function(user) {
+  if (!user) {
+    authGate.hidden = false;
+    if (txUnsub) { txUnsub(); txUnsub = null; }
+    if (invUnsub) { invUnsub(); invUnsub = null; }
+    initializedForUid = null;
+    transactions = []; investments = [];
+    return;
+  }
+  authGate.hidden = true;
+  if (initializedForUid === user.uid) return;
+  initializedForUid = user.uid;
+  await initAppLifecycle();
+});
 
 // ── SYNC STATUS ────────────────────────────────────────────
 function setSyncStatus(s){
@@ -2639,7 +2681,7 @@ document.querySelectorAll(".modal-bg").forEach(function(el){
 });
 
 // ── ASYNC INITIALIZER ──
-(async function initAppLifecycle(){
+async function initAppLifecycle(){
   states.budget.months = [CUR_M_REAL];
   states.actual.months = [CUR_M_REAL];
   states.variance.months = Array.from({length: CUR_M_REAL + 1}, function(_, i){return i;});
@@ -2652,7 +2694,7 @@ document.querySelectorAll(".modal-bg").forEach(function(el){
   listenTransactions();
   listenInvestments();
   renderBudget();
-})();
+}
 </script>
 <script>if ("serviceWorker" in navigator) { window.addEventListener("load", function(){ navigator.serviceWorker.register("./sw.js").catch(function(e){ console.warn("PWA service worker:",e); }); }); }</script>
 </body>
