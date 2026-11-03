@@ -9,6 +9,8 @@
 <meta name="apple-mobile-web-app-title" content="BütçeApp"/>
 <title>BütçeApp v2.0</title>
 <link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/svg+xml" href="icon.svg"/>
+<meta name="mobile-web-app-capable" content="yes"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -2652,5 +2654,6 @@ document.querySelectorAll(".modal-bg").forEach(function(el){
   renderBudget();
 })();
 </script>
+<script>if ("serviceWorker" in navigator) { window.addEventListener("load", function(){ navigator.serviceWorker.register("./sw.js").catch(function(e){ console.warn("PWA service worker:",e); }); }); }</script>
 </body>
 </html>
