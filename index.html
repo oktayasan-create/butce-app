@@ -488,6 +488,12 @@ authForm.addEventListener("submit", async function(event) {
   } finally { button.disabled = false; }
 });
 window.budgetSignOut = function(){ return signOut(auth); };
+const logoutButton = document.createElement("button");
+logoutButton.type = "button";
+logoutButton.textContent = "🔒 Güvenli çıkış";
+logoutButton.className = "nav-btn";
+logoutButton.addEventListener("click", () => signOut(auth));
+document.querySelector(".sidebar")?.appendChild(logoutButton);
 let initializedForUid = null;
 onAuthStateChanged(auth, async function(user) {
   if (!user) {
@@ -496,12 +502,21 @@ onAuthStateChanged(auth, async function(user) {
     if (invUnsub) { invUnsub(); invUnsub = null; }
     initializedForUid = null;
     transactions = []; investments = [];
+    cats = {income:[],expense:[]}; budgets = {}; _goals = [];
+    document.querySelectorAll(".main-content").forEach(function(el){el.style.visibility="hidden";});
     return;
   }
-  authGate.hidden = true;
   if (initializedForUid === user.uid) return;
   initializedForUid = user.uid;
-  await initAppLifecycle();
+  try {
+    await initAppLifecycle();
+    document.querySelectorAll(".main-content").forEach(function(el){el.style.visibility="visible";});
+    authGate.hidden = true;
+  } catch(e) {
+    initializedForUid = null;
+    authGate.hidden = false;
+    authError.textContent = "Veriler yüklenemedi. Firebase kurallarını kontrol et.";
+  }
 });
 
 // ── SYNC STATUS ────────────────────────────────────────────
