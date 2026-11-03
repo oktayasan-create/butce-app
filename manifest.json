@@ -1,0 +1,19 @@
+{
+  "name": "BütçeApp",
+  "short_name": "BütçeApp",
+  "description": "Kişisel bütçe ve finans yönetimi",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0c10",
+  "theme_color": "#0b0c10",
+  "lang": "tr",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
