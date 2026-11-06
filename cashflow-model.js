@@ -113,7 +113,9 @@ export function setCardActive(p,id,active){
   card.active=Boolean(active);
 }
 export function addCashFlowEntry(p,e) {
-  const candidate={...e,amount:r2(Number(e.amount)),note:String(e.note||"").slice(0,240)};
+  const candidate={id:e.id,type:e.type,date:e.date,amount:r2(Number(e.amount)),note:String(e.note||"").slice(0,240)};
+  if(e.type==="income"||e.type==="card_expense"||e.type==="cash_expense") candidate.categoryId=e.categoryId;
+  if(e.type==="card_expense"||e.type==="card_payment") candidate.cardId=e.cardId;
   if(!identifierPattern.test(candidate.id)||p.entries.some(t=>t.id===candidate.id))throw new Error("Invalid movement ID");
   p.entries.push(candidate);
   if(!validCashFlowPlan(p)){p.entries.pop();throw new Error("Invalid movement");}
