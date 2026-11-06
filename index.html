@@ -226,6 +226,27 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 .cf-table td,.cf-table th{padding:10px;border-bottom:1px solid var(--border);white-space:nowrap}
 .cf-table th:first-child,.cf-table td:first-child{text-align:left}
 .cf-rich-table{min-width:1700px}
+.cf-category-panels{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(250px,1fr);gap:18px;align-items:start}
+.cf-category-panel{min-width:0}
+.cf-category-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:7px}
+.cf-category-chip{display:flex;align-items:center;gap:3px;min-width:0;border:1px solid var(--border);background:var(--bg4);border-radius:10px;padding:3px 4px}
+.cf-category-chip input{width:100%;min-width:0;outline:none;background:transparent;color:var(--text);border:none;font-size:12px;padding:6px;font-family:inherit}
+.cf-chip-toggle{cursor:pointer;flex:none;width:24px;height:24px;border:0;border-radius:7px;background:rgba(248,113,113,.13);color:#fb7185;font-size:18px;line-height:20px}
+.cf-chip-archived{opacity:.63}.cf-chip-archived .cf-chip-toggle{color:#34d399;background:rgba(52,211,153,.13)}
+.cf-category-add{display:flex;gap:7px;margin-top:10px}.cf-category-add input{flex:1;min-width:0;padding:9px 10px;background:var(--bg4);border:1px solid var(--border);border-radius:9px;color:var(--text)}
+.cf-archive{margin-top:10px;font-size:12px;color:var(--text3)}.cf-archive>summary{cursor:pointer;margin-bottom:8px}
+.cf-statement-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(255px,1fr));gap:10px}
+.cf-statement-card{border:1px solid var(--border);border-radius:11px;padding:10px;min-width:0}
+.cf-statement-card details{margin-top:8px}.cf-statement-card summary{cursor:pointer}
+.cf-statement-scroll{overflow:auto;max-height:340px;margin-top:10px}
+.cf-statement-table{border-collapse:collapse;min-width:680px;width:100%;font-size:12px}
+.cf-statement-table td,.cf-statement-table th{padding:7px;border-bottom:1px solid var(--border);text-align:left}
+.cf-statement-table select{max-width:150px;padding:6px;background:var(--bg4);color:var(--text);border:1px solid var(--border);border-radius:7px}
+.cf-statement-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+.cf-statement-actions select{max-width:220px;min-width:130px;padding:7px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text)}
+@media(max-width:900px){.cf-category-panels{grid-template-columns:1fr}}
+@media(max-width:480px){.cf-category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.cf-statement-grid{grid-template-columns:1fr}}
+
 .cf-rich-table td{font-variant-numeric:tabular-nums}
 .cf-overdraft-month{background:rgba(248,113,113,.13)}
 .cf-paidoff-month{background:rgba(52,211,153,.12)}
@@ -493,6 +514,7 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, normalizeCashFlowPlan, addCashFlowCategory, setCategoryActive, setCardActive, addCashFlowEntry, summarizeCashFlowEntries } from "./cashflow-model.js";
+import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, statementPlanMonth, suggestStatementInstallments } from "./statement-import.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -555,6 +577,7 @@ onAuthStateChanged(auth, async function(user) {
   budgets = {};
   _goals = [];
   cfPlan = null; cfLoading = null; cfSelectedMonth = null; cfDirty = false; cfEntryType = "card_expense";
+  cfStatementInbox=null;cfStatementLoading=false;cfStatementDraft=null;cfStatementError="";cfStatementMappings={};
   if (!user) {
     authStatus.textContent = "";
     authError.textContent = "";
@@ -2777,6 +2800,7 @@ window.addCat=function(){
 
 // ── INDEPENDENT CASH & CREDIT CARD SCENARIO ─────────────────
 let cfPlan = null, cfLoading = null, cfSelectedMonth = null, cfDirty = false, cfEntryType = "card_expense";
+let cfStatementInbox=null,cfStatementLoading=false,cfStatementDraft=null,cfStatementError="",cfStatementMappings={};
 const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
@@ -2797,18 +2821,23 @@ function cfMonthData(month){
 }
 
 function cfCategoryList(kind){
-  const items=cfPlan.categories[kind];
+  const items=cfPlan.categories[kind],active=items.filter(c=>c.active),archived=items.filter(c=>!c.active);
   const title=kind==="expense"?"Harcama kategorileri":"Gelir grupları";
-  return '<div style="flex:1;min-width:255px"><div style="font-weight:700;margin-bottom:8px">'+title+'</div>'+
-    items.map(cat=>'<div style="display:flex;align-items:center;gap:8px;margin:7px 0">'+
-      '<input aria-label="Kategori adı" style="flex:1;min-width:0;padding:9px;border-radius:8px" value="'+cfText(cat.name)+
-      '" onchange="cfCategoryRename(\''+kind+'\',\''+cat.id+'\',this.value)">'+
-      '<button class="btn btn-'+(cat.active?'danger':'ghost')+' btn-sm" onclick="cfCategoryActive(\''+kind+'\',\''+cat.id+'\')">'+
-      (cat.active?'Kaldır':'Geri al')+'</button></div>').join("")+
-    '<div style="display:flex;gap:8px;margin-top:12px">'+
-      '<input style="flex:1;min-width:0;padding:10px;border-radius:8px" id="cf-new-'+kind+'" maxlength="90" placeholder="Yeni kategori adı">'+
-      '<button class="btn btn-p btn-sm" onclick="cfAddCategory(\''+kind+'\')">+ Ekle</button></div>'+
-    '<p class="cf-muted">Kaldırılan kategoriler arşivlenir; eski işlemler silinmez.</p></div>';
+  const chip=cat=>'<div class="cf-category-chip'+(cat.active?'':' cf-chip-archived')+'">'+
+    '<input aria-label="Kategori adını değiştir" maxlength="90" value="'+cfText(cat.name)+
+    '" onchange="cfCategoryRename(\''+kind+'\',\''+cat.id+'\',this.value)">'+
+    '<button class="cf-chip-toggle" title="'+(cat.active?'Arşivle':'Geri al')+'" aria-label="'+
+    (cat.active?'Kategoriyi arşivle':'Kategoriyi etkinleştir')+
+    '" onclick="cfCategoryActive(\''+kind+'\',\''+cat.id+'\')">'+
+    (cat.active?'×':'↻')+'</button></div>';
+  return '<div class="cf-category-panel"><div style="font-weight:700;margin-bottom:9px">'+title+
+    ' <span class="cf-muted">('+active.length+')</span></div>'+
+    '<div class="cf-category-grid">'+active.map(chip).join('')+'</div>'+
+    '<div class="cf-category-add"><input id="cf-new-'+kind+'" maxlength="90" placeholder="+ Yeni kategori adı">'+
+    '<button class="btn btn-p btn-sm" onclick="cfAddCategory(\''+kind+'\')">Ekle</button></div>'+
+    (archived.length?'<details class="cf-archive"><summary>Arşivlenmiş kategoriler ('+archived.length+
+    ')</summary><div class="cf-category-grid">'+archived.map(chip).join('')+'</div></details>':'')+
+    '</div>';
 }
 function cfLoanEditor(){
   const rows=cfPlan.loans.map((loan,i)=>'<div class="cf-edit-row">'+
@@ -3037,7 +3066,7 @@ async function renderCashflow(){
       '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">7. Kart harcaması, gelir ve ödeme kaydı</div>'+cfActivityForm()+'</div>'+
       '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">8. Harcama ve gelir kategorileri</div>'+
       '<p class="cf-muted">İstediğin gibi yeni kategori ekleyebilir, isim değiştirebilir veya kullanım listesinden kaldırabilirsin. Eski işlem geçmişi korunur.</p>'+
-      '<div style="display:flex;gap:28px;flex-wrap:wrap">'+cfCategoryList("expense")+cfCategoryList("income")+'</div></div>'+
+      '<div class="cf-category-panels">'+cfCategoryList("expense")+cfCategoryList("income")+'</div></div>'+
       '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">9. Bu ayın kategori özeti</div>'+
       cfCategorizedSummary(current)+'</div>'+
       '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">10. Hareket geçmişi</div>'+cfActivityLog(current)+'</div>'+
