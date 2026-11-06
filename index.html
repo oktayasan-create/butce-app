@@ -3029,7 +3029,8 @@ async function renderCashflow(){
         cfField("Krediler dışındaki diğer sabit ödemeler",currentData.fixedCash||0,"cfMonthField('fixedCash',this.value)")+
         cfField("Ek tahmini nakit gideri (₺)",currentData.otherCash||0,"cfMonthField('otherCash',this.value)")+
         (!cfPlan.autoExtra?cfField("Benim belirlediğim ek kart ödemesi (₺)",currentData.extraPayment||0,"cfMonthField('extraPayment',this.value)"):'')+
-      '</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+
+      '</div><p class="cf-muted" style="margin-top:10px">Ek kart ödeme tutarı zorunlu ödemelerden ve Ekpara kapanışından sonra gerçekten kullanılabilecek nakitle sınırlandırılır. Bu ek ödemeyi zaten gerçekleşmiş kart ödemesi olarak kaydettiysen burada tekrar yazma.</p>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+
       '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'income\')">Maaşı sonraki aylara uygula</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'fixedCash\')">Sabit ödemeleri sonraki aylara uygula</button>'+
       '</div><div style="margin-top:12px">'+rowEditor+'</div></div>'+
