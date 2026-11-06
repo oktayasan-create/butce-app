@@ -28,7 +28,7 @@ const sandbox={
  document:{getElementById(id){return id==='tab-cashflow'?root:inputs[id]||null}},
  safeHtml(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))},
  showToast(x){messages.push(x)},confirm(){return true},Date,Math,Intl,Number,String,Array,Object,
- structuredClone,...model
+ structuredClone,createStatementInboxUI:()=>({render(){},reset(){},selectFile(){},saveDraft(){},saveCategories(){},categoryEdit(){},cancelDraft(){}}),...model
 };
 vm.createContext(sandbox);
 vm.runInContext(html.slice(start,end),sandbox,{filename:'cashflow-ui.js'});
