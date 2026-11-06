@@ -213,7 +213,22 @@ canvas { display:block; width:100%; }
 body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-btn{visibility:hidden}
 #auth-status{font-size:13px;color:#a5b4fc;min-height:16px}
 #logout-button{white-space:nowrap;font-size:12px}
-@media(max-width:768px){#logout-button{padding:8px 10px;font-size:11px}.page-title{font-size:19px}}
+@media(max-width:768px){#logout-button{padding:8px 10px;font-size:11px}.page-title{font-size:19px}
+.bottom-nav-inner{overflow-x:auto;scrollbar-width:none}.bottom-nav-inner::-webkit-scrollbar{display:none}.bnav-btn{min-width:55px}.cf-inputs{grid-template-columns:1fr 1fr!important}
+}
+.cf-inputs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.cf-inputs label,.cf-card-fields label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--text3);font-weight:600}
+.cf-inputs input,.cf-inputs select,.cf-card-fields input,.cf-card-fields select{width:100%;min-width:0;padding:11px 12px;background:var(--bg4);color:var(--text);border:1px solid var(--border2);border-radius:10px;font:inherit}
+.cf-card-fields{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr;gap:12px}
+@media(max-width:768px){.cf-card-fields{grid-template-columns:1fr 1fr}}
+.cf-scroll{overflow-x:auto}
+.cf-table{width:100%;border-collapse:collapse;min-width:750px;text-align:right;font-size:12px}
+.cf-table td,.cf-table th{padding:10px;border-bottom:1px solid var(--border);white-space:nowrap}
+.cf-table th:first-child,.cf-table td:first-child{text-align:left}
+.cf-muted{font-size:12px;color:var(--text3);line-height:1.5}
+.cf-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media(max-width:768px){.cf-kpis{grid-template-columns:1fr 1fr}}
+
 #auth-error{color:#fca5a5;min-height:20px;font-size:13px}
 </style></head>
 <body class="auth-locked">
@@ -233,6 +248,7 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
       <button class="nav-btn" id="dnav-actual" onclick="goTab('actual',this)">✅ Gerçekleşen</button>
       <button class="nav-btn" id="dnav-variance" onclick="goTab('variance',this)">📐 Fark Analizi</button>
       <button class="nav-btn" id="dnav-invest" onclick="goTab('invest',this)">💎 Yatırımlar</button>
+       <button class="nav-btn" id="dnav-cashflow" onclick="goTab('cashflow',this)">💳 Nakit Akışı & Kartlar</button>
       <button class="nav-btn" id="dnav-analiz" onclick="goTab('analiz',this)">🧠 Detaylı Analiz</button>
       <button class="nav-btn" id="dnav-history" onclick="goTab('history',this)">📋 İşlem Geçmişi</button>
       
@@ -257,6 +273,7 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
     <div class="wrap" id="tab-actual" style="display:none"></div>
     <div class="wrap" id="tab-variance" style="display:none"></div>
     <div class="wrap" id="tab-invest" style="display:none"></div>
+     <div class="wrap" id="tab-cashflow" style="display:none"></div>
     <div class="wrap" id="tab-analiz" style="display:none"></div>
     <div class="wrap" id="tab-txadd" style="display:none"></div>
     <div class="wrap" id="tab-history" style="display:none"></div>
@@ -279,7 +296,10 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
     <button class="bnav-btn" id="mnav-invest" onclick="mGoTab('invest',this)">
       <span class="bi">💎</span><span class="bl">Yatırım</span>
     </button>
-    <button class="bnav-btn" id="mnav-analiz" onclick="mGoTab('analiz',this)">
+    <button class="bnav-btn" id="mnav-cashflow" onclick="mGoTab('cashflow',this)">
+       <span class="bi">💳</span><span class="bl">Nakit</span>
+     </button>
+     <button class="bnav-btn" id="mnav-analiz" onclick="mGoTab('analiz',this)">
       <span class="bi">🧠</span><span class="bl">Analiz</span>
     </button>
     <button class="bnav-btn" id="mnav-txadd" onclick="mGoTab('txadd',this)">
@@ -462,6 +482,7 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, normalizeCashFlowPlan, addCashFlowCategory, setCategoryActive, setCardActive, addCashFlowEntry, summarizeCashFlowEntries } from "./cashflow-model.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -523,6 +544,7 @@ onAuthStateChanged(auth, async function(user) {
   cats = {income: [], expense: []};
   budgets = {};
   _goals = [];
+  cfPlan = null; cfLoading = null; cfSelectedMonth = null; cfDirty = false; cfEntryType = "card_expense";
   if (!user) {
     authStatus.textContent = "";
     authError.textContent = "";
@@ -1019,6 +1041,7 @@ var tabTitles = {
   actual: '✅ Gerçekleşen',
   variance: '📐 Fark Analizi',
   invest: '💎 Yatırımlar',
+   cashflow: '💳 Nakit Akışı & Kartlar',
   analiz: '🧠 Detaylı Analiz',
   txadd: '⚙️ Yönet & Ekle',
   history: '📋 İşlem Geçmişi'
@@ -1032,11 +1055,11 @@ window.goTab=function(tab,btn){
   var pt = document.getElementById("page-title-text");
   if(pt) pt.textContent = tabTitles[tab] || tab;
 
-  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
+  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
     var mb=document.getElementById("mnav-"+t);
     if(mb) mb.className="bnav-btn"+(t===tab?" active":"");
   });
-  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
+  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
     var pane=document.getElementById("tab-"+t);
     if(pane) pane.style.display=t===tab?"flex":"none"; 
   });
@@ -1046,15 +1069,15 @@ window.mGoTab=function(tab,btn){
   var pt = document.getElementById("page-title-text");
   if(pt) pt.textContent = tabTitles[tab] || tab;
 
-  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
+  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
     var b=document.getElementById("mnav-"+t);
     if(b) b.className="bnav-btn"+(t===tab?" active":"");
   });
-  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
+  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
     var b=document.getElementById("dnav-"+t);
     if(b) b.className="nav-btn"+(t===tab?" active":"");
   });
-  ["budget","actual","variance","invest","analiz","txadd","history"].forEach(function(t){
+  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
     var pane=document.getElementById("tab-"+t);
     if(pane) pane.style.display=t===tab?"flex":"none";
   });
@@ -1067,6 +1090,7 @@ function render(tab){
   else if(tab==="actual")renderActual();
   else if(tab==="variance")renderVariance();
   else if(tab==="invest")renderInvest();
+   else if(tab==="cashflow")renderCashflow();
   else if(tab==="analiz")renderAnaliz();
   else if(tab==="txadd")renderTxAdd();
   else if(tab==="history")renderHistory();
@@ -2739,6 +2763,311 @@ window.addCat=function(){
   cats[mCatSel].push({id:id,name:name,icon:icon,color:color}); budgets[id]=Array(12).fill(0); saveSettings();
   document.getElementById("new-cat-name").value=""; document.getElementById("new-cat-icon").value=""; document.getElementById("new-cat-err").textContent="";
   mCatType(mCatSel);render(curTab);
+};
+
+// ── INDEPENDENT CASH & CREDIT CARD SCENARIO ─────────────────
+let cfPlan = null, cfLoading = null, cfSelectedMonth = null, cfDirty = false, cfEntryType = "card_expense";
+const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
+const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
+const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
+const cfText = (v) => safeHtml(v);
+const cfField = (label,value,onchange,type="number") =>
+  '<label>'+cfText(label)+'<input type="'+type+'" '+(type==="number"?'step="0.01"':'')+
+  ' value="'+cfText(value)+'" onchange="'+onchange+'"></label>';
+
+function cfShowError(message){
+  const el=document.getElementById("cf-error");
+  if(el) el.textContent=message||"";
+}
+function cfMonthData(month){
+  if(!cfPlan.months[month]) cfPlan.months[month]={income:0,fixedCash:0,otherCash:0,cardSpends:{},minOverrides:{}};
+  if(!cfPlan.months[month].cardSpends) cfPlan.months[month].cardSpends={};
+  if(!cfPlan.months[month].minOverrides) cfPlan.months[month].minOverrides={};
+  return cfPlan.months[month];
+}
+
+function cfCategoryList(kind){
+  const items=cfPlan.categories[kind];
+  const title=kind==="expense"?"Harcama kategorileri":"Gelir grupları";
+  return '<div style="flex:1;min-width:255px"><div style="font-weight:700;margin-bottom:8px">'+title+'</div>'+
+    items.map(cat=>'<div style="display:flex;align-items:center;gap:8px;margin:7px 0">'+
+      '<input aria-label="Kategori adı" style="flex:1;min-width:0;padding:9px;border-radius:8px" value="'+cfText(cat.name)+
+      '" onchange="cfCategoryRename(\''+kind+'\',\''+cat.id+'\',this.value)">'+
+      '<button class="btn btn-'+(cat.active?'danger':'ghost')+' btn-sm" onclick="cfCategoryActive(\''+kind+'\',\''+cat.id+'\')">'+
+      (cat.active?'Kaldır':'Geri al')+'</button></div>').join("")+
+    '<div style="display:flex;gap:8px;margin-top:12px">'+
+      '<input style="flex:1;min-width:0;padding:10px;border-radius:8px" id="cf-new-'+kind+'" maxlength="90" placeholder="Yeni kategori adı">'+
+      '<button class="btn btn-p btn-sm" onclick="cfAddCategory(\''+kind+'\')">+ Ekle</button></div>'+
+    '<p class="cf-muted">Kaldırılan kategoriler arşivlenir; eski işlemler silinmez.</p></div>';
+}
+function cfActivityForm(){
+  const type=cfEntryType;
+  const wantsCard=type==="card_expense"||type==="card_payment";
+  const wantsCat=type!=="card_payment";
+  const kind=type==="income"?"income":"expense";
+  const cats=cfPlan.categories[kind].filter(c=>c.active);
+  const cards=cfPlan.cards.filter(c=>c.active!==false||type==="card_payment");
+  const date=new Date();
+  const today=date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+"-"+String(date.getDate()).padStart(2,"0");
+  const entryDate=today.slice(0,7)===cfSelectedMonth?today:(cfSelectedMonth+"-01");
+  return '<div class="cf-inputs">'+
+    '<label>Hareket türü<select id="cf-entry-type" onchange="cfEntryTypeChange(this.value)">'+
+      [['card_expense','Kredi kartı harcaması'],['cash_expense','Nakit / banka gideri'],
+       ['income','Gelir'],['card_payment','Kredi kartı ödemesi (transfer)']].map(([id,label])=>
+       '<option value="'+id+'"'+(type===id?' selected':'')+'>'+label+'</option>').join("")+
+    '</select></label>'+
+    (wantsCard?'<label>Kredi kartı<select id="cf-entry-card">'+cards.map(c=>
+      '<option value="'+c.id+'">'+cfText(c.name)+(c.active===false?' (Arşiv)':'')+'</option>').join('')+'</select></label>':'')+
+    (wantsCat?'<label>Kategori<select id="cf-entry-cat">'+cats.map(c=>
+      '<option value="'+c.id+'">'+cfText(c.name)+'</option>').join('')+'</select></label>':'')+
+    '<label>Tarih<input id="cf-entry-date" type="date" value="'+entryDate+'"></label>'+
+    '<label>Tutar (₺)<input id="cf-entry-amount" type="number" step="0.01" min="0.01" placeholder="0,00"></label>'+
+    '<label>Açıklama<input id="cf-entry-note" maxlength="240" placeholder="İsteğe bağlı not"></label>'+
+    '</div>'+
+    '<p class="cf-muted" style="margin:10px 0">'+
+    (type==="income"?'Bu ay gerçekleşen gelir kaydı varsa aynı ayın planlanan toplam geliri yerine gerçek gelir toplamı kullanılır.':
+     type==="card_payment"?'Bu ödeme banka nakdini ve kart borcunu azaltır; harcama kategorilerine eklenmez.':
+     type==="card_expense"?'Kart harcaması ilgili kategoride görünür ve kart borcunu artırır; banka nakdini hemen azaltmaz.':
+     'Nakit gider, banka bakiyesini azaltır ve harcama kategorisinde görünür.')+'</p>'+
+    '<button class="btn btn-p" onclick="cfAddEntry()">+ Hareket ekle</button>';
+}
+function cfCategorizedSummary(current){
+  const byCat=current.byCategory;
+  const blocks=["expense","income"].map(kind=>{
+    const entries=Object.entries(byCat[kind]);
+    const title=kind==="expense"?"Harcamalar (kart + nakit)":"Gerçekleşen gelirler";
+    return '<div style="flex:1;min-width:220px"><div style="font-weight:700;margin-bottom:8px">'+title+'</div>'+
+      (entries.length?entries.map(([id,amount])=>{
+        const cat=cfPlan.categories[kind].find(c=>c.id===id);
+        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px solid var(--border)">'+
+          '<span>'+cfText(cat?.name||'Bilinmeyen kategori')+'</span><strong>'+cfMoney(amount)+'</strong></div>';
+      }).join(''):'<div class="cf-muted">Bu ay kayıt yok.</div>')+'</div>';
+  });
+  return '<div style="display:flex;gap:20px;flex-wrap:wrap">'+blocks.join('')+'</div>';
+}
+function cfActivityLog(current){
+  const movements=current.entries.slice().sort((a,b)=>b.date.localeCompare(a.date));
+  const types={card_expense:"💳 Kart gideri",cash_expense:"💸 Nakit gider",income:"💰 Gelir",card_payment:"🔁 Kart ödemesi"};
+  return movements.length?movements.map(e=>{
+    const kind=e.type==="income"?"income":"expense";
+    const cat=cfPlan.categories[kind]?.find(c=>c.id===e.categoryId);
+    const card=cfPlan.cards.find(c=>c.id===e.cardId);
+    return '<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">'+
+      '<div style="min-width:0"><div style="font-weight:600">'+cfText(types[e.type])+' · '+cfText(cat?.name||'Transfer')+
+      (card?' · '+cfText(card.name):'')+'</div><div class="cf-muted">'+cfText(e.date)+' · '+cfText(e.note||'Açıklama yok')+'</div></div>'+
+      '<div style="text-align:right;white-space:nowrap"><strong>'+cfMoney(e.amount)+'</strong>'+
+      '<button class="btn btn-danger btn-sm" style="margin-left:8px" onclick="cfDeleteEntry(\''+e.id+'\')">Sil</button></div></div>';
+  }).join(''):'<div class="cf-muted">Henüz bu ay işlem kaydı yok.</div>';
+}
+async function renderCashflow(){
+  const root=document.getElementById("tab-cashflow");
+  if(!root || !auth.currentUser)return;
+  if(!cfPlan){
+    root.innerHTML='<div class="card cb"><div class="loading">Nakit akışı planı yükleniyor...</div></div>';
+    if(cfLoading)return;
+    const userId=auth.currentUser.uid,revision=authRevision;
+    cfLoading=getDocFromServer(doc(db,"data","cashflowPlan")).then(snap=>{
+      if(revision!==authRevision||auth.currentUser?.uid!==userId)return;
+      const found=snap.exists()?snap.data().plan:null;
+      cfPlan=normalizeCashFlowPlan(found);
+      cfSelectedMonth=cfPlan.startMonth;
+      cfLoading=null;
+      renderCashflow();
+    }).catch(()=>{
+      if(revision!==authRevision)return;
+      cfLoading=null;
+      root.innerHTML='<div class="card cb"><div style="color:#fca5a5">Plan yüklenemedi. Bağlantıyı ve Firebase yetkilerini kontrol et.</div><button class="btn btn-ghost" onclick="renderCashflow()">Tekrar Dene</button></div>';
+    });
+    return;
+  }
+  let rows;
+  try{ rows=computeCashFlow(cfPlan); }catch(err){root.innerHTML='<div class="card cb">Plan verilerinde hata var. Kayıt değiştirilmedi.</div>';return;}
+  const current=rows.find(r=>r.month===cfSelectedMonth)||rows[0];
+  if(!current)return;
+  cfSelectedMonth=current.month;
+  const currentData=cfMonthData(cfSelectedMonth);
+  const cardEditor=cfPlan.cards.length?cfPlan.cards.map((card,i)=>
+    '<div style="border:1px solid var(--border);padding:15px;border-radius:12px;margin-top:10px">'+
+    '<div class="cf-card-fields">'+
+      cfField("Kart adı",card.name,"cfCard("+i+",'name',this.value)","text")+
+      cfField("Başlangıç kart borcu (₺)",card.openingDebt,"cfCard("+i+",'openingDebt',this.value)")+
+      cfField("Tahmini asgari (%)",card.minPct,"cfCard("+i+",'minPct',this.value)")+
+      cfField("Aylık faiz varsayımı (%)",card.interestPct,"cfCard("+i+",'interestPct',this.value)")+
+    '</div><button class="btn btn-'+(card.active===false?'ghost':'danger')+' btn-sm" style="margin-top:9px" onclick="cfRemoveCard('+i+')">'+(card.active===false?'Kartı geri al':'Kartı kaldır (arşivle)')+'</button></div>'
+  ).join(""):'<p class="cf-muted">Henüz kart eklenmedi. Banka veya kart adlarını ekleyerek başlayabilirsin.</p>';
+  const rowEditor=cfPlan.cards.map(card=>{
+    const state=current.cards.find(c=>c.id===card.id);
+    const override=currentData.minOverrides?.[card.id];
+    return '<div style="padding:12px 0;border-bottom:1px solid var(--border)"><div style="font-weight:600;margin-bottom:8px">'+cfText(card.name)+
+      ' <span class="cf-muted">— Bu ay tahmini asgari: '+cfMoney(state.minimum)+'</span></div><div class="cf-inputs">'+
+      cfField("Ek planlanan kart harcaması (₺)",currentData.cardSpends?.[card.id]||0,"cfMonthCard('"+card.id+"',this.value)")+
+      cfField("Bankanın bildirdiği asgari (₺)",override==null?"":override,"cfMinOverride('"+card.id+"',this.value)","text")+
+      '<div class="cf-muted" style="align-self:end">Boş bırakılırsa tahmini oran kullanılır. Kategorili kayıtlarda olan harcamaları buraya yeniden girme. Ek tahmini alışverişleri gir; mevcut hareketler gelecek aya devreder.</div>'+
+      '</div></div>';
+  }).join("");
+  const dashboard=rows.map(row=>{
+    const moneyColor=row.closingCash<0?'#f87171':'#34d399';
+    return '<tr><td>'+cfText(row.month)+'</td><td>'+cfMoney(row.income)+'</td><td>'+cfMoney(row.minimumTotal)+
+      '</td><td>'+cfMoney(row.extraTotal)+'</td><td>'+cfMoney(row.cardSpending)+
+      '</td><td>'+cfMoney(row.closingDebt)+'</td><td style="color:'+moneyColor+';font-weight:700">'+cfMoney(row.closingCash)+'</td></tr>';
+  }).join("");
+  root.innerHTML=
+    '<div class="fade" style="width:100%">'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">💳 Nakit & Kredi Kartı Borç Planı</div>'+
+      '<p class="cf-muted">Harcama, gelir ve kart ödemelerini burada ayrı kategorilerle takip edebilirsin. Bu hareketler şimdilik BütçeApp\'in diğer gerçekleşen sekmesine otomatik aktarılmaz; aynı kaydı iki yerde girersen raporları ayrı ayrı yorumlamalısın. Kart ödemesi ikinci bir gider değildir. Faiz ve asgari rakamları tahminidir.</p>'+
+      '<div class="cf-kpis" style="margin-top:14px">'+
+        '<div class="card kpi"><div class="klbl">Seçili ay sonu nakit</div><div class="kval" style="font-size:19px;color:'+(current.closingCash<0?'#f87171':'#34d399')+'">'+cfMoney(current.closingCash)+'</div></div>'+
+        '<div class="card kpi"><div class="klbl">Devreden kart borcu</div><div class="kval" style="font-size:19px;color:#f87171">'+cfMoney(current.closingDebt)+'</div></div>'+
+        '<div class="card kpi"><div class="klbl">Tahmini asgari ödeme</div><div class="kval" style="font-size:19px">'+cfMoney(current.minimumTotal)+'</div></div>'+
+      '</div>'+
+      '<p class="cf-muted" style="margin-top:12px">Kart harcamaları bu ayın borcuna eklenir; bir sonraki ayın ödeme planına yansır. Hesaplama ay bazlıdır, ekstre kesim tarihi ve taksit ayrıntılarını henüz otomatik hesaplamaz.</p></div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">1. Başlangıç ve ödeme stratejisi</div>'+
+      '<div class="cf-inputs">'+
+      cfField("Plan başlangıcı",cfPlan.startMonth,"cfRoot('startMonth',this.value)","month")+
+      cfField("Banka nakit bakiyesi (eksi olabilir)",cfPlan.openingCash,"cfRoot('openingCash',this.value)")+
+      cfField("Elde tutulacak güvenli nakit (₺)",cfPlan.reserve,"cfRoot('reserve',this.value)")+
+      '<label>Artan parayı kartlara yönlendir<select onchange="cfRoot(this.dataset.key,this.value)" data-key="autoExtra"><option value="yes"'+(cfPlan.autoExtra?' selected':'')+'>Evet, otomatik</option><option value="no"'+(!cfPlan.autoExtra?' selected':'')+'>Hayır, manuel</option></select></label>'+
+      '</div><p class="cf-muted" style="margin-top:8px">Her ay maaş ve zorunlu nakit ödemeler sonrası kalanı kart borcuna yönlendirebilirsin. Faizler sadece tahmin içindir.</p></div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="sec-title" style="margin:0">2. Kartlar</div><button class="btn btn-p btn-sm" onclick="cfAddCard()">+ Kart ekle</button></div>'+
+      cardEditor+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">3. Aylık plan</div>'+
+      '<label class="lbl" for="cf-month">Düzenlenecek ay</label><select id="cf-month" onchange="cfSelectMonth(this.value)" style="width:100%;margin-bottom:16px">'+
+      rows.map(row=>'<option value="'+row.month+'"'+(row.month===cfSelectedMonth?' selected':'')+'>'+row.month+'</option>').join("")+
+      '</select><div class="cf-inputs">'+
+        cfField("Aylık tahmini gelir (gerçekleşen yoksa)",currentData.income||0,"cfMonthField('income',this.value)")+
+        cfField("Ev, araba ve sabit nakit ödemeleri",currentData.fixedCash||0,"cfMonthField('fixedCash',this.value)")+
+        cfField("Ek tahmini nakit gideri (₺)",currentData.otherCash||0,"cfMonthField('otherCash',this.value)")+
+        (!cfPlan.autoExtra?cfField("Planlanan ek kart ödemesi (₺)",currentData.extraPayment||0,"cfMonthField('extraPayment',this.value)"):'')+
+      '</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+
+      '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'income\')">Maaşı sonraki aylara uygula</button>'+
+      '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'fixedCash\')">Sabit ödemeleri sonraki aylara uygula</button>'+
+      '</div><div style="margin-top:12px">'+rowEditor+'</div></div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">4. Kart harcaması, gelir ve ödeme kaydı</div>'+cfActivityForm()+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">5. Harcama ve gelir kategorileri</div>'+
+      '<p class="cf-muted">İstediğin gibi yeni kategori ekleyebilir, isim değiştirebilir veya kullanım listesinden kaldırabilirsin. Eski işlem geçmişi korunur.</p>'+
+      '<div style="display:flex;gap:28px;flex-wrap:wrap">'+cfCategoryList("expense")+cfCategoryList("income")+'</div></div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">6. Bu ayın kategori özeti</div>'+
+      cfCategorizedSummary(current)+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">7. Hareket geçmişi</div>'+cfActivityLog(current)+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">8. Önümüzdeki 12 ay</div>'+
+      '<div class="cf-scroll"><table class="cf-table"><thead><tr><th>Ay</th><th>Nakit gelir</th><th>Asgari ödemeler</th><th>Ek kart ödemesi</th><th>Yeni kart harcaması</th><th>Devreden kart borcu</th><th>Ay sonu nakit</th></tr></thead><tbody>'+dashboard+'</tbody></table></div>'+
+      '<p class="cf-muted" style="margin-top:12px">Eksi ay sonu bakiye, ek finansman veya harcama azaltma ihtiyacına işaret eder. Kart faizleri ile gerçek asgari tutarlar farklı olabilir; tablo bankacılık ekstresi değildir.</p></div>'+
+      '<div id="cf-error" role="alert" style="color:#fca5a5;font-size:13px;margin-bottom:10px"></div>'+
+      '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:24px"><button class="btn btn-p" onclick="cfSavePlan()">💾 Planı Kaydet</button>'+
+      '<span class="cf-muted">'+(cfDirty?'Kaydedilmemiş değişikliklerin var.':'Plan ayrı bir Firestore belgesinde saklanır.')+'</span></div>'+
+      '</div>';
+}
+window.renderCashflow=renderCashflow;
+window.cfRoot=function(field,value){
+  if(!cfPlan || !["startMonth","openingCash","reserve","autoExtra"].includes(field))return;
+  if(field==="startMonth") {if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return; cfPlan.startMonth=value;cfSelectedMonth=value;}
+  else if(field==="autoExtra")cfPlan.autoExtra=value==="yes";
+  else cfPlan[field]=field==="openingCash"?cfLimit(value,-1000000000000):cfLimit(value);
+  cfDirty=true;renderCashflow();
+};
+window.cfSelectMonth=function(key){if(!cfPlan)return;cfSelectedMonth=key;renderCashflow();};
+window.cfMonthField=function(field,value){
+  if(!["income","fixedCash","otherCash","extraPayment"].includes(field)||!cfPlan)return;
+  cfMonthData(cfSelectedMonth)[field]=cfLimit(value);cfDirty=true;renderCashflow();
+};
+window.cfMonthCard=function(id,value){
+  if(!cfPlan?.cards.some(c=>c.id===id))return;
+  cfMonthData(cfSelectedMonth).cardSpends[id]=cfLimit(value);cfDirty=true;renderCashflow();
+};
+window.cfMinOverride=function(id,value){
+  if(!cfPlan?.cards.some(c=>c.id===id))return;
+  cfMonthData(cfSelectedMonth).minOverrides[id]=value.trim()===""?null:cfLimit(value);cfDirty=true;renderCashflow();
+};
+window.cfCard=function(index,field,value){
+  const card=cfPlan?.cards[index];if(!card||!["name","openingDebt","minPct","interestPct"].includes(field))return;
+  if(field==="name")card.name=String(value).slice(0,90);
+  else card[field]=cfLimit(value,0,field==="minPct"?100:field==="interestPct"?25:1000000000000);
+  cfDirty=true;renderCashflow();
+};
+window.cfRepeatNext=function(field){
+  if(!cfPlan||!["income","fixedCash"].includes(field))return;
+  const amount=cfLimit(cfMonthData(cfSelectedMonth)[field]);
+  const first=computeCashFlow(cfPlan).findIndex(row=>row.month===cfSelectedMonth);
+  if(first<0)return;
+  for(let i=first+1;i<12;i++){cfMonthData(advanceMonth(cfPlan.startMonth,i))[field]=amount;}
+  cfDirty=true;renderCashflow();
+};
+window.cfAddCard=function(){
+  if(!cfPlan||cfPlan.cards.length>=24)return;
+  const id="card_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
+  cfPlan.cards.push({id,name:"Kart "+(cfPlan.cards.length+1),active:true,openingDebt:0,minPct:40,interestPct:0});
+  cfDirty=true;renderCashflow();
+};
+window.cfRemoveCard=function(index){
+  const card=cfPlan?.cards[index];if(!card)return;
+  const next=card.active===false;
+  if(!next&&!confirm("Bu kartı yeni işlemlerden arşivlemek istiyor musun? Eski borcu ve geçmiş işlemleri korunacak."))return;
+  setCardActive(cfPlan,card.id,next);
+  cfDirty=true;renderCashflow();
+};
+
+window.cfEntryTypeChange=function(type){
+  if(!["income","cash_expense","card_expense","card_payment"].includes(type))return;
+  cfEntryType=type;renderCashflow();
+};
+window.cfAddCategory=function(kind){
+  if(!cfPlan||!["expense","income"].includes(kind))return;
+  const input=document.getElementById("cf-new-"+kind);
+  const name=String(input?.value||"").trim();
+  if(!name){showToast("Kategori adını gir.");return;}
+  try{
+    const id="cat_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
+    addCashFlowCategory(cfPlan,kind,name,id);
+    cfDirty=true;renderCashflow();
+  }catch(e){showToast("Kategori eklenemedi. Ad ve limiti kontrol et.");}
+};
+window.cfCategoryRename=function(kind,id,value){
+  const c=cfPlan?.categories[kind]?.find(c=>c.id===id);
+  if(!c)return;
+  if(!String(value||"").trim()){showToast("Kategori adı boş olamaz.");renderCashflow();return;}
+  c.name=String(value).trim().slice(0,90);cfDirty=true;renderCashflow();
+};
+window.cfCategoryActive=function(kind,id){
+  const c=cfPlan?.categories[kind]?.find(c=>c.id===id);if(!c)return;
+  const next=!c.active;
+  if(!next&&!confirm("Kategori yeni işlem seçiminden kaldırılacak. Geçmiş işlemler korunacak. Devam edilsin mi?"))return;
+  try{setCategoryActive(cfPlan,kind,id,next);cfDirty=true;renderCashflow();}catch(e){showToast("Kategori güncellenemedi.");}
+};
+window.cfAddEntry=function(){
+  if(!cfPlan||!auth.currentUser)return;
+  const type=cfEntryType;
+  const date=document.getElementById("cf-entry-date")?.value;
+  const amt=cfNumber(document.getElementById("cf-entry-amount")?.value);
+  const note=document.getElementById("cf-entry-note")?.value||"";
+  const categoryId=document.getElementById("cf-entry-cat")?.value;
+  const cardId=document.getElementById("cf-entry-card")?.value;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date||"")||!(amt>0)||!Number.isFinite(amt)){showToast("Geçerli tarih ve pozitif tutar gir.");return;}
+  const month=date.slice(0,7);
+  if(month<cfPlan.startMonth||month>advanceMonth(cfPlan.startMonth,11)){
+    showToast("Hareket tarihi şu an 12 aylık plan döneminin dışında.");return;
+  }
+  const id="entry_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
+  try{
+    addCashFlowEntry(cfPlan,{id,type,date,amount:Math.round(amt*100)/100,note,categoryId,cardId});
+    cfSelectedMonth=month;cfDirty=true;renderCashflow();showToast("✓ Hareket taslağa eklendi. Kaydet butonuna bas.");
+  }catch(e){showToast("Hareket eklenemedi. Kartı ve kategoriyi kontrol et.");}
+};
+window.cfDeleteEntry=function(id){
+  if(!cfPlan||!cfPlan.entries.some(e=>e.id===id))return;
+  if(!confirm("Bu hareketi plan geçmişinden silmek istiyor musun? Diğer BütçeApp işlemleri etkilenmez."))return;
+  cfPlan.entries=cfPlan.entries.filter(e=>e.id!==id);
+  cfDirty=true;renderCashflow();
+};
+window.cfSavePlan=async function(){
+  if(!auth.currentUser || !cfPlan)return;
+  if(!validCashFlowPlan(cfPlan)){cfShowError("Plan değerlerini kontrol et: kart adı, asgari oranı ve faiz oranı geçerli olmalı.");return;}
+  const uid=auth.currentUser.uid,revision=authRevision;
+  try{
+    setSyncStatus("syncing");
+    await setDoc(doc(db,"data","cashflowPlan"),{plan:cfPlan,updatedAt:new Date().toISOString()});
+    if(uid!==auth.currentUser?.uid || revision!==authRevision)return;
+    cfDirty=false;setSyncStatus("ok");renderCashflow();showToast("✓ Nakit akışı planı kaydedildi");
+  }catch(e){setSyncStatus("error");cfShowError("Plan kaydedilemedi. Ağ bağlantısı veya Firebase erişimini kontrol et.");}
 };
 
 // ── MODAL UTILS ─────────────────────────────────────────────

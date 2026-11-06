@@ -1,0 +1,61 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+
+const html=fs.readFileSync('index.html','utf8');
+const start=html.indexOf('// ── INDEPENDENT CASH & CREDIT CARD SCENARIO');
+const end=html.indexOf('// ── MODAL UTILS',start);
+assert(start>0&&end>start,'Cashflow UI module should be extractable');
+const source=fs.readFileSync('cashflow-model.js','utf8');
+const model=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
+const initial=model.emptyCashFlowPlan();
+initial.startMonth='2026-11';
+initial.autoExtra=false;
+initial.cards=[{id:'visa',name:'Test Visa',active:true,openingDebt:1000,minPct:40,interestPct:0}];
+initial.months['2026-11']={income:1000,fixedCash:0,otherCash:0,cardSpends:{},minOverrides:{}};
+const root={innerHTML:''};
+const inputs={
+ 'cf-entry-date':{value:'2026-11-10'},
+ 'cf-entry-amount':{value:'80'},
+ 'cf-entry-note':{value:'Test purchase'},
+ 'cf-entry-cat':{value:'exp_market'},
+ 'cf-entry-card':{value:'visa'},
+ 'cf-new-expense':{value:'Yeni Harcama'}
+};
+const messages=[];
+const sandbox={
+ window:{},initial,auth:{currentUser:{uid:'test'}},authRevision:0,
+ document:{getElementById(id){return id==='tab-cashflow'?root:inputs[id]||null}},
+ safeHtml(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))},
+ showToast(x){messages.push(x)},confirm(){return true},Date,Math,Intl,Number,String,Array,Object,
+ structuredClone,...model
+};
+vm.createContext(sandbox);
+vm.runInContext(html.slice(start,end),sandbox,{filename:'cashflow-ui.js'});
+vm.runInContext("cfPlan=initial;cfSelectedMonth='2026-11';",sandbox);
+await sandbox.window.renderCashflow();
+assert(root.innerHTML.includes('Kredi kartı harcaması'));
+assert(root.innerHTML.includes('Kategori'));
+assert(root.innerHTML.includes('Maaş'));
+assert(root.innerHTML.includes('Test Visa'));
+assert(root.innerHTML.includes('Kartı kaldır (arşivle)'));
+assert(root.innerHTML.includes('cfCategoryActive'));
+assert(!root.innerHTML.includes('undefined TL'));
+sandbox.window.cfAddCategory('expense');
+const p=vm.runInContext('cfPlan',sandbox);
+assert(p.categories.expense.some(c=>c.name==='Yeni Harcama'));
+sandbox.window.cfAddEntry();
+assert.equal(p.entries.length,1);
+assert.equal(p.entries[0].type,'card_expense');
+assert.equal(p.entries[0].cardId,'visa');
+assert.equal(model.computeCashFlow(p,1)[0].cardSpending,80);
+sandbox.window.cfCategoryActive('expense','exp_market');
+assert.equal(p.categories.expense.find(c=>c.id==='exp_market').active,false);
+assert.equal(p.entries[0].categoryId,'exp_market','Archive cannot delete old movement');
+sandbox.window.cfRemoveCard(0);
+assert.equal(p.cards[0].active,false,'Card should archive');
+assert.equal(model.computeCashFlow(p,1)[0].closingDebt,680,'Archived card still has debt');
+sandbox.window.cfDeleteEntry(p.entries[0].id);
+assert.equal(p.entries.length,0,'User should be able to remove a movement before saving');
+assert.equal(model.computeCashFlow(p,1)[0].closingDebt,600);
+console.log('PASS: cashflow UI renders, category add/archive, entry add/delete, card archive, debt preservation');
