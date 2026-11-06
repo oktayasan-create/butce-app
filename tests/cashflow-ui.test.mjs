@@ -62,7 +62,7 @@ assert.equal(model.computeCashFlow(p,1)[0].closingDebt,600);
 assert(root.innerHTML.includes('Gelecek Aylara Ait Kart Taksitleri'));
 assert(root.innerHTML.includes('Enpara Ekpara'));
 assert(root.innerHTML.includes('Benim belirlediğim ek kart ödemesi'));
-assert(root.innerHTML.includes('TCMB dönem borcuna göre'));
+assert(root.innerHTML.includes('TCMB azami oranları'));
 assert(root.innerHTML.includes('Kalan Ekpara'));
 assert(root.innerHTML.includes('Kart faiz + vergi'));
 sandbox.window.cfAddLoan('Ev Kredisi');
