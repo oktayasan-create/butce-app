@@ -66,7 +66,12 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
         if(existing.has(st.id))continue;
         existing.add(st.id);unique.push(st);
       }
-      draft=normalizeStatementBundle({format:"butceapp-statement-review-v1",statements:unique});
+      try {
+        draft=normalizeStatementBundle({format:"butceapp-statement-review-v1",statements:unique});
+      }catch(e){
+        error="Dosyalar okunabildi ancak bazı bilgiler doğrulanamadı. Önce ilgili ekstreyi kontrol et: "+String(e?.message||"Veri formatı hatalı").slice(0,160);
+        draft=null;return;
+      }
       warnings=nextWarnings;
       if(failed.length)error="Bazı dosyalar atlandı: "+failed.join(" | ");
       notify(draft.statements.length+" ekstre okundu. Kaydetmeden önce tutarları kontrol et.");
@@ -75,11 +80,19 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
   function entries(source,statementId){
     return (source==="draft"?draft:inbox)?.statements.find(st=>st.id===statementId)||null;
   }
+  function markReviewChanged(){
+    reviewAcknowledged=false;
+    const box=document.getElementById("statement-review-ack");
+    const button=document.getElementById("statement-save-draft");
+    if(box)box.checked=false;
+    if(button)button.disabled=true;
+  }
   function categoryEdit(source,statementId,txId,newName){
     const tx=entries(source,statementId)?.transactions.find(t=>t.id===txId);
     if(!tx||!["purchase","refund"].includes(tx.type))return;
     tx.category=String(newName).slice(0,90);
     if(source==="saved")dirty=true;
+    else markReviewChanged();
   }
   function editStatement(statementId,field,value){
     const st=entries("draft",statementId);
@@ -96,7 +109,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       st[field]=value||null;
       if(field==="statementDate")st.periodLabel=value?.slice(0,7)||st.periodLabel;
     }else if(field==="cardLabel")st.cardLabel=String(value).trim().slice(0,90);
-    reviewAcknowledged=false;
+    markReviewChanged();
   }
   function editMovement(statementId,txId,field,value){
     const st=entries("draft",statementId),t=st?.transactions.find(x=>x.id===txId);
@@ -116,13 +129,13 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     }else if(field==="description"){
       t.description=String(value).slice(0,160);
     }
-    reviewAcknowledged=false;
+    markReviewChanged();
   }
   function excludeMovement(statementId,txId){
     const st=entries("draft",statementId);
     if(!st)return;
     st.transactions=st.transactions.filter(x=>x.id!==txId);
-    reviewAcknowledged=false;rerender();
+    markReviewChanged();rerender();
   }
   async function saveInbox(docData){
     const who=auth.currentUser?.uid;
@@ -234,10 +247,10 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
         '</div>':'')+
       (draft?.statements?.length?'<h4>Yeni ekstre önizlemesi · '+draft.statements.length+' dosya</h4>'+
         '<div class="cf-statement-grid">'+draft.statements.map(st=>card(st,"draft")).join('')+'</div>'+
-        '<label class="cf-review-check"><input type="checkbox" '+(reviewAcknowledged?'checked ':'')+
+        '<label class="cf-review-check"><input id="statement-review-ack" type="checkbox" '+(reviewAcknowledged?'checked ':'')+
         'onchange="statementReviewAck(this.checked)">Ekstre borçlarını, asgari tutarları, işlem türlerini ve kategorileri kontrol ettim.</label>'+
         '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'+
-        '<button class="btn btn-p" '+(!reviewAcknowledged?'disabled ':'')+
+        '<button id="statement-save-draft" class="btn btn-p" '+(!reviewAcknowledged?'disabled ':'')+
           'onclick="statementSaveDraft()">Kontrol ettim, özel arşive kaydet</button>'+
         '<button class="btn btn-ghost btn-sm" onclick="statementCancelDraft()">Önizlemeyi iptal et</button></div>':'')+
       (inbox?.statements?.length?'<h4>Kaydedilmiş ekstreler ('+inbox.statements.length+')</h4>'+
