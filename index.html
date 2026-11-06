@@ -3033,16 +3033,25 @@ async function renderCashflow(){
       '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'income\')">Maaşı sonraki aylara uygula</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'fixedCash\')">Sabit ödemeleri sonraki aylara uygula</button>'+
       '</div><div style="margin-top:12px">'+rowEditor+'</div></div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">4. Kart harcaması, gelir ve ödeme kaydı</div>'+cfActivityForm()+'</div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">5. Harcama ve gelir kategorileri</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">7. Kart harcaması, gelir ve ödeme kaydı</div>'+cfActivityForm()+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">8. Harcama ve gelir kategorileri</div>'+
       '<p class="cf-muted">İstediğin gibi yeni kategori ekleyebilir, isim değiştirebilir veya kullanım listesinden kaldırabilirsin. Eski işlem geçmişi korunur.</p>'+
       '<div style="display:flex;gap:28px;flex-wrap:wrap">'+cfCategoryList("expense")+cfCategoryList("income")+'</div></div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">6. Bu ayın kategori özeti</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">9. Bu ayın kategori özeti</div>'+
       cfCategorizedSummary(current)+'</div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">7. Hareket geçmişi</div>'+cfActivityLog(current)+'</div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">8. Önümüzdeki 12 ay</div>'+
-      '<div class="cf-scroll"><table class="cf-table"><thead><tr><th>Ay</th><th>Nakit gelir</th><th>Asgari ödemeler</th><th>Ek kart ödemesi</th><th>Yeni kart harcaması</th><th>Devreden kart borcu</th><th>Ay sonu nakit</th></tr></thead><tbody>'+dashboard+'</tbody></table></div>'+
-      '<p class="cf-muted" style="margin-top:12px">Eksi ay sonu bakiye, ek finansman veya harcama azaltma ihtiyacına işaret eder. Kart faizleri ile gerçek asgari tutarlar farklı olabilir; tablo bankacılık ekstresi değildir.</p></div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">10. Hareket geçmişi</div>'+cfActivityLog(current)+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">12. Önümüzdeki 12 ay</div>'+
+      cfForecastTable(rows)+
+      '<p class="cf-muted" style="margin-top:12px">Kırmızı: Ekpara gerektiren ay. Yeşil: Kart kapanan ay. Açık mavi: Birikimli nakit olan ay. Gerçek banka ekstresi ve son ödeme tarihleri farklı olabilir.</p></div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">11. Seçili Ay Kart Faizi, Vergileri ve Borçları</div>'+
+      cfSelectedCardDetails(current)+
+      '<p class="cf-muted">Ekpara bu ay faiz: '+cfMoney(current.overdraftInterest)+
+      ' · KKDF+BSMV: '+cfMoney(current.overdraftTax)+
+      ' · Sonraki aya yansıtılacak Ekpara maliyeti: '+cfMoney(current.overdraftCost)+
+      ' · Bu ayki kredi faiz + vergi toplamı: '+cfMoney(current.cardInterest+current.cardTax)+
+      (current.overdraftLimitExceeded?' · ⚠️ Ekpara varsayılan kullanım limiti aşıyor!':'')+
+      (current.unmetExtra>0?' · Talep ettiğin ek ödemeden karşılanamayan: '+cfMoney(current.unmetExtra):'')+
+      '</p></div>'+
       '<div id="cf-error" role="alert" style="color:#fca5a5;font-size:13px;margin-bottom:10px"></div>'+
       '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:24px"><button class="btn btn-p" onclick="cfSavePlan()">💾 Planı Kaydet</button>'+
       '<span class="cf-muted">'+(cfDirty?'Kaydedilmemiş değişikliklerin var.':'Plan ayrı bir Firestore belgesinde saklanır.')+'</span></div>'+
