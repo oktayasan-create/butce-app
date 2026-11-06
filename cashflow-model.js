@@ -270,8 +270,9 @@ export function computeCashFlow(p,periods=12){
     const desiredExtra=p.autoExtra?availableForExtra:positive(m.extraPayment);
     let capacity=Math.min(availableForExtra,desiredExtra);
     const unmetExtra=Math.max(0,r2(desiredExtra-capacity));
-    // Prioritize higher debt cost for allocation only; no recommendation about paying more.
-    const priority=state.filter(c=>!c.actualPayment)
+    // Any voluntarily planned extra payment is separate from a real payment entry.
+    // If an actual payment already includes the extra, leave the manual extra input at zero.
+    const priority=state.filter(c=>c.statementDebt>c.minimum)
       .sort((a,b)=>b.interestPct-a.interestPct||b.statementDebt-a.statementDebt);
     for(const c of priority){
       const extra=r2(Math.min(capacity,Math.max(0,c.statementDebt-c.minimum)));
