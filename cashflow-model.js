@@ -109,7 +109,7 @@ export function validCashFlowPlan(p) {
     if(!inst||!identifierPattern.test(inst.id)||instIds.has(inst.id)||
        typeof inst.name!=="string"||!inst.name.trim()||inst.name.length>100||
        !cardIds.has(inst.cardId)||!monthPattern.test(inst.startMonth)||
-       !Number.isFinite(inst.amount)||inst.amount<=0||
+       !Number.isFinite(inst.amount)||inst.amount<0||
        !Number.isInteger(inst.count)||inst.count<1||inst.count>120 ||
        (inst.active!==undefined&&typeof inst.active!=="boolean"))return false;
     instIds.add(inst.id);
