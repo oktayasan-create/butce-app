@@ -132,7 +132,22 @@ export function parseStatementPDFText(text,fileName="statement.pdf",hash="local"
   const lines=text.split(/\r?\n/);
   const ykbDate=/^\s*(\d{1,2}\s+(?:Ocak|Şubat|Subat|Mart|Nisan|Mayıs|Mayis|Haziran|Temmuz|Ağustos|Agustos|Eylül|Eylul|Ekim|Kasım|Kasim|Aralık|Aralik)\s+20\d{2})\s+(.+)$/i;
   const enparaDate=/^\s*(\d{1,2}[./-]\d{1,2}[./-]20\d{2})\s+(.+)$/;
+  let inTransactions=enpara;
   for(const line of lines){
+    if(!enpara){
+      if(/İşlem Tarihi\s+İşlemler/i.test(line)){inTransactions=true;continue;}
+      if(/^\s*TOPLAM\s/i.test(line)){inTransactions=false;continue;}
+      if(!inTransactions)continue;
+      const detail=line.match(/(\d{1,2})\s*\/\s*(\d{1,2})\s*taksidi/i);
+      if(detail&&tx.length){
+        const current=Number(detail[1]),total=Number(detail[2]);
+        if(current>=1&&total>=current&&total<=120){
+          tx[tx.length-1].installmentCurrent=current;
+          tx[tx.length-1].installmentTotal=total;
+          tx[tx.length-1].remainingInstallments=total-current;
+        }
+      }
+    }
     const m=line.match(enpara?enparaDate:ykbDate);
     if(!m)continue;
     const dateStr=parseStatementDate(m[1]);if(!dateStr)continue;
