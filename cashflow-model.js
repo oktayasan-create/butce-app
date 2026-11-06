@@ -1,5 +1,5 @@
 /**
- * Personal budget / cashflow scenario engine (V2).
+ * Personal budget / cashflow scenario engine (V3).
  * This document is private Firestore plan data, separated from legacy transactions.
  * Categorized income and expense entries are entered only here until explicitly integrated.
  * Card purchase is an expense and a liability; card repayment is NOT a second expense.
@@ -32,25 +32,59 @@ export function advanceMonth(month,offset) {
   return d.getUTCFullYear()+"-"+String(d.getUTCMonth()+1).padStart(2,"0");
 }
 export function emptyCashFlowPlan() {
-  return {version:2,startMonth:isoMonth(),openingCash:0,autoExtra:true,reserve:0,
-    cards:[],categories:structuredClone(defaultCategories),entries:[],months:{}};
+  return {version:3,startMonth:isoMonth(),openingCash:0,autoExtra:false,reserve:0,
+    cards:[],categories:structuredClone(defaultCategories),entries:[],months:{},
+    loans:[],installments:[],
+    overdraft:{name:"Enpara Ekpara",openingDebt:0,limit:0,interestPct:4.25},
+    tax:{kkdfPct:15,bsmvPct:15}};
 }
 export function normalizeCashFlowPlan(raw) {
   if(raw == null)return emptyCashFlowPlan();
-  if(typeof raw!=="object" || ![1,2].includes(raw.version))throw new Error("Unsupported plan version");
+  if(typeof raw!=="object" || ![1,2,3].includes(raw.version))throw new Error("Unsupported plan version");
   const p=structuredClone(raw);
   if(p.version===1){
-    p.version=2;p.categories=structuredClone(defaultCategories);p.entries=[];
+    p.categories=structuredClone(defaultCategories);p.entries=[];
     p.cards=p.cards.map(c=>({...c,active:true}));
   }
+  if(p.version!==3){
+    p.version=3;
+    p.loans=[];
+    p.installments=[];
+    p.overdraft={name:"Enpara Ekpara",openingDebt:0,limit:0,interestPct:4.25};
+    p.tax={kkdfPct:15,bsmvPct:15};
+    // Preserve all original card interest choices as user-entered manual values.
+    p.cards=p.cards.map(c=>({...c,interestMode:"manual",active:c.active!==false}));
+  }
+  p.cards=p.cards.map(c=>({interestMode:"manual",...c}));
   if(!validCashFlowPlan(p))throw new Error("Corrupt plan; cannot safely replace saved data");
   return p;
 }
+export function monthlyCardRate(statementDebt,card){
+  if(card?.interestMode!=="auto") return Number(card?.interestPct||0);
+  // Official maximum rates are based on statement balance, not credit limit.
+  if(statementDebt<30000)return 3.25;
+  if(statementDebt<=180000)return 3.75;
+  return 4.25;
+}
+export function monthlyCardLateRate(statementDebt){
+  if(statementDebt<30000)return 3.55;
+  if(statementDebt<=180000)return 4.05;
+  return 4.55;
+}
+export function activeLoanPayment(loan,month) {
+  return loan.startMonth<=month && month<=loan.endMonth?positive(loan.amount):0;
+}
+export function activeInstallment(inst,month){
+  if(month<inst.startMonth || month>=advanceMonth(inst.startMonth,inst.count))return 0;
+  return positive(inst.amount);
+}
 export function validCashFlowPlan(p) {
-  if(!p || p.version!==2 || !monthPattern.test(String(p.startMonth)))return false;
+  if(!p || p.version!==3 || !monthPattern.test(String(p.startMonth)))return false;
   if(!Number.isFinite(p.openingCash)||!Number.isFinite(p.reserve)||p.reserve<0||typeof p.autoExtra!=="boolean")return false;
   if(!Array.isArray(p.cards)||p.cards.length>24||!p.months||typeof p.months!=="object" ||
-     !p.categories||!Array.isArray(p.entries)||p.entries.length>2500)return false;
+     !p.categories||!Array.isArray(p.entries)||p.entries.length>2500||
+      !Array.isArray(p.loans)||p.loans.length>50||!Array.isArray(p.installments)||p.installments.length>250||
+      !p.overdraft||!p.tax)return false;
   const cardIds=new Set();
   for(const c of p.cards){
     if(!c||!identifierPattern.test(c.id)||cardIds.has(c.id)||
@@ -58,9 +92,35 @@ export function validCashFlowPlan(p) {
        !Number.isFinite(c.openingDebt)||c.openingDebt<0||
        !Number.isFinite(c.minPct)||c.minPct<0||c.minPct>100||
        !Number.isFinite(c.interestPct)||c.interestPct<0||c.interestPct>25||
-       (c.active!==undefined && typeof c.active!=="boolean"))return false;
+       (c.active!==undefined && typeof c.active!=="boolean")||
+       !["manual","auto"].includes(c.interestMode))return false;
     cardIds.add(c.id);
   }
+  const loanIds=new Set();
+  for(const l of p.loans){
+    if(!l||!identifierPattern.test(l.id)||loanIds.has(l.id)||typeof l.name!=="string"||!l.name.trim()||
+       l.name.length>90||!Number.isFinite(l.amount)||l.amount<0||
+       !monthPattern.test(l.startMonth)||!monthPattern.test(l.endMonth)||l.endMonth<l.startMonth ||
+       (l.active!==undefined&&typeof l.active!=="boolean"))return false;
+    loanIds.add(l.id);
+  }
+  const instIds=new Set();
+  for(const inst of p.installments){
+    if(!inst||!identifierPattern.test(inst.id)||instIds.has(inst.id)||
+       typeof inst.name!=="string"||!inst.name.trim()||inst.name.length>100||
+       !cardIds.has(inst.cardId)||!monthPattern.test(inst.startMonth)||
+       !Number.isFinite(inst.amount)||inst.amount<=0||
+       !Number.isInteger(inst.count)||inst.count<1||inst.count>120 ||
+       (inst.active!==undefined&&typeof inst.active!=="boolean"))return false;
+    instIds.add(inst.id);
+  }
+  const od=p.overdraft,tax=p.tax;
+  if(typeof od.name!=="string"||od.name.length>90||
+     !Number.isFinite(od.openingDebt)||od.openingDebt<0||
+     !Number.isFinite(od.limit)||od.limit<0||
+     !Number.isFinite(od.interestPct)||od.interestPct<0||od.interestPct>25||
+     !Number.isFinite(tax.kkdfPct)||tax.kkdfPct<0||tax.kkdfPct>100||
+     !Number.isFinite(tax.bsmvPct)||tax.bsmvPct<0||tax.bsmvPct>100)return false;
   const categoryIds={expense:new Set(),income:new Set()};
   for(const kind of ["expense","income"]){
     const arr=p.categories[kind];
@@ -145,56 +205,122 @@ export function summarizeCashFlowEntries(p,month) {
 }
 export function computeCashFlow(p,periods=12){
   if(!validCashFlowPlan(p))throw new Error("Invalid plan");
-  const debt=Object.fromEntries(p.cards.map(c=>[c.id,r2(c.openingDebt)]));
-  let cash=r2(p.openingCash);
-  const rows=[];
+  if(!Number.isInteger(periods)||periods<1||periods>36)throw new Error("Invalid period count");
+  const cardDebt=Object.fromEntries(p.cards.map(c=>[c.id,r2(c.openingDebt)]));
+  let cash=Math.max(0,r2(p.openingCash));
+  // A negative bank account opening is equivalent to already using overdraft.
+  let overdraftDebt=r2(p.overdraft.openingDebt+Math.max(0,-p.openingCash));
+  let dueOverdraftCost=0;
+  const rows=[],taxMultiplier=1+(p.tax.kkdfPct+p.tax.bsmvPct)/100;
   for(let i=0;i<periods;i++){
     const key=advanceMonth(p.startMonth,i),m=p.months[key]||{};
     const live=summarizeCashFlowEntries(p,key);
-    const openingCash=cash,openingDebt=r2(Object.values(debt).reduce((sum,val)=>sum+val,0));
-    // Actual categorized incomes replace the monthly estimate if any recorded,
-    // never blindly add a salary entered twice.
+    const openingCash=cash,openingOverdraft=overdraftDebt;
+    const openingDebt=r2(Object.values(cardDebt).reduce((sum,value)=>sum+value,0));
     const income=live.income>0?live.income:positive(m.income);
+    const loanDetails=p.loans.filter(l=>l.active!==false)
+      .map(l=>({id:l.id,name:l.name,amount:activeLoanPayment(l,key)})).filter(l=>l.amount>0);
+    const loanPayments=r2(loanDetails.reduce((sum,l)=>sum+l.amount,0));
     const fixedCash=positive(m.fixedCash);
     const otherCash=r2(positive(m.otherCash)+live.cashExpenses);
-    cash=r2(cash+income-fixedCash-otherCash);
+    const chargedOverdraftCost=dueOverdraftCost;
+    dueOverdraftCost=0;
+    const monthlyInstallments=p.installments.filter(v=>v.active!==false)
+      .map(inst=>({id:inst.id,cardId:inst.cardId,name:inst.name,amount:activeInstallment(inst,key)}))
+      .filter(v=>v.amount>0);
+    const installmentTotal=r2(monthlyInstallments.reduce((sum,v)=>sum+v.amount,0));
+    const installmentsByCard={};
+    for(const inst of monthlyInstallments){
+      installmentsByCard[inst.cardId]=r2((installmentsByCard[inst.cardId]||0)+inst.amount);
+    }
     const state=p.cards.map(c=>{
-      const opening=debt[c.id],estimate=r2(opening*c.minPct/100);
+      const opening=r2(cardDebt[c.id]);
+      const dueInstallments=positive(installmentsByCard[c.id]);
+      const statementDebt=r2(opening+dueInstallments);
+      const estimatedMinimum=r2(statementDebt*c.minPct/100);
       const override=m.minOverrides?.[c.id];
-      const paid=positive(live.payments[c.id]);
-      const hasActualPayment=paid>0;
-      const minimum=hasActualPayment?Math.min(opening,paid):
-        Math.min(opening,(override===""||override==null)?estimate:positive(override));
-      return {id:c.id,name:c.name,active:c.active!==false,opening,
-        minimum:r2(minimum),estimatedMinimum:estimate,actualPayment:hasActualPayment,
+      const actualPayment=positive(live.payments[c.id]);
+      const hasActualPayment=actualPayment>0;
+      const minimum=r2(Math.min(statementDebt,hasActualPayment?actualPayment:
+        (override===null||override===""||override===undefined?estimatedMinimum:positive(override))));
+      const missedMinimum=hasActualPayment?Math.max(0,r2(estimatedMinimum-minimum)):0;
+      const interestPct=monthlyCardRate(statementDebt,c);
+      return {id:c.id,name:c.name,active:c.active!==false,opening,statementDebt,
+        dueInstallments,estimatedMinimum,minimum,missedMinimum,actualPayment:hasActualPayment,
         extra:0,newSpending:r2(positive(m.cardSpends?.[c.id])+positive(live.byCard[c.id])),
-        interest:0,closing:0,interestPct:c.interestPct};
+        interestPct,interest:0,interestBase:0,interestTax:0,closing:0,paidOff:false,
+        lateInterest:0};
     });
     const minimumTotal=r2(state.reduce((sum,c)=>sum+c.minimum,0));
-    cash=r2(cash-minimumTotal);
-    let capacity=p.autoExtra?Math.max(0,r2(cash-positive(p.reserve))):positive(m.extraPayment);
-    // Do not auto-pay a card a second time if a real payment was entered.
-    const priority=state.filter(c=>!c.actualPayment).sort((a,b)=>b.interestPct-a.interestPct||b.opening-a.opening);
+    // Mandatory outflows are settled before discretionary credit card repayments.
+    const mandatoryTotal=r2(fixedCash+otherCash+loanPayments+minimumTotal+chargedOverdraftCost);
+    cash=r2(cash+income-mandatoryTotal);
+    let overdraftDraw=0,overdraftRepaid=0;
+    if(cash<0){
+      overdraftDraw=r2(-cash);
+      overdraftDebt=r2(overdraftDebt+overdraftDraw);
+      cash=0;
+    }else if(cash>0 && overdraftDebt>0){
+      overdraftRepaid=r2(Math.min(cash,overdraftDebt));
+      overdraftDebt=r2(overdraftDebt-overdraftRepaid);
+      cash=r2(cash-overdraftRepaid);
+    }
+    const availableForExtra=Math.max(0,r2(cash-positive(p.reserve)));
+    const desiredExtra=p.autoExtra?availableForExtra:positive(m.extraPayment);
+    let capacity=Math.min(availableForExtra,desiredExtra);
+    const unmetExtra=Math.max(0,r2(desiredExtra-capacity));
+    // Prioritize higher debt cost for allocation only; no recommendation about paying more.
+    const priority=state.filter(c=>!c.actualPayment)
+      .sort((a,b)=>b.interestPct-a.interestPct||b.statementDebt-a.statementDebt);
     for(const c of priority){
-      const extra=r2(Math.min(capacity,Math.max(0,c.opening-c.minimum)));
+      const extra=r2(Math.min(capacity,Math.max(0,c.statementDebt-c.minimum)));
       c.extra=extra;capacity=r2(capacity-extra);cash=r2(cash-extra);
     }
     for(const c of state){
-      const unpaid=Math.max(0,r2(c.opening-c.minimum-c.extra));
-      c.interest=r2(unpaid*c.interestPct/100);
-      c.closing=r2(unpaid+c.interest+c.newSpending);
-      debt[c.id]=c.closing;
+      const unpaid=Math.max(0,r2(c.statementDebt-c.minimum-c.extra));
+      c.interestBase=unpaid;
+      const basicInterest=r2(unpaid*c.interestPct/100);
+      // If an actual entered payment is below the minimum, estimate extra late-rate delta.
+      c.lateInterest=c.missedMinimum>0?r2(c.missedMinimum*
+        Math.max(0,monthlyCardLateRate(c.statementDebt)-c.interestPct)/100):0;
+      c.interest=r2(basicInterest+c.lateInterest);
+      c.interestTax=r2(c.interest*(taxMultiplier-1));
+      c.closing=r2(unpaid+c.interest+c.interestTax+c.newSpending);
+      c.paidOff=c.statementDebt>0 && c.closing===0;
+      cardDebt[c.id]=c.closing;
     }
-    rows.push({month:key,openingCash,income,fixedCash,otherCash,
+    // Overdraft is charged on an average monthly utilized balance as an approximation.
+    // Enpara calculates actual interest daily; this estimate is posted next month.
+    const overdraftInterest=r2(((openingOverdraft+overdraftDebt)/2)*p.overdraft.interestPct/100);
+    const overdraftTax=r2(overdraftInterest*(taxMultiplier-1));
+    const overdraftCost=r2(overdraftInterest+overdraftTax);
+    dueOverdraftCost=overdraftCost;
+    const finalDebt=r2(state.reduce((sum,c)=>sum+c.closing,0));
+    const cardInterest=r2(state.reduce((sum,c)=>sum+c.interest,0));
+    const cardTax=r2(state.reduce((sum,c)=>sum+c.interestTax,0));
+    const closingCash=r2(cash);
+    rows.push({
+      month:key,openingCash,openingOverdraft,
+      income,fixedCash,otherCash,loanPayments,loanDetails,mandatoryTotal,chargedOverdraftCost,
       minimumTotal,extraTotal:r2(state.reduce((sum,c)=>sum+c.extra,0)),
-      cardSpending:r2(state.reduce((sum,c)=>sum+c.newSpending,0)),
+      requestedExtra:desiredExtra,unmetExtra,
+      cardSpending:r2(state.reduce((sum,c)=>sum+c.newSpending+c.dueInstallments,0)),
+      installmentTotal,installments:monthlyInstallments,
       actualCardSpending:live.cardExpenses,actualCashSpending:live.cashExpenses,
       actualIncome:live.income,actualCardPayments:live.paymentTotal,
-      interest:r2(state.reduce((sum,c)=>sum+c.interest,0)),openingDebt,
-      closingDebt:r2(state.reduce((sum,c)=>sum+c.closing,0)),closingCash:cash,
-      netPosition:r2(cash-state.reduce((sum,c)=>sum+c.closing,0)),
-      fundingGap:cash<0?Math.abs(cash):0,cards:state,
-      byCategory:live.byCategory,entries:live.items});
+      interest:cardInterest,cardInterest,cardTax,
+      overdraftDraw,overdraftRepaid,overdraftInterest,overdraftTax,overdraftCost,
+      closingOverdraft:r2(overdraftDebt),
+      overdraftLimit:p.overdraft.limit,
+      overdraftLimitExceeded:p.overdraft.limit>0&&overdraftDebt>p.overdraft.limit,
+      openingDebt,closingDebt:finalDebt,closingCash,
+      savings:closingCash,
+      netPosition:r2(closingCash-overdraftDebt-finalDebt),
+      fundingGap:p.overdraft.limit>0?Math.max(0,r2(overdraftDebt-p.overdraft.limit)):0,
+      needsOverdraft:overdraftDraw>0,
+      cardsPaidOff:state.filter(c=>c.paidOff).map(c=>c.name),
+      cards:state,byCategory:live.byCategory,entries:live.items
+    });
   }
   return rows;
 }
