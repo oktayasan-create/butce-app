@@ -2855,7 +2855,7 @@ function cfOverdraftEditor(){
 function cfForecastTable(rows){
   const tr=rows.map(row=>{
     const status=[
-      row.overdraftDraw>0?'⚠️ Ekpara kullanımı':'',
+      row.overdraftDraw>0?'⚠️ Ekpara gerekiyor':'',
       row.cardsPaidOff.length?'✅ Kart kapandı: '+row.cardsPaidOff.map(cfText).join(', '):'',
       row.savings>0?'💰 Birikim':''
     ].filter(Boolean).join(' · ')||'—';
@@ -2864,18 +2864,18 @@ function cfForecastTable(rows){
     return '<tr class="'+css+'"><td><strong>'+cfText(row.month)+'</strong><div class="cf-muted">'+status+'</div></td>'+
       '<td>'+money(row.income)+'</td><td>'+money(row.loanPayments)+'</td>'+
       '<td>'+money(row.minimumTotal)+'</td><td>'+money(row.afterMandatoryCash)+'</td>'+
-      '<td>'+money(row.extraTotal)+'</td><td>'+money(row.installmentTotal)+'</td>'+
+      '<td>'+money(row.extraTotal)+'</td><td>'+money(row.cardSpending)+'</td><td>'+money(row.installmentTotal)+'</td>'+
       '<td>'+money(row.cardInterest+row.cardTax)+'</td><td>'+money(row.overdraftCost)+'</td>'+
       '<td class="'+(row.overdraftDraw>0?'cf-bad':'')+'">'+money(row.overdraftDraw)+'</td>'+
-      '<td>'+money(row.closingOverdraft)+'</td><td>'+money(row.closingDebt)+'</td>'+
+      '<td>'+money(row.closingOverdraft)+'</td><td>'+money(row.fundingGap)+'</td><td>'+money(row.closingDebt)+'</td>'+
       '<td class="'+(row.savings>0?'cf-good':'')+'">'+money(row.savings)+'</td>'+
       '<td class="'+(row.netPosition<0?'cf-bad':'cf-good')+'">'+money(row.netPosition)+'</td></tr>';
   }).join('');
   return '<div class="cf-scroll"><table class="cf-table cf-rich-table"><thead><tr>'+
     '<th>Ay / Durum</th><th>Nakit gelir</th><th>Tam kredi taksiti</th>'+
-    '<th>Kart asgarileri</th><th>Asgari sonrası nakit</th><th>Seçtiğin ek ödeme</th>'+
-    '<th>Gelecek kart taksiti</th><th>Kart faiz + vergi</th><th>Ekpara faiz + vergi</th>'+
-    '<th>Ekpara kullanım</th><th>Kalan Ekpara</th><th>Devreden kart borcu</th>'+
+    '<th>Kart asgarileri</th><th>Asgari sonrası nakit</th><th>Seçtiğin ek ödeme</th><th>Kart harcaması + taksit</th>'+
+    '<th>Gelecek kart taksiti</th><th>Kart faiz + vergi</th><th>Ekpara faiz+vergi (sonraki ay)</th>'+
+    '<th>Gereken Ekpara</th><th>Kalan Ekpara</th><th>Limit üzeri açık</th><th>Devreden kart borcu</th>'+
     '<th>Birikim / Nakit</th><th>Net bakiye</th></tr></thead><tbody>'+tr+'</tbody></table></div>';
 }
 function cfSelectedCardDetails(current){
@@ -2980,7 +2980,7 @@ async function renderCashflow(){
       cfField("Başlangıç kart borcu (₺)",card.openingDebt,"cfCard("+i+",'openingDebt',this.value)")+
       cfField("Tahmini asgari (%)",card.minPct,"cfCard("+i+",'minPct',this.value)")+
       '<label>Faiz hesaplama<select onchange="cfCardMode('+i+',this.value)">'+
-         '<option value="auto"'+(card.interestMode==="auto"?' selected':'')+'>TCMB dönem borcuna göre</option>'+
+         '<option value="auto"'+(card.interestMode==="auto"?' selected':'')+' >TCMB azami oranları (dönem borcu)</option>'+
          '<option value="manual"'+(card.interestMode==="manual"?' selected':'')+'>Elle faiz oranı gir</option>'+
        '</select></label>'+
        (card.interestMode==="manual"?cfField("Aylık faiz varsayımı (%)",card.interestPct,"cfCard("+i+",'interestPct',this.value)"):'<div class="cf-muted">Faiz %3,25 / %3,75 / %4,25 (dönem borcuna göre)</div>')+
