@@ -2769,6 +2769,7 @@ window.addCat=function(){
 let cfPlan = null, cfLoading = null, cfSelectedMonth = null, cfDirty = false;
 const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
+const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
 const cfText = (v) => safeHtml(v);
 const cfField = (label,value,onchange,type="number") =>
   '<label>'+cfText(label)+'<input type="'+type+'" '+(type==="number"?'step="0.01"':'')+
@@ -2861,6 +2862,9 @@ async function renderCashflow(){
         cfField("Ev, araba ve sabit nakit ödemeleri",currentData.fixedCash||0,"cfMonthField('fixedCash',this.value)")+
         cfField("Diğer nakit harcamalar (₺)",currentData.otherCash||0,"cfMonthField('otherCash',this.value)")+
         (!cfPlan.autoExtra?cfField("Planlanan ek kart ödemesi (₺)",currentData.extraPayment||0,"cfMonthField('extraPayment',this.value)"):'')+
+      '</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+
+      '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'income\')">Maaşı sonraki aylara uygula</button>'+
+      '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'fixedCash\')">Sabit ödemeleri sonraki aylara uygula</button>'+
       '</div><div style="margin-top:12px">'+rowEditor+'</div></div>'+
       '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">4. Önümüzdeki 12 ay</div>'+
       '<div class="cf-scroll"><table class="cf-table"><thead><tr><th>Ay</th><th>Nakit gelir</th><th>Asgari ödemeler</th><th>Ek kart ödemesi</th><th>Yeni kart harcaması</th><th>Devreden kart borcu</th><th>Ay sonu nakit</th></tr></thead><tbody>'+dashboard+'</tbody></table></div>'+
@@ -2875,26 +2879,34 @@ window.cfRoot=function(field,value){
   if(!cfPlan || !["startMonth","openingCash","reserve","autoExtra"].includes(field))return;
   if(field==="startMonth") {if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return; cfPlan.startMonth=value;cfSelectedMonth=value;}
   else if(field==="autoExtra")cfPlan.autoExtra=value==="yes";
-  else cfPlan[field]=cfNumber(value);
+  else cfPlan[field]=field==="openingCash"?cfLimit(value,-1000000000000):cfLimit(value);
   cfDirty=true;renderCashflow();
 };
 window.cfSelectMonth=function(key){if(!cfPlan)return;cfSelectedMonth=key;renderCashflow();};
 window.cfMonthField=function(field,value){
   if(!["income","fixedCash","otherCash","extraPayment"].includes(field)||!cfPlan)return;
-  cfMonthData(cfSelectedMonth)[field]=Math.max(0,cfNumber(value));cfDirty=true;renderCashflow();
+  cfMonthData(cfSelectedMonth)[field]=cfLimit(value);cfDirty=true;renderCashflow();
 };
 window.cfMonthCard=function(id,value){
   if(!cfPlan?.cards.some(c=>c.id===id))return;
-  cfMonthData(cfSelectedMonth).cardSpends[id]=Math.max(0,cfNumber(value));cfDirty=true;renderCashflow();
+  cfMonthData(cfSelectedMonth).cardSpends[id]=cfLimit(value);cfDirty=true;renderCashflow();
 };
 window.cfMinOverride=function(id,value){
   if(!cfPlan?.cards.some(c=>c.id===id))return;
-  cfMonthData(cfSelectedMonth).minOverrides[id]=value.trim()===""?null:Math.max(0,cfNumber(value));cfDirty=true;renderCashflow();
+  cfMonthData(cfSelectedMonth).minOverrides[id]=value.trim()===""?null:cfLimit(value);cfDirty=true;renderCashflow();
 };
 window.cfCard=function(index,field,value){
   const card=cfPlan?.cards[index];if(!card||!["name","openingDebt","minPct","interestPct"].includes(field))return;
   if(field==="name")card.name=String(value).slice(0,90);
-  else card[field]=Math.max(0,cfNumber(value));
+  else card[field]=cfLimit(value,0,field==="minPct"?100:field==="interestPct"?25:1000000000000);
+  cfDirty=true;renderCashflow();
+};
+window.cfRepeatNext=function(field){
+  if(!cfPlan||!["income","fixedCash"].includes(field))return;
+  const amount=cfLimit(cfMonthData(cfSelectedMonth)[field]);
+  const first=computeCashFlow(cfPlan).findIndex(row=>row.month===cfSelectedMonth);
+  if(first<0)return;
+  for(let i=first+1;i<12;i++){cfMonthData(advanceMonth(cfPlan.startMonth,i))[field]=amount;}
   cfDirty=true;renderCashflow();
 };
 window.cfAddCard=function(){
