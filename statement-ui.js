@@ -104,7 +104,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       '<button class="btn btn-ghost btn-sm" onclick="statementCancelDraft()">İptal</button>':'')+
     (inbox?.statements?.length?'<h4>Kaydedilmiş ekstreler ('+inbox.statements.length+')</h4>'+
       '<div class="cf-statement-grid">'+inbox.statements.map(st=>card(st,"saved")).join('')+'</div>'+
-      (dirty?'<button class="btn btn-p btn-sm" onclick="statementSaveCategories()">Kategori değişikliklerini kaydet</button>':''):'')+
+      '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="statementSaveCategories()">Kategori değişikliklerini kaydet</button>':'')+
     '<p class="cf-muted">Bu sürüm JSON içe aktarır; PDF/XLSX dosyasını doğrudan yükleme henüz desteklenmiyor. Kredi kartı hesap planına otomatik yansıtma da kapalıdır; çift kayıt riskini önler.</p></div>';
   }
   return {reset,render,selectFile,saveDraft,saveCategories,categoryEdit,cancelDraft(){draft=null;rerender();}};
