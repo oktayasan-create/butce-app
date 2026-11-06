@@ -129,6 +129,7 @@ export function parseStatementPDFText(text,fileName="statement.pdf",hash="local"
   const label=bank+(last4?" •••• "+last4:" • "+fileName.replace(/\.pdf$/i,"").slice(0,28));
   const prefix=prefixFor(bank,date,hash);
   const warnings=[],tx=[];
+  let unreadableRows=0;
   const lines=text.split(/\r?\n/);
   const ykbDate=/^\s*(\d{1,2}\s+(?:Ocak|Şubat|Subat|Mart|Nisan|Mayıs|Mayis|Haziran|Temmuz|Ağustos|Agustos|Eylül|Eylul|Ekim|Kasım|Kasim|Aralık|Aralik)\s+20\d{2})\s+(.+)$/i;
   const enparaDate=/^\s*(\d{1,2}[./-]\d{1,2}[./-]20\d{2})\s+(.+)$/;
@@ -152,7 +153,7 @@ export function parseStatementPDFText(text,fileName="statement.pdf",hash="local"
     if(!m)continue;
     const dateStr=parseStatementDate(m[1]);if(!dateStr)continue;
     const rest=normalizeLine(m[2]);
-    const amounts=fromLineCurrency(rest);if(!amounts.length)continue;
+    const amounts=fromLineCurrency(rest);if(!amounts.length){unreadableRows++;continue;}
     // Enpara uses trailing amount; YKB shows first amount after description,
     // followed by remaining installment and points in other columns.
     const amountMatch=enpara?amounts[amounts.length-1]:amounts[0];
@@ -169,6 +170,7 @@ export function parseStatementPDFText(text,fileName="statement.pdf",hash="local"
     tx.push(t);
   }
   if(!tx.length)warnings.push("İşlem satırları okunamadı. Bu PDF taranmış olabilir veya farklı formatta olabilir.");
+  if(unreadableRows)warnings.push(unreadableRows+" tarihli satırın tutarı okunamadı; ekstreyi karşılaştır.");
   if(date==null)warnings.push("Ekstre tarihi okunamadı; lütfen elle kontrol et.");
   if(balance==null)warnings.push("Dönem borcu bulunamadı; lütfen ekstreyle karşılaştır.");
   if(minimum==null)warnings.push("Asgari ödeme bulunamadı; lütfen elle gir.");
@@ -288,6 +290,10 @@ export async function parseStatementFile(file,{pdfJs=null,xlsx=null}={}){
   }
   if(ext==="xlsx"||ext==="xls"){
     const lib=xlsx||await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+    if(ext==="xls"&&!xlsx&&lib.set_cptable){
+      const cptable=await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/cpexcel.full.mjs");
+      lib.set_cptable(cptable);
+    }
     const wb=lib.read(new Uint8Array(buffer),{type:"array",cellDates:false});
     const sheets={};
     for(const key of wb.SheetNames.slice(0,12)){
