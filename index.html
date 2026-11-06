@@ -242,6 +242,15 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 .cf-statement-table{border-collapse:collapse;min-width:680px;width:100%;font-size:12px}
 .cf-statement-table td,.cf-statement-table th{padding:7px;border-bottom:1px solid var(--border);text-align:left}
 .cf-statement-table select{max-width:150px;padding:6px;background:var(--bg4);color:var(--text);border:1px solid var(--border);border-radius:7px}
+.cf-statement-meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:8px;margin-top:9px}
+.cf-statement-table input{max-width:140px;min-width:100px;padding:6px;background:var(--bg4);
+  color:var(--text);border:1px solid var(--border);border-radius:7px}
+.cf-statement-table td{vertical-align:middle}
+.cf-review-check{display:flex;align-items:start;gap:8px;margin-top:13px;color:var(--text);font-size:13px}
+.cf-review-check input{margin-top:3px;width:17px;height:17px;flex:none}
+.cf-statement-warning{border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:12px;
+  color:var(--text);margin-top:12px;background:rgba(251,191,36,.08);font-size:13px}
+.cf-statement-warning p{margin:7px 0}
 .cf-statement-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
 .cf-statement-actions select{max-width:220px;min-width:130px;padding:7px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text)}
 @media(max-width:900px){.cf-category-panels{grid-template-columns:1fr}}
@@ -2812,6 +2821,10 @@ window.statementSaveDraft=()=>statementUI.saveDraft();
 window.statementCancelDraft=()=>statementUI.cancelDraft();
 window.statementSaveCategories=()=>statementUI.saveCategories();
 window.statementCategoryChange=(source,sid,tid,value)=>statementUI.categoryEdit(source,sid,tid,value);
+window.statementSummaryEdit=(sid,field,value)=>statementUI.editStatement(sid,field,value);
+window.statementMovementEdit=(sid,tid,field,value)=>statementUI.editMovement(sid,tid,field,value);
+window.statementExcludeMovement=(sid,tid)=>statementUI.excludeMovement(sid,tid);
+window.statementReviewAck=checked=>statementUI.reviewAck(checked);
 const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
