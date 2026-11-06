@@ -265,6 +265,7 @@ export function computeCashFlow(p,periods=12){
       overdraftDebt=r2(overdraftDebt-overdraftRepaid);
       cash=r2(cash-overdraftRepaid);
     }
+    const afterMandatoryCash=r2(cash);
     const availableForExtra=Math.max(0,r2(cash-positive(p.reserve)));
     const desiredExtra=p.autoExtra?availableForExtra:positive(m.extraPayment);
     let capacity=Math.min(availableForExtra,desiredExtra);
@@ -302,7 +303,7 @@ export function computeCashFlow(p,periods=12){
     rows.push({
       month:key,openingCash,openingOverdraft,
       income,fixedCash,otherCash,loanPayments,loanDetails,mandatoryTotal,chargedOverdraftCost,
-      minimumTotal,extraTotal:r2(state.reduce((sum,c)=>sum+c.extra,0)),
+      minimumTotal,afterMandatoryCash,extraTotal:r2(state.reduce((sum,c)=>sum+c.extra,0)),
       requestedExtra:desiredExtra,unmetExtra,
       cardSpending:r2(state.reduce((sum,c)=>sum+c.newSpending+c.dueInstallments,0)),
       installmentTotal,installments:monthlyInstallments,
