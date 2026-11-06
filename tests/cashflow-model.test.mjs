@@ -109,6 +109,20 @@ assert.equal(od[0].overdraftCost,16.58);
 assert.equal(od[1].chargedOverdraftCost,16.58);
 assert(od[1].closingOverdraft>300);
 
+// A real minimum payment and a deliberately entered extra repayment may coexist.
+const combined=emptyCashFlowPlan();
+combined.startMonth='2026-11';combined.autoExtra=false;combined.openingCash=1000;
+combined.cards=[{id:'one',name:'Test card',openingDebt:1000,minPct:40,
+  interestPct:0,interestMode:'manual',active:true}];
+combined.months['2026-11']={extraPayment:100,minOverrides:{},cardSpends:{}};
+addCashFlowEntry(combined,{id:'realmin',type:'card_payment',date:'2026-11-07',amount:400,
+  note:'Paid minimum',cardId:'one'});
+const combinedRow=computeCashFlow(combined,1)[0];
+assert.equal(combinedRow.minimumTotal,400);
+assert.equal(combinedRow.extraTotal,100,'Manual extra applies after actual minimum');
+assert.equal(combinedRow.closingCash,500);
+assert.equal(combinedRow.closingDebt,500);
+
 const archived=structuredClone(p);
 archived.loans[0].active=false;
 assert.equal(computeCashFlow(archived,1)[0].loanPayments,0);
