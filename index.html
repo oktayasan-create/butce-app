@@ -225,6 +225,16 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 .cf-table{width:100%;border-collapse:collapse;min-width:750px;text-align:right;font-size:12px}
 .cf-table td,.cf-table th{padding:10px;border-bottom:1px solid var(--border);white-space:nowrap}
 .cf-table th:first-child,.cf-table td:first-child{text-align:left}
+.cf-rich-table{min-width:1700px}
+.cf-rich-table td{font-variant-numeric:tabular-nums}
+.cf-overdraft-month{background:rgba(248,113,113,.13)}
+.cf-paidoff-month{background:rgba(52,211,153,.12)}
+.cf-savings-month{background:rgba(56,189,248,.09)}
+.cf-good{color:#34d399;font-weight:700}
+.cf-bad{color:#fb7185;font-weight:700}
+.cf-edit-row{border:1px solid var(--border);border-radius:12px;padding:12px;margin:10px 0}
+.cf-edit-row>button{margin-top:8px}
+
 .cf-muted{font-size:12px;color:var(--text3);line-height:1.5}
 .cf-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 @media(max-width:768px){.cf-kpis{grid-template-columns:1fr 1fr}}
@@ -2800,6 +2810,83 @@ function cfCategoryList(kind){
       '<button class="btn btn-p btn-sm" onclick="cfAddCategory(\''+kind+'\')">+ Ekle</button></div>'+
     '<p class="cf-muted">Kaldırılan kategoriler arşivlenir; eski işlemler silinmez.</p></div>';
 }
+function cfLoanEditor(){
+  const rows=cfPlan.loans.map((loan,i)=>'<div class="cf-edit-row">'+
+    '<div class="cf-inputs">'+
+    cfField("Kredi adı",loan.name,"cfLoan("+i+",'name',this.value)","text")+
+    cfField("Tam aylık taksit (₺)",loan.amount,"cfLoan("+i+",'amount',this.value)")+
+    cfField("İlk ödeme ayı",loan.startMonth,"cfLoan("+i+",'startMonth',this.value)","month")+
+    cfField("Son ödeme ayı",loan.endMonth,"cfLoan("+i+",'endMonth',this.value)","month")+
+    '</div><button class="btn btn-'+(loan.active===false?'ghost':'danger')+' btn-sm" onclick="cfArchiveLoan('+i+')">'+
+    (loan.active===false?'Tekrar etkinleştir':'Krediyi arşivle')+'</button></div>').join('');
+  return '<p class="cf-muted">Ev ve araba kredilerinin tamamı her ay zorunlu nakit çıkışı sayılır. Buraya girdiğin taksitleri aşağıdaki diğer sabit gider alanında tekrar yazma.</p>'+
+    rows+
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">'+
+    '<button class="btn btn-p btn-sm" onclick="cfAddLoan(\'Ev Kredisi\')">+ Ev kredisi</button>'+
+    '<button class="btn btn-p btn-sm" onclick="cfAddLoan(\'Araba Kredisi\')">+ Araba kredisi</button>'+
+    '<button class="btn btn-ghost btn-sm" onclick="cfAddLoan(\'Diğer Kredi\')">+ Diğer kredi</button></div>';
+}
+function cfInstallmentEditor(){
+  const rows=cfPlan.installments.map((inst,i)=>{
+    return '<div class="cf-edit-row"><div class="cf-inputs">'+
+      cfField("Taksit açıklaması",inst.name,"cfInstallment("+i+",'name',this.value)","text")+
+      '<label>Kart<select onchange="cfInstallment('+i+',\'cardId\',this.value)">'+
+      cfPlan.cards.map(c=>'<option value="'+c.id+'"'+(inst.cardId===c.id?' selected':'')+'>'+cfText(c.name)+'</option>').join('')+
+      '</select></label>'+
+      cfField("Her ay ödenecek taksit (₺)",inst.amount,"cfInstallment("+i+",'amount',this.value)")+
+      cfField("İlk taksit ayı",inst.startMonth,"cfInstallment("+i+",'startMonth',this.value)","month")+
+      cfField("Kaç ay",inst.count,"cfInstallment("+i+",'count',this.value)")+
+      '</div><button class="btn btn-'+(inst.active===false?'ghost':'danger')+' btn-sm" onclick="cfArchiveInstallment('+i+')">'+
+      (inst.active===false?'Taksiti geri al':'Taksiti arşivle')+'</button></div>';
+  }).join('');
+  return '<p class="cf-muted">Gelecek ayların kart taksitlerini ekle: aylık tutar, ilk ay ve taksit sayısı. Bunlar ilgili ayın kart ekstresi tahminine dahil edilir. Aynı alışverişin tamamını ayrıca yeni kart harcamasına yazma.</p>'+
+    rows+'<button class="btn btn-p btn-sm" style="margin-top:12px" onclick="cfAddInstallment()">+ Kart taksiti ekle</button>';
+}
+function cfOverdraftEditor(){
+  return '<p class="cf-muted">Enpara Ekpara/KMH hesabın eksiye geçerse gerekli kullanımı gösterir. Bakiyen artıya döndüğünde Ekpara borcu önce kapanır. Faiz günlük hesaplandığından burada ay içindeki ortalama borçla tahmin yapılır; hesaplanan maliyet sonraki aya eklenir.</p>'+
+    '<div class="cf-inputs">'+
+    cfField("Ekpara başlangıç borcu (₺)",cfPlan.overdraft.openingDebt,"cfOverdraft('openingDebt',this.value)")+
+    cfField("Ekpara limiti (0 = bilinmiyor)",cfPlan.overdraft.limit,"cfOverdraft('limit',this.value)")+
+    cfField("Aylık faiz (%)",cfPlan.overdraft.interestPct,"cfOverdraft('interestPct',this.value)")+
+    '</div><p class="cf-muted" style="margin-top:12px">KKDF: %'+cfText(cfPlan.tax.kkdfPct)+' • BSMV: %'+
+    cfText(cfPlan.tax.bsmvPct)+' (toplam faiz üzerinden %'+cfText(cfPlan.tax.kkdfPct+cfPlan.tax.bsmvPct)+
+    '). Başlangıç nakit bakiyesine eksi tutar da yazdıysan aynı Ekpara borcunu burada tekrar girme. 0 limit, kredinin onaylandığı anlamına gelmez.</p>';
+}
+function cfForecastTable(rows){
+  const tr=rows.map(row=>{
+    const status=[
+      row.overdraftDraw>0?'⚠️ Ekpara gerekiyor':'',
+      row.cardsPaidOff.length?'✅ Kart kapandı: '+row.cardsPaidOff.map(cfText).join(', '):'',
+      row.savings>0?'💰 Birikim':''
+    ].filter(Boolean).join(' · ')||'—';
+    const css=row.overdraftDraw>0?'cf-overdraft-month':row.cardsPaidOff.length?'cf-paidoff-month':row.savings>0?'cf-savings-month':'';
+    const money=v=>cfMoney(v);
+    return '<tr class="'+css+'"><td><strong>'+cfText(row.month)+'</strong><div class="cf-muted">'+status+'</div></td>'+
+      '<td>'+money(row.income)+'</td><td>'+money(row.loanPayments)+'</td>'+
+      '<td>'+money(row.minimumTotal)+'</td><td>'+money(row.afterMandatoryCash)+'</td>'+
+      '<td>'+money(row.extraTotal)+'</td><td>'+money(row.cardSpending)+'</td><td>'+money(row.installmentTotal)+'</td>'+
+      '<td>'+money(row.cardInterest+row.cardTax)+'</td><td>'+money(row.overdraftCost)+'</td>'+
+      '<td class="'+(row.overdraftDraw>0?'cf-bad':'')+'">'+money(row.overdraftDraw)+'</td>'+
+      '<td>'+money(row.closingOverdraft)+'</td><td>'+money(row.fundingGap)+'</td><td>'+money(row.closingDebt)+'</td>'+
+      '<td class="'+(row.savings>0?'cf-good':'')+'">'+money(row.savings)+'</td>'+
+      '<td class="'+(row.netPosition<0?'cf-bad':'cf-good')+'">'+money(row.netPosition)+'</td></tr>';
+  }).join('');
+  return '<div class="cf-scroll"><table class="cf-table cf-rich-table"><thead><tr>'+
+    '<th>Ay / Durum</th><th>Nakit gelir</th><th>Tam kredi taksiti</th>'+
+    '<th>Kart asgarileri</th><th>Asgari sonrası nakit</th><th>Seçtiğin ek ödeme</th><th>Kart harcaması + taksit</th>'+
+    '<th>Gelecek kart taksiti</th><th>Kart faiz + vergi</th><th>Ekpara faiz+vergi (sonraki ay)</th>'+
+    '<th>Gereken Ekpara</th><th>Kalan Ekpara</th><th>Limit üzeri açık</th><th>Devreden kart borcu</th>'+
+    '<th>Birikim / Nakit</th><th>Net bakiye</th></tr></thead><tbody>'+tr+'</tbody></table></div>';
+}
+function cfSelectedCardDetails(current){
+  if(!current.cards.length)return '<p class="cf-muted">Henüz kredi kartı eklenmedi.</p>';
+  return '<div class="cf-scroll"><table class="cf-table"><thead><tr><th>Kart</th><th>Önceki borç</th><th>Bu ay taksit</th><th>Asgari</th><th>Ek ödeme</th><th>Faiz %</th><th>Faiz</th><th>KKDF+BSMV</th><th>Ay sonu borç</th></tr></thead><tbody>'+
+  current.cards.map(c=>'<tr'+(c.paidOff?' class="cf-paidoff-month"':'')+'><td>'+cfText(c.name)+(c.paidOff?' · ✅ Kapandı':'')+
+  '</td><td>'+cfMoney(c.opening)+'</td><td>'+cfMoney(c.dueInstallments)+'</td><td>'+cfMoney(c.minimum)+'</td>'+
+  '<td>'+cfMoney(c.extra)+'</td><td>%'+cfText(c.interestPct)+'</td><td>'+cfMoney(c.interest)+'</td>'+
+  '<td>'+cfMoney(c.interestTax)+'</td><td>'+cfMoney(c.closing)+'</td></tr>').join('')+
+  '</tbody></table></div>';
+}
 function cfActivityForm(){
   const type=cfEntryType;
   const wantsCard=type==="card_expense"||type==="card_payment";
@@ -2892,7 +2979,11 @@ async function renderCashflow(){
       cfField("Kart adı",card.name,"cfCard("+i+",'name',this.value)","text")+
       cfField("Başlangıç kart borcu (₺)",card.openingDebt,"cfCard("+i+",'openingDebt',this.value)")+
       cfField("Tahmini asgari (%)",card.minPct,"cfCard("+i+",'minPct',this.value)")+
-      cfField("Aylık faiz varsayımı (%)",card.interestPct,"cfCard("+i+",'interestPct',this.value)")+
+      '<label>Faiz hesaplama<select onchange="cfCardMode('+i+',this.value)">'+
+         '<option value="auto"'+(card.interestMode==="auto"?' selected':'')+' >TCMB azami oranları (dönem borcu)</option>'+
+         '<option value="manual"'+(card.interestMode==="manual"?' selected':'')+'>Elle faiz oranı gir</option>'+
+       '</select></label>'+
+       (card.interestMode==="manual"?cfField("Aylık faiz varsayımı (%)",card.interestPct,"cfCard("+i+",'interestPct',this.value)"):'<div class="cf-muted">Faiz %3,25 / %3,75 / %4,25 (dönem borcuna göre)</div>')+
     '</div><button class="btn btn-'+(card.active===false?'ghost':'danger')+' btn-sm" style="margin-top:9px" onclick="cfRemoveCard('+i+')">'+(card.active===false?'Kartı geri al':'Kartı kaldır (arşivle)')+'</button></div>'
   ).join(""):'<p class="cf-muted">Henüz kart eklenmedi. Banka veya kart adlarını ekleyerek başlayabilirsin.</p>';
   const rowEditor=cfPlan.cards.map(card=>{
@@ -2905,53 +2996,63 @@ async function renderCashflow(){
       '<div class="cf-muted" style="align-self:end">Boş bırakılırsa tahmini oran kullanılır. Kategorili kayıtlarda olan harcamaları buraya yeniden girme. Ek tahmini alışverişleri gir; mevcut hareketler gelecek aya devreder.</div>'+
       '</div></div>';
   }).join("");
-  const dashboard=rows.map(row=>{
-    const moneyColor=row.closingCash<0?'#f87171':'#34d399';
-    return '<tr><td>'+cfText(row.month)+'</td><td>'+cfMoney(row.income)+'</td><td>'+cfMoney(row.minimumTotal)+
-      '</td><td>'+cfMoney(row.extraTotal)+'</td><td>'+cfMoney(row.cardSpending)+
-      '</td><td>'+cfMoney(row.closingDebt)+'</td><td style="color:'+moneyColor+';font-weight:700">'+cfMoney(row.closingCash)+'</td></tr>';
-  }).join("");
   root.innerHTML=
     '<div class="fade" style="width:100%">'+
       '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">💳 Nakit & Kredi Kartı Borç Planı</div>'+
-      '<p class="cf-muted">Harcama, gelir ve kart ödemelerini burada ayrı kategorilerle takip edebilirsin. Bu hareketler şimdilik BütçeApp\'in diğer gerçekleşen sekmesine otomatik aktarılmaz; aynı kaydı iki yerde girersen raporları ayrı ayrı yorumlamalısın. Kart ödemesi ikinci bir gider değildir. Faiz ve asgari rakamları tahminidir.</p>'+
+      '<p class="cf-muted">Harcama, gelir ve kart ödemelerini burada ayrı kategorilerle takip edebilirsin. Bu hareketler şimdilik BütçeApp\'in diğer gerçekleşen sekmesine otomatik aktarılmaz; aynı kaydı iki yerde girersen raporları ayrı ayrı yorumlamalısın. Kart ödemesi ikinci bir gider değildir. Asgari ve faizler bankanın ekstresinden doğrulanmalıdır. Kredi taksitleri tam ödenir; Ekpara ve birikim ayrı gösterilir.</p>'+
       '<div class="cf-kpis" style="margin-top:14px">'+
-        '<div class="card kpi"><div class="klbl">Seçili ay sonu nakit</div><div class="kval" style="font-size:19px;color:'+(current.closingCash<0?'#f87171':'#34d399')+'">'+cfMoney(current.closingCash)+'</div></div>'+
-        '<div class="card kpi"><div class="klbl">Devreden kart borcu</div><div class="kval" style="font-size:19px;color:#f87171">'+cfMoney(current.closingDebt)+'</div></div>'+
-        '<div class="card kpi"><div class="klbl">Tahmini asgari ödeme</div><div class="kval" style="font-size:19px">'+cfMoney(current.minimumTotal)+'</div></div>'+
+        '<div class="card kpi"><div class="klbl">Zorunlu ödemeler sonrası</div><div class="kval" style="font-size:19px;color:#34d399">'+cfMoney(current.afterMandatoryCash)+'</div></div>'+
+        '<div class="card kpi"><div class="klbl">Biriken nakit / ay sonu</div><div class="kval" style="font-size:19px;color:#34d399">'+cfMoney(current.savings)+'</div></div>'+
+        '<div class="card kpi"><div class="klbl">Bu ay gereken Enpara Ekpara</div><div class="kval" style="font-size:19px;color:'+(current.overdraftDraw>0?'#f87171':'#34d399')+'">'+cfMoney(current.overdraftDraw)+'</div></div>'+
+        '<div class="card kpi"><div class="klbl">Devreden kart borcu</div><div class="kval" style="font-size:19px">'+cfMoney(current.closingDebt)+'</div></div>'+
+        '<div class="card kpi"><div class="klbl">Devreden Ekpara borcu</div><div class="kval" style="font-size:19px">'+cfMoney(current.closingOverdraft)+'</div></div>'+
+        '<div class="card kpi"><div class="klbl">Tam krediler + kart asgarileri</div><div class="kval" style="font-size:19px">'+cfMoney(current.loanPayments+current.minimumTotal)+'</div></div>'+
       '</div>'+
-      '<p class="cf-muted" style="margin-top:12px">Kart harcamaları bu ayın borcuna eklenir; bir sonraki ayın ödeme planına yansır. Hesaplama ay bazlıdır, ekstre kesim tarihi ve taksit ayrıntılarını henüz otomatik hesaplamaz.</p></div>'+
+      '<p class="cf-muted" style="margin-top:12px">Kart harcamaları gelecek aya taşınır; planlanan taksitler ilgili ayın ekstresine dahil edilir. Kart faizleri dönem borcuna göre; Ekpara faizi ay içindeki ortalama borca göre yaklaşık hesaplanır. KKDF/BSMV eklenir.</p></div>'+
       '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">1. Başlangıç ve ödeme stratejisi</div>'+
       '<div class="cf-inputs">'+
       cfField("Plan başlangıcı",cfPlan.startMonth,"cfRoot('startMonth',this.value)","month")+
       cfField("Banka nakit bakiyesi (eksi olabilir)",cfPlan.openingCash,"cfRoot('openingCash',this.value)")+
       cfField("Elde tutulacak güvenli nakit (₺)",cfPlan.reserve,"cfRoot('reserve',this.value)")+
       '<label>Artan parayı kartlara yönlendir<select onchange="cfRoot(this.dataset.key,this.value)" data-key="autoExtra"><option value="yes"'+(cfPlan.autoExtra?' selected':'')+'>Evet, otomatik</option><option value="no"'+(!cfPlan.autoExtra?' selected':'')+'>Hayır, manuel</option></select></label>'+
-      '</div><p class="cf-muted" style="margin-top:8px">Her ay maaş ve zorunlu nakit ödemeler sonrası kalanı kart borcuna yönlendirebilirsin. Faizler sadece tahmin içindir.</p></div>'+
+      '</div><p class="cf-muted" style="margin-top:8px">Manuel modda ek kart ödemesini sen belirlersin. Otomatik modda yalnızca nakit rezervini aşan para yönlendirilir. Ekpara borcu önce kapanır. Bu gerçek banka işlemi değil, plan simülasyonudur.</p></div>'+
       '<div class="card cb" style="margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="sec-title" style="margin:0">2. Kartlar</div><button class="btn btn-p btn-sm" onclick="cfAddCard()">+ Kart ekle</button></div>'+
       cardEditor+'</div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">3. Aylık plan</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">3. Ev, Araba ve Diğer Krediler</div>'+cfLoanEditor()+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">4. Gelecek Aylara Ait Kart Taksitleri</div>'+cfInstallmentEditor()+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">5. Enpara Ekpara / Eksi Hesap</div>'+cfOverdraftEditor()+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">6. Aylık nakit planı</div>'+
       '<label class="lbl" for="cf-month">Düzenlenecek ay</label><select id="cf-month" onchange="cfSelectMonth(this.value)" style="width:100%;margin-bottom:16px">'+
       rows.map(row=>'<option value="'+row.month+'"'+(row.month===cfSelectedMonth?' selected':'')+'>'+row.month+'</option>').join("")+
       '</select><div class="cf-inputs">'+
         cfField("Aylık tahmini gelir (gerçekleşen yoksa)",currentData.income||0,"cfMonthField('income',this.value)")+
-        cfField("Ev, araba ve sabit nakit ödemeleri",currentData.fixedCash||0,"cfMonthField('fixedCash',this.value)")+
+        cfField("Krediler dışındaki diğer sabit ödemeler",currentData.fixedCash||0,"cfMonthField('fixedCash',this.value)")+
         cfField("Ek tahmini nakit gideri (₺)",currentData.otherCash||0,"cfMonthField('otherCash',this.value)")+
-        (!cfPlan.autoExtra?cfField("Planlanan ek kart ödemesi (₺)",currentData.extraPayment||0,"cfMonthField('extraPayment',this.value)"):'')+
-      '</div><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+
+        (!cfPlan.autoExtra?cfField("Benim belirlediğim ek kart ödemesi (₺)",currentData.extraPayment||0,"cfMonthField('extraPayment',this.value)"):'')+
+      '</div><p class="cf-muted" style="margin-top:10px">Ek kart ödeme tutarı zorunlu ödemelerden ve Ekpara kapanışından sonra gerçekten kullanılabilecek nakitle sınırlandırılır. Bu ek ödemeyi zaten gerçekleşmiş kart ödemesi olarak kaydettiysen burada tekrar yazma.</p>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">'+
       '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'income\')">Maaşı sonraki aylara uygula</button>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'fixedCash\')">Sabit ödemeleri sonraki aylara uygula</button>'+
       '</div><div style="margin-top:12px">'+rowEditor+'</div></div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">4. Kart harcaması, gelir ve ödeme kaydı</div>'+cfActivityForm()+'</div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">5. Harcama ve gelir kategorileri</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">7. Kart harcaması, gelir ve ödeme kaydı</div>'+cfActivityForm()+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">8. Harcama ve gelir kategorileri</div>'+
       '<p class="cf-muted">İstediğin gibi yeni kategori ekleyebilir, isim değiştirebilir veya kullanım listesinden kaldırabilirsin. Eski işlem geçmişi korunur.</p>'+
       '<div style="display:flex;gap:28px;flex-wrap:wrap">'+cfCategoryList("expense")+cfCategoryList("income")+'</div></div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">6. Bu ayın kategori özeti</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">9. Bu ayın kategori özeti</div>'+
       cfCategorizedSummary(current)+'</div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">7. Hareket geçmişi</div>'+cfActivityLog(current)+'</div>'+
-      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">8. Önümüzdeki 12 ay</div>'+
-      '<div class="cf-scroll"><table class="cf-table"><thead><tr><th>Ay</th><th>Nakit gelir</th><th>Asgari ödemeler</th><th>Ek kart ödemesi</th><th>Yeni kart harcaması</th><th>Devreden kart borcu</th><th>Ay sonu nakit</th></tr></thead><tbody>'+dashboard+'</tbody></table></div>'+
-      '<p class="cf-muted" style="margin-top:12px">Eksi ay sonu bakiye, ek finansman veya harcama azaltma ihtiyacına işaret eder. Kart faizleri ile gerçek asgari tutarlar farklı olabilir; tablo bankacılık ekstresi değildir.</p></div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">10. Hareket geçmişi</div>'+cfActivityLog(current)+'</div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">12. Önümüzdeki 12 ay</div>'+
+      cfForecastTable(rows)+
+      '<p class="cf-muted" style="margin-top:12px">Kırmızı: Ekpara gerektiren ay. Yeşil: Kart kapanan ay. Açık mavi: Birikimli nakit olan ay. Gerçek banka ekstresi ve son ödeme tarihleri farklı olabilir.</p></div>'+
+      '<div class="card cb" style="margin-bottom:16px"><div class="sec-title">11. Seçili Ay Kart Faizi, Vergileri ve Borçları</div>'+
+      cfSelectedCardDetails(current)+
+      '<p class="cf-muted">Ekpara bu ay faiz: '+cfMoney(current.overdraftInterest)+
+      ' · KKDF+BSMV: '+cfMoney(current.overdraftTax)+
+      ' · Sonraki aya yansıtılacak Ekpara maliyeti: '+cfMoney(current.overdraftCost)+
+      ' · Bu ayki kredi faiz + vergi toplamı: '+cfMoney(current.cardInterest+current.cardTax)+
+      (current.overdraftLimitExceeded?' · ⚠️ Ekpara varsayılan kullanım limiti aşıyor!':'')+
+      (current.unmetExtra>0?' · Talep ettiğin ek ödemeden karşılanamayan: '+cfMoney(current.unmetExtra):'')+
+      '</p></div>'+
       '<div id="cf-error" role="alert" style="color:#fca5a5;font-size:13px;margin-bottom:10px"></div>'+
       '<div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:24px"><button class="btn btn-p" onclick="cfSavePlan()">💾 Planı Kaydet</button>'+
       '<span class="cf-muted">'+(cfDirty?'Kaydedilmemiş değişikliklerin var.':'Plan ayrı bir Firestore belgesinde saklanır.')+'</span></div>'+
@@ -2984,6 +3085,78 @@ window.cfCard=function(index,field,value){
   else card[field]=cfLimit(value,0,field==="minPct"?100:field==="interestPct"?25:1000000000000);
   cfDirty=true;renderCashflow();
 };
+window.cfCardMode=function(index,value){
+  const card=cfPlan?.cards[index];
+  if(!card||!["auto","manual"].includes(value))return;
+  card.interestMode=value;
+  cfDirty=true;renderCashflow();
+};
+window.cfOverdraft=function(field,value){
+  if(!cfPlan||!["openingDebt","limit","interestPct"].includes(field))return;
+  cfPlan.overdraft[field]=cfLimit(value,0,field==="interestPct"?25:1000000000000);
+  cfDirty=true;renderCashflow();
+};
+window.cfAddLoan=function(name){
+  if(!cfPlan||cfPlan.loans.length>=50)return;
+  const id="loan_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
+  cfPlan.loans.push({id,name,amount:0,startMonth:cfPlan.startMonth,
+    endMonth:advanceMonth(cfPlan.startMonth,35),active:true});
+  cfDirty=true;renderCashflow();
+};
+window.cfLoan=function(index,field,value){
+  const l=cfPlan?.loans[index];
+  if(!l||!["name","amount","startMonth","endMonth"].includes(field))return;
+  if(field==="name"){
+    if(!value.trim()){showToast("Kredi adı boş olamaz.");return;}
+    l.name=value.trim().slice(0,90);
+  }else if(field==="amount")l.amount=cfLimit(value);
+  else{
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return;
+    l[field]=value;
+    if(l.endMonth<l.startMonth){
+      if(field==="startMonth")l.endMonth=l.startMonth;
+      else l.startMonth=l.endMonth;
+    }
+  }
+  cfDirty=true;renderCashflow();
+};
+window.cfArchiveLoan=function(index){
+  const l=cfPlan?.loans[index];if(!l)return;
+  const next=l.active===false;
+  if(!next&&!confirm("Bu kredi gelecekteki zorunlu ödemelerden kaldırılacak. Devam edilsin mi?"))return;
+  l.active=next;cfDirty=true;renderCashflow();
+};
+window.cfAddInstallment=function(){
+  if(!cfPlan||cfPlan.installments.length>=250)return;
+  if(!cfPlan.cards.length){showToast("Önce kredi kartı eklemelisin.");return;}
+  const id="install_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
+  const card=cfPlan.cards.find(c=>c.active!==false)||cfPlan.cards[0];
+  cfPlan.installments.push({id,name:"Yeni taksit",cardId:card.id,amount:0,
+    startMonth:advanceMonth(cfPlan.startMonth,1),count:3,active:true});
+  cfDirty=true;renderCashflow();
+};
+window.cfInstallment=function(index,field,value){
+  const inst=cfPlan?.installments[index];
+  if(!inst||!["name","cardId","amount","startMonth","count"].includes(field))return;
+  if(field==="name"){
+    if(!value.trim()){showToast("Taksit adı boş olamaz.");return;}
+    inst.name=value.trim().slice(0,100);
+  }else if(field==="cardId"){
+    if(!cfPlan.cards.some(c=>c.id===value))return;
+    inst.cardId=value;
+  }else if(field==="startMonth"){
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return;
+    inst.startMonth=value;
+  }else if(field==="count")inst.count=Math.max(1,Math.min(120,Math.floor(cfNumber(value))));
+  else inst.amount=cfLimit(value);
+  cfDirty=true;renderCashflow();
+};
+window.cfArchiveInstallment=function(index){
+  const inst=cfPlan?.installments[index];if(!inst)return;
+  const next=inst.active===false;
+  if(!next&&!confirm("Planlanan taksit gelecekteki aylardan kaldırılacak. Diğer hareketler silinmez."))return;
+  inst.active=next;cfDirty=true;renderCashflow();
+};
 window.cfRepeatNext=function(field){
   if(!cfPlan||!["income","fixedCash"].includes(field))return;
   const amount=cfLimit(cfMonthData(cfSelectedMonth)[field]);
@@ -2995,7 +3168,7 @@ window.cfRepeatNext=function(field){
 window.cfAddCard=function(){
   if(!cfPlan||cfPlan.cards.length>=24)return;
   const id="card_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
-  cfPlan.cards.push({id,name:"Kart "+(cfPlan.cards.length+1),active:true,openingDebt:0,minPct:40,interestPct:0});
+  cfPlan.cards.push({id,name:"Kart "+(cfPlan.cards.length+1),active:true,openingDebt:0,minPct:40,interestPct:4.25,interestMode:"auto"});
   cfDirty=true;renderCashflow();
 };
 window.cfRemoveCard=function(index){

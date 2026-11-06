@@ -41,3 +41,23 @@ Kişisel finans rakamlarını, gerçek kart numaralarını, parolaları veya UID
 - Var olan bütçe, yatırım ve hedef kayıtlarının değişmediğini kontrol et.
 
 **Not:** Gerçek para veya kart hareketi oluşturulmaz. BütçeApp bir manuel takip aracıdır; bankalara bağlanmaz.
+
+
+## V3 — Zorunlu krediler, kart taksitleri ve Enpara Ekpara (Kasım 2026)
+
+- **Krediler:** Ev, araba veya diğer kredilerin tam aylık taksiti ilk-son ödeme ayları arasında her ay zorunlu nakit çıkışı sayılır. Krediler için asgari ödeme yoktur. Bunları `Krediler dışındaki diğer sabit ödemeler` alanına **ikinci defa yazmayın**.
+- **Kart taksitleri:** Aylık taksit tutarı + taksidin başladığı ay + toplam taksit sayısı girilir. Taksitler ilgili ayın kart ekstre tahminine eklenir. Alışverişin tamamını yeniden kart harcaması olarak kaydetmeyin.
+- **Asgari sonra ek ödeme:** Krediler, nakit giderler, kart asgarileri ve varsa önceki Ekpara faizi düşüldükten sonra nakit açığı hesaplanır. Ekpara bakiyesi varsa pozitif nakitle önce kapatılır. Manuel modda **senin belirlediğin ek ödeme** kullanılabilir nakitten fazlaysa azaltılır. Otomatik modda nakit rezervi üzerindeki kalan tutar yönlendirilir.
+- **Ekpara:** Negatif açığın Enpara Ekpara/KMH ile karşılandığı varsayılır. Gerçekte **tanımlı bir KMH limitinizin olması gerekir**; bu ekran kredi sağlayamaz. Girilen limit aşılırsa kırmızı uyarı verilir. Başlangıç nakit bakiyeniz eksi ise ve aynı eksi bakiyeyi Ekpara başlangıç borcu olarak ikinci kez girerseniz **çift sayılır**.
+- **Ekpara faizi:** Aylık %4,25 (Kasım 2026), ilgili ayın **ortalama** tahmini eksi bakiye seviyesiyle hesaplanır; %15 KKDF + %15 BSMV eklenir ve sonraki aya tahmini nakit çıkışı olarak eklenir. Banka ise gerçek faizi **gün sonu bakiyesine günlük** uygular; bu nedenle ekrandaki tutar bir ekstre tutarı değildir.
+- **Kredi kartı faizi:** TCMB'nin 1 Kasım 2026 için yayımladığı azami akdi oranlar aylık %3,25 (dönem borcu 30.000 TL altı), %3,75 (30.000–180.000 TL), %4,25 (180.000 TL üzeri). **Bu kademeler kart limitine değil, dönem borcuna göre belirlenir.** Üzerine %15 KKDF ve %15 BSMV gelir. Kartın “Faiz hesaplama” alanında TCMB otomatik veya elle tanımlanan oran seçilebilir; eski planlardaki faiz tercihi değiştirilmeden taşınır.
+- **Gecikme:** Eksik asgari ödeme girişinde gecikme faiz farkı ancak yaklaşık hesaplanır. Ödeme son günü/ekstre kesimi bankanın takviminde olduğundan hesaplama **ödeme tavsiyesi veya hukuken kesin tutar değildir**.
+- **Birikim:** Pozitif dönem sonu nakit bir sonraki aya devreder; Ekpara borcu varsa önce otomatik kapatılır. Kredi kartı borcu tamamen kapanan ve Ekpara gerektiren aylar ayrı renkte gösterilir.
+- **Veri güvenliği:** V1/V2 kayıtları bellek içinde V3'e yükseltilir; mevcut `transactions`, `investments`, bütçeler ve hedefler değiştirilmez. Ancak V3 planını ilk kez kaydetmeden önce ekrandaki rakamları ve geçmiş dönemleri kontrol edin. Firebase verileri yalnızca kullanıcıya özel güvenlik kurallarında kalmalıdır.
+
+### Resmî kaynaklar
+- [TCMB — Kredi kartı azami faiz tablosu](https://www.tcmb.gov.tr/wps/wcm/connect/TR/TCMB+TR/Main+Menu/Istatistikler/Bankacilik+Verileri/Kredi_Karti_Islemlerinde_Uygulanacak_Azami_Faiz_Oranlari)
+- [Enpara — Ekpara hesabının günlük faizi ve vergileri](https://www.enpara.com/sss/kartlar/encard)
+- [Enpara — Güncel Ekpara ürünü](https://www.enpara.com/krediler/ekpara)
+
+> Bu oranlar ileriki aylarda değişebilir. Uygulama 1 Kasım 2026 verilerini gelecek aylar için varsayım olarak kullanır; bankalardan canlı oran çekmez.

@@ -11,7 +11,7 @@ const model=await import('data:text/javascript;charset=utf-8,'+encodeURIComponen
 const initial=model.emptyCashFlowPlan();
 initial.startMonth='2026-11';
 initial.autoExtra=false;
-initial.cards=[{id:'visa',name:'Test Visa',active:true,openingDebt:1000,minPct:40,interestPct:0}];
+initial.cards=[{id:'visa',name:'Test Visa',active:true,openingDebt:1000,minPct:40,interestPct:0,interestMode:'manual'}];
 initial.months['2026-11']={income:1000,fixedCash:0,otherCash:0,cardSpends:{},minOverrides:{}};
 const root={innerHTML:''};
 const inputs={
@@ -58,4 +58,29 @@ assert.equal(model.computeCashFlow(p,1)[0].closingDebt,680,'Archived card still 
 sandbox.window.cfDeleteEntry(p.entries[0].id);
 assert.equal(p.entries.length,0,'User should be able to remove a movement before saving');
 assert.equal(model.computeCashFlow(p,1)[0].closingDebt,600);
-console.log('PASS: cashflow UI renders, category add/archive, entry add/delete, card archive, debt preservation');
+
+assert(root.innerHTML.includes('Gelecek Aylara Ait Kart Taksitleri'));
+assert(root.innerHTML.includes('Enpara Ekpara'));
+assert(root.innerHTML.includes('Benim belirlediğim ek kart ödemesi'));
+assert(root.innerHTML.includes('TCMB azami oranları'));
+assert(root.innerHTML.includes('Kalan Ekpara'));
+assert(root.innerHTML.includes('Kart faiz + vergi'));
+sandbox.window.cfAddLoan('Ev Kredisi');
+sandbox.window.cfLoan(0,'amount','500');
+assert.equal(p.loans[0].amount,500);
+assert.equal(model.computeCashFlow(p,1)[0].loanPayments,500);
+sandbox.window.cfAddInstallment();
+sandbox.window.cfInstallment(0,'amount','200');
+sandbox.window.cfInstallment(0,'startMonth','2026-11');
+sandbox.window.cfInstallment(0,'count','3');
+assert.equal(model.computeCashFlow(p,1)[0].installmentTotal,200);
+sandbox.window.cfOverdraft('interestPct','4.25');
+assert.equal(p.overdraft.interestPct,4.25);
+sandbox.window.cfCardMode(0,'auto');
+assert.equal(p.cards[0].interestMode,'auto');
+sandbox.window.cfArchiveLoan(0);
+assert.equal(model.computeCashFlow(p,1)[0].loanPayments,0);
+sandbox.window.cfArchiveInstallment(0);
+assert.equal(model.computeCashFlow(p,1)[0].installmentTotal,0);
+
+console.log('PASS: v3 cashflow UI, loan/installment schedules, interest mode, overdraft and archive support');
