@@ -15,4 +15,6 @@ jobs:
         with:
           node-version: '22'
       - name: Validate app and auth safeguards
-        run: node tests/security-smoke.mjs
+        run: |
+          node tests/security-smoke.mjs
+          node tests/cashflow-model.test.mjs
