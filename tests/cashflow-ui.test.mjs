@@ -25,6 +25,7 @@ const inputs={
 const messages=[];
 const sandbox={
  window:{},initial,auth:{currentUser:{uid:'test'}},authRevision:0,
+ db:{},doc:()=>({}),getDocFromServer:()=>({}),setDoc:()=>({}),
  document:{getElementById(id){return id==='tab-cashflow'?root:inputs[id]||null}},
  safeHtml(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))},
  showToast(x){messages.push(x)},confirm(){return true},Date,Math,Intl,Number,String,Array,Object,
