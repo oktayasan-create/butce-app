@@ -67,6 +67,14 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
   function card(st,source){
     const r=reconcileStatement(st);
     const counts=Object.entries(r.sums).filter(([k,v])=>v>0).map(([k,v])=>(types[k]||k)+": "+money(v)).join(" · ");
+    const categoryTotals={};
+    for(const tx of st.transactions){
+      if(!["purchase","refund"].includes(tx.type))continue;
+      const category=tx.category||"Diğer";
+      categoryTotals[category]=(categoryTotals[category]||0)+(tx.type==="refund"?-tx.amount:tx.amount);
+    }
+    const categorySummary=Object.entries(categoryTotals).sort((a,b)=>b[1]-a[1])
+      .map(([name,total])=>esc(name)+": "+money(total)).join(" · ");
     const rows=st.transactions.map(tx=>'<tr><td>'+esc(tx.date)+'</td><td>'+esc(tx.description)+'</td>'+
       '<td>'+esc(types[tx.type]||tx.type)+'</td><td>'+options(tx,source,st.id)+'</td>'+
       '<td>'+money((tx.type==="refund"||tx.type==="payment"?-1:1)*tx.amount)+'</td>'+
@@ -78,8 +86,9 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       '<div class="cf-muted">Son ödeme: '+esc(st.dueDate||"Ekstrede yok")+
       (r.gap!==null?(r.reconciled?" · ✓ Hareket toplamı tutuyor":" · ⚠️ Tutar farkı: "+money(r.gap)):"")+'</div>'+
       '<details><summary>İşlemleri ve kategorileri incele</summary><div class="cf-statement-scroll">'+
-      '<table class="cf-statement-table"><tr><th>Tarih</th><th>Açıklama</th><th>Tür</th><th>Kategori</th><th>Tutar</th><th>Taksit</th></tr>'+
-      rows+'</table></div><p class="cf-muted">'+esc(counts)+'</p></details></div>';
+      '<table class="cf-statement-table"><tr><th>Tarih</th><th>Açıklama</th><th>Tür</th><th>Kategori</th><th>Tutar</th><th>Taksit</th></tr>'+rows+'</table></div>'+
+      '<p class="cf-muted"><strong>Kategori dağılımı:</strong> '+categorySummary+'</p>'+
+      '<p class="cf-muted">'+esc(counts)+'</p></details></div>';
   }
   function render(){
     const el=document.getElementById("cf-statement-panel");if(!el)return;
