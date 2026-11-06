@@ -2781,6 +2781,8 @@ function cfShowError(message){
 }
 function cfMonthData(month){
   if(!cfPlan.months[month]) cfPlan.months[month]={income:0,fixedCash:0,otherCash:0,cardSpends:{},minOverrides:{}};
+  if(!cfPlan.months[month].cardSpends) cfPlan.months[month].cardSpends={};
+  if(!cfPlan.months[month].minOverrides) cfPlan.months[month].minOverrides={};
   return cfPlan.months[month];
 }
 
@@ -2807,6 +2809,7 @@ function cfActivityForm(){
   const cards=cfPlan.cards.filter(c=>c.active!==false||type==="card_payment");
   const date=new Date();
   const today=date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0")+"-"+String(date.getDate()).padStart(2,"0");
+  const entryDate=today.slice(0,7)===cfSelectedMonth?today:(cfSelectedMonth+"-01");
   return '<div class="cf-inputs">'+
     '<label>Hareket türü<select id="cf-entry-type" onchange="cfEntryTypeChange(this.value)">'+
       [['card_expense','Kredi kartı harcaması'],['cash_expense','Nakit / banka gideri'],
@@ -2817,7 +2820,7 @@ function cfActivityForm(){
       '<option value="'+c.id+'">'+cfText(c.name)+(c.active===false?' (Arşiv)':'')+'</option>').join('')+'</select></label>':'')+
     (wantsCat?'<label>Kategori<select id="cf-entry-cat">'+cats.map(c=>
       '<option value="'+c.id+'">'+cfText(c.name)+'</option>').join('')+'</select></label>':'')+
-    '<label>Tarih<input id="cf-entry-date" type="date" value="'+today+'"></label>'+
+    '<label>Tarih<input id="cf-entry-date" type="date" value="'+entryDate+'"></label>'+
     '<label>Tutar (₺)<input id="cf-entry-amount" type="number" step="0.01" min="0.01" placeholder="0,00"></label>'+
     '<label>Açıklama<input id="cf-entry-note" maxlength="240" placeholder="İsteğe bağlı not"></label>'+
     '</div>'+
@@ -2832,7 +2835,7 @@ function cfCategorizedSummary(current){
   const byCat=current.byCategory;
   const blocks=["expense","income"].map(kind=>{
     const entries=Object.entries(byCat[kind]);
-    const title=kind==="expense"?"Harccamalar (kart + nakit)":"Gerçekleşen gelirler";
+    const title=kind==="expense"?"Harcamalar (kart + nakit)":"Gerçekleşen gelirler";
     return '<div style="flex:1;min-width:220px"><div style="font-weight:700;margin-bottom:8px">'+title+'</div>'+
       (entries.length?entries.map(([id,amount])=>{
         const cat=cfPlan.categories[kind].find(c=>c.id===id);
