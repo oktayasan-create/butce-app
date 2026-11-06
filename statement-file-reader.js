@@ -44,7 +44,7 @@ export function parseStatementMoney(raw){
 }
 export function classifyStatementTransaction(description,signedAmount,bank=""){
   const s=String(description||"").toLocaleUpperCase("tr-TR");
-  if(/KKDF|BSMV|DAMGA VERG|KAYNAK KULLANIM|VERGİ/.test(s))return "tax";
+  if(/KKDF|BSMV|DAMGA VERG|KAYNAK KULLANIM|FAİZ VERGİSİ/.test(s))return "tax";
   if(/FAİZ|FAIZ|F[AİI]Z[İI]|GEC[İI]KME F/.test(s))return "interest";
   if(/ÖDEME-İNTERNET|OTOMATİK TAHSİLAT|OTOMATIK TAHSILAT|^ÖDEME\s*-\s*ENPARA|KART BORCU ÖDEME|^ÖDEMELER\b/.test(s))return "payment";
   if(/USD EKSTREDEN|EUR EKSTREDEN|GBP EKSTREDEN|BAKİYE TRANSFER|BAKIYE TRANSFER/.test(s))return "transfer";
@@ -156,10 +156,12 @@ export function parseStatementPDFText(text,fileName="statement.pdf",hash="local"
     // Enpara uses trailing amount; YKB shows first amount after description,
     // followed by remaining installment and points in other columns.
     const amountMatch=enpara?amounts[amounts.length-1]:amounts[0];
-    const signed=parseStatementMoney(amountMatch[1]);if(signed===null)continue;
+    let signed=parseStatementMoney(amountMatch[1]);if(signed===null)continue;
+    if(/-\s*$/.test(rest.slice(0,amountMatch.index)))signed=-Math.abs(signed);
     const description=normalizeLine(rest.slice(0,amountMatch.index));
     if(!description||/^(TOPLAM|HESAP|İŞLEM TARİHİ|FAİZ ORANI)/i.test(description))continue;
-    const type=classifyStatementTransaction(description,signed,bank);
+    let type=classifyStatementTransaction(description,signed,bank);
+    if(!enpara&&/^[+]/.test(amountMatch[1].trim())&&type==="purchase")type="refund";
     const t=makeTx(prefix,tx.length+1,dateStr,description,signed,type,rest.slice(amountMatch.index+amountMatch[0].length));
     // Enpara payment may be identified by explicit negative amount, even if its
     // text is different. No negative purchase is silently counted as a purchase.
@@ -176,7 +178,7 @@ export function parseStatementPDFText(text,fileName="statement.pdf",hash="local"
     previousBalance,periodSpending,remainingInstallmentsTotal,
     transactions:tx},warnings};
 }
-function readSummaryRows(rows){
+function readSummaryRows(rows,transactionRows=[]){
   let periodLabel=null,summary={},active=false;
   for(const row of rows){
     const cells=row.map(x=>String(x??"").trim());
@@ -185,8 +187,10 @@ function readSummaryRows(rows){
       if(active)break;
       const mm=phrase.match(/^\*(\S+)/);
       const mon=MONTHS[mm?.[1].toLocaleLowerCase("tr-TR")];
-      // Use source document's year if possible; avoid inventing a date.
-      periodLabel=mon?"2026-"+String(mon).padStart(2,"0"):null;
+      const dates=transactionRows.flatMap(row=>row.map(parseStatementDate)).filter(Boolean);
+      const sameMonth=dates.filter(d=>Number(d.slice(5,7))===mon).sort();
+      const reference=sameMonth.at(-1)||dates.sort().at(-1)||null;
+      periodLabel=mon&&reference?reference.slice(0,4)+"-"+String(mon).padStart(2,"0"):null;
       active=true;continue;
     }
     if(!active)continue;
@@ -214,7 +218,7 @@ export function parseStatementExcelRows(sheets,fileName="statement.xlsx",hash="l
   const actualAmountIx=amountIx>=0?amountIx:header.length>=5?4:-1;
   if(dateIx<0||descIx<0||actualAmountIx<0)throw Error("Excel işlem sütunları tanınmadı. Tarih / İşlem / Tutar gerekli.");
   const summaryTab=tabs.find(([name])=>/özet|ozet|summary/i.test(name));
-  const summary=summaryTab?readSummaryRows(summaryTab[1]):{periodLabel:null,summary:{}};
+  const summary=summaryTab?readSummaryRows(summaryTab[1],sheet):{periodLabel:null,summary:{}};
   const refDate=fileDate?parseStatementDate(fileDate):null;
   const periodLabel=summary.periodLabel||refDate?.slice(0,7)||null;
   const prefix=prefixFor("Garanti BBVA",periodLabel?periodLabel+"-01":null,hash);
