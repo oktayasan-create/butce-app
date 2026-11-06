@@ -24,3 +24,20 @@ Harcama ve gelir grupları çok sütunlu küçük düzenlenebilir kutularda gös
 - JSON seçimi tarayıcı içinde gerçekleşir. Yalnızca açık **Kaydet** onayından sonra Firebase kullanılır.
 - Bu bir manuel takip uygulamasıdır; bankaların hesaplarına giriş yapmaz, otomatik banka entegrasyonu içermez.
 - Kullanıcı hesabı değiştiğinde ekstre önizlemesi uygulama belleğinden temizlenir.
+
+## Doğrudan PDF ve Excel yükleme (v2)
+
+**Desteklenen dosyalar**
+
+- **Enpara (.pdf):** Metin seçilebilir kredi kartı ekstreleri, ödeme/alışveriş/faiz/KKDF/BSMV satırları
+- **Yapı Kredi (.pdf):** World, Opet ve diğer Yapı Kredi kart ekstrelerinin mevcut metin düzeni; kart taksitleri ve iadeler mümkün olduğunda ayrılır
+- **Garanti BBVA (.xlsx / .xls):** İşlem listesi için `Tarih / İşlem / Etiket / Tutar` düzeni ve özet sayfası
+- **Önceki JSON dosyaları (.json):** Geriye dönük destek korunur
+
+**Kullanım:** `Nakit Akışı & Kartlar → Ekstreleri içe aktar` içinden dosyaları seç. Birden çok dosya yüklenebilir. Uygulama tarayıcıda okur ve banka / kart / tutar / asgari / ödeme / faiz / vergi / taksit / kategori önizlemesini gösterir. Bulunamayan veya şüpheli alanlar uyarı verir. İlgili özetin altında borç, asgari ve tarihleri düzelt; işlem tablosunda tür ve tutarları gözden geçir. Ardından **kontrol ettim** kutusunu işaretleyip özel arşive kaydet.
+
+**Güvenlik ve doğruluk:** Kaynak dosyanın kendisi hiçbir API'ye gönderilmez. PDF.js (4.10.38) ve SheetJS (0.20.3) istemci tarafında kullanılan, sürümü sabitlenmiş kütüphanelerdir; bunlar ilk kullanımda kendi yayıncılarının CDN adresinden indirilir. Ayrıştırılmış veriler, yalnızca açık kullanıcı onayından sonra Firebase'in kimliği doğrulanmış kullanıcıya özel Firestore belgesinde saklanır. PDF metni seçilemiyorsa (tarama/görüntü PDF), OCR yoktur ve tahminle işlemler oluşturulmaz.
+
+**Önemli kısıtlar:** Bankalar PDF ve Excel biçimlerini zaman zaman değiştirir. Bazı satırlar veya taksitler eksik ya da hatalı tanınabilir. Ekranda kontrol etmeden içeri aktarma yapılmamalıdır. Diğer BütçeApp hareketleri, kredi kartlarının canlı borçları ve 12 aylık tahmin bu işlemle **otomatik değiştirilmez**; böylece çift kayıt önlenir. Aynı ekstrenin tekrar aktarılması kimlik eşleştirmesiyle engellenir, fakat bankanın aynı ekstreyi farklı dosya biçimiyle dışa aktarması durumunda kullanıcı yine kontrol etmelidir. Uygulama bankalara bağlanmaz.
+
+**Kaynak kütüphaneler:** https://cdnjs.com/libraries/pdf.js/4.10.38 ve https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs
