@@ -10,6 +10,7 @@ const source=fs.readFileSync('cashflow-model.js','utf8');
 const model=await import('data:text/javascript;charset=utf-8,'+encodeURIComponent(source));
 const initial=model.emptyCashFlowPlan();
 initial.startMonth='2026-11';
+initial.autoExtra=false;
 initial.cards=[{id:'visa',name:'Test Visa',active:true,openingDebt:1000,minPct:40,interestPct:0}];
 initial.months['2026-11']={income:1000,fixedCash:0,otherCash:0,cardSpends:{},minOverrides:{}};
 const root={innerHTML:''};
