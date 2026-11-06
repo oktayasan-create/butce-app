@@ -33,7 +33,7 @@ export function normalizeStatementBundle(raw){
          (current!=null&&total!=null&&current>total))throw Error("Geçersiz taksit detayı");
       return {id:t.id,date:t.date,description:cleanText(t.description,160),
         amount:Math.round(t.amount*100)/100,type:t.type,
-        category:t.type==="purchase"?cleanText(t.category||"Diğer",90):null,
+        category:["purchase","refund"].includes(t.type)?cleanText(t.category||"Diğer",90):null,
         installmentCurrent:current,installmentTotal:total,remainingInstallments:remaining};
     });
     const value=(v)=>v==null?null:(validMoney(v)?Math.round(v*100)/100:(()=>{throw Error("Geçersiz ekstre tutarı")})());
