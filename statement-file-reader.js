@@ -29,7 +29,7 @@ export function parseStatementDate(value){
   return null;
 }
 export function parseStatementMoney(raw){
-  if(typeof raw==="number")return Number.isFinite(raw)?Math.round(Math.abs(raw)*100)/100:null;
+  if(typeof raw==="number")return Number.isFinite(raw)?Math.round(raw*100)/100:null;
   let v=String(raw??"").trim().replace(/[₺\s]/g,"").replace(/TL|TRY/gi,"")
     .replace(/[−–]/g,"-").replace(/[()]/g,"");
   if(!v)return null;
