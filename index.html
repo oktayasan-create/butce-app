@@ -2849,7 +2849,7 @@ async function renderCashflow(){
       cfField("Plan başlangıcı",cfPlan.startMonth,"cfRoot('startMonth',this.value)","month")+
       cfField("Banka nakit bakiyesi (eksi olabilir)",cfPlan.openingCash,"cfRoot('openingCash',this.value)")+
       cfField("Elde tutulacak güvenli nakit (₺)",cfPlan.reserve,"cfRoot('reserve',this.value)")+
-      '<label>Artan parayı kartlara yönlendir<select onchange="cfRoot(\\'autoExtra\\',this.value)"><option value="yes"'+(cfPlan.autoExtra?' selected':'')+'>Evet, otomatik</option><option value="no"'+(!cfPlan.autoExtra?' selected':'')+'>Hayır, manuel</option></select></label>'+
+      '<label>Artan parayı kartlara yönlendir<select onchange="cfRoot(this.dataset.key,this.value)" data-key="autoExtra"><option value="yes"'+(cfPlan.autoExtra?' selected':'')+'>Evet, otomatik</option><option value="no"'+(!cfPlan.autoExtra?' selected':'')+'>Hayır, manuel</option></select></label>'+
       '</div><p class="cf-muted" style="margin-top:8px">Her ay maaş ve zorunlu nakit ödemeler sonrası kalanı kart borcuna yönlendirebilirsin. Faizler sadece tahmin içindir.</p></div>'+
       '<div class="card cb" style="margin-bottom:16px"><div style="display:flex;align-items:center;justify-content:space-between;gap:8px"><div class="sec-title" style="margin:0">2. Kartlar</div><button class="btn btn-p btn-sm" onclick="cfAddCard()">+ Kart ekle</button></div>'+
       cardEditor+'</div>'+
@@ -2873,7 +2873,7 @@ async function renderCashflow(){
 window.renderCashflow=renderCashflow;
 window.cfRoot=function(field,value){
   if(!cfPlan || !["startMonth","openingCash","reserve","autoExtra"].includes(field))return;
-  if(field==="startMonth") {if(!/^20\\d{2}-(0[1-9]|1[0-2])$/.test(value))return; cfPlan.startMonth=value;cfSelectedMonth=value;}
+  if(field==="startMonth") {if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return; cfPlan.startMonth=value;cfSelectedMonth=value;}
   else if(field==="autoExtra")cfPlan.autoExtra=value==="yes";
   else cfPlan[field]=cfNumber(value);
   cfDirty=true;renderCashflow();
