@@ -3084,6 +3084,78 @@ window.cfCard=function(index,field,value){
   else card[field]=cfLimit(value,0,field==="minPct"?100:field==="interestPct"?25:1000000000000);
   cfDirty=true;renderCashflow();
 };
+window.cfCardMode=function(index,value){
+  const card=cfPlan?.cards[index];
+  if(!card||!["auto","manual"].includes(value))return;
+  card.interestMode=value;
+  cfDirty=true;renderCashflow();
+};
+window.cfOverdraft=function(field,value){
+  if(!cfPlan||!["openingDebt","limit","interestPct"].includes(field))return;
+  cfPlan.overdraft[field]=cfLimit(value,0,field==="interestPct"?25:1000000000000);
+  cfDirty=true;renderCashflow();
+};
+window.cfAddLoan=function(name){
+  if(!cfPlan||cfPlan.loans.length>=50)return;
+  const id="loan_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
+  cfPlan.loans.push({id,name,amount:0,startMonth:cfPlan.startMonth,
+    endMonth:advanceMonth(cfPlan.startMonth,35),active:true});
+  cfDirty=true;renderCashflow();
+};
+window.cfLoan=function(index,field,value){
+  const l=cfPlan?.loans[index];
+  if(!l||!["name","amount","startMonth","endMonth"].includes(field))return;
+  if(field==="name"){
+    if(!value.trim()){showToast("Kredi adı boş olamaz.");return;}
+    l.name=value.trim().slice(0,90);
+  }else if(field==="amount")l.amount=cfLimit(value);
+  else{
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return;
+    l[field]=value;
+    if(l.endMonth<l.startMonth){
+      if(field==="startMonth")l.endMonth=l.startMonth;
+      else l.startMonth=l.endMonth;
+    }
+  }
+  cfDirty=true;renderCashflow();
+};
+window.cfArchiveLoan=function(index){
+  const l=cfPlan?.loans[index];if(!l)return;
+  const next=l.active===false;
+  if(!next&&!confirm("Bu kredi gelecekteki zorunlu ödemelerden kaldırılacak. Devam edilsin mi?"))return;
+  l.active=next;cfDirty=true;renderCashflow();
+};
+window.cfAddInstallment=function(){
+  if(!cfPlan||cfPlan.installments.length>=250)return;
+  if(!cfPlan.cards.length){showToast("Önce kredi kartı eklemelisin.");return;}
+  const id="install_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
+  const card=cfPlan.cards.find(c=>c.active!==false)||cfPlan.cards[0];
+  cfPlan.installments.push({id,name:"Yeni taksit",cardId:card.id,amount:0,
+    startMonth:advanceMonth(cfPlan.startMonth,1),count:3,active:true});
+  cfDirty=true;renderCashflow();
+};
+window.cfInstallment=function(index,field,value){
+  const inst=cfPlan?.installments[index];
+  if(!inst||!["name","cardId","amount","startMonth","count"].includes(field))return;
+  if(field==="name"){
+    if(!value.trim()){showToast("Taksit adı boş olamaz.");return;}
+    inst.name=value.trim().slice(0,100);
+  }else if(field==="cardId"){
+    if(!cfPlan.cards.some(c=>c.id===value))return;
+    inst.cardId=value;
+  }else if(field==="startMonth"){
+    if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return;
+    inst.startMonth=value;
+  }else if(field==="count")inst.count=Math.max(1,Math.min(120,Math.floor(cfNumber(value))));
+  else inst.amount=cfLimit(value);
+  cfDirty=true;renderCashflow();
+};
+window.cfArchiveInstallment=function(index){
+  const inst=cfPlan?.installments[index];if(!inst)return;
+  const next=inst.active===false;
+  if(!next&&!confirm("Planlanan taksit gelecekteki aylardan kaldırılacak. Diğer hareketler silinmez."))return;
+  inst.active=next;cfDirty=true;renderCashflow();
+};
 window.cfRepeatNext=function(field){
   if(!cfPlan||!["income","fixedCash"].includes(field))return;
   const amount=cfLimit(cfMonthData(cfSelectedMonth)[field]);
@@ -3095,7 +3167,7 @@ window.cfRepeatNext=function(field){
 window.cfAddCard=function(){
   if(!cfPlan||cfPlan.cards.length>=24)return;
   const id="card_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
-  cfPlan.cards.push({id,name:"Kart "+(cfPlan.cards.length+1),active:true,openingDebt:0,minPct:40,interestPct:0});
+  cfPlan.cards.push({id,name:"Kart "+(cfPlan.cards.length+1),active:true,openingDebt:0,minPct:40,interestPct:4.25,interestMode:"auto"});
   cfDirty=true;renderCashflow();
 };
 window.cfRemoveCard=function(index){
