@@ -3227,21 +3227,27 @@ function cfActivityLog(current){
 }
 function cfCompactForecast(rows){
   return '<div class="cf-scroll"><table class="cf-table cf-compact-forecast">'+
-  '<thead><tr><th>Ay</th><th>Nakit gelir</th><th>Tam kredi ödemesi</th>'+
-  '<th>Kart asgarisi</th><th>Ek kart ödemesi</th><th>Ekpara ihtiyacı</th>'+
-  '<th>Biriken nakit</th><th>Kart borcu</th></tr></thead><tbody>'+
-  rows.map(r=>{
-    const status=r.overdraftDraw>0?'cf-overdraft-month':r.cardsPaidOff?.length?'cf-paidoff-month':
-      r.savings>0?'cf-savings-month':'';
-    return '<tr class="'+status+'"><td><strong>'+cfText(r.month)+'</strong>'+
-      (r.overdraftDraw>0?'<small class="cf-muted"> · Ekpara</small>':'')+
-      (r.cardsPaidOff?.length?'<small class="cf-muted"> · Kart kapandı</small>':'')+
-      '</td><td>'+cfMoney(r.income)+'</td><td><strong>'+cfMoney(r.loanPayments)+'</strong></td>'+
-      '<td>'+cfMoney(r.minimumTotal)+'</td><td>'+cfMoney(r.extraTotal)+'</td>'+
-      '<td class="'+(r.overdraftDraw>0?'cf-bad':'')+'">'+cfMoney(r.overdraftDraw)+'</td>'+
-      '<td class="'+(r.savings>0?'cf-good':'')+'">'+cfMoney(r.savings)+'</td>'+
-      '<td>'+cfMoney(r.closingDebt)+'</td></tr>';
-  }).join('')+'</tbody></table></div>';
+    '<thead><tr><th>Ay</th><th>Toplam gelir</th><th>Krediler TAM</th>'+
+    '<th>Kart asgarisi</th><th>Gelecek kart taksiti</th>'+
+    '<th>Ay içi kart harcaması</th><th>Nakit gider</th><th>Ek kart ödeme</th>'+
+    '<th>Ekpara</th><th>Birikim</th><th>Devreden kart borcu</th></tr></thead><tbody>'+
+    rows.map(r=>{
+      const status=r.overdraftDraw>0?'cf-overdraft-month':r.cardsPaidOff?.length?'cf-paidoff-month':
+        r.savings>0?'cf-savings-month':'';
+      return '<tr class="'+status+'"><td><strong>'+cfText(r.month)+'</strong>'+
+        (r.overdraftDraw>0?'<small class="cf-muted"> · Ekpara</small>':'')+
+        (r.cardsPaidOff?.length?'<small class="cf-muted"> · Kart kapandı</small>':'')+
+        '</td><td>'+cfMoney(r.income)+'</td>'+
+        '<td><strong>'+cfMoney(r.loanPayments)+'</strong></td>'+
+        '<td>'+cfMoney(r.minimumTotal)+'</td>'+
+        '<td>'+cfMoney(r.installmentTotal)+'</td>'+
+        '<td>'+cfMoney(r.cardPurchases)+'</td>'+
+        '<td>'+cfMoney(r.fixedCash+r.otherCash)+'</td>'+
+        '<td>'+cfMoney(r.extraTotal)+'</td>'+
+        '<td class="'+(r.overdraftDraw>0?'cf-bad':'')+'">'+cfMoney(r.overdraftDraw)+'</td>'+
+        '<td class="'+(r.savings>0?'cf-good':'')+'">'+cfMoney(r.savings)+'</td>'+
+        '<td>'+cfMoney(r.closingDebt)+'</td></tr>';
+    }).join('')+'</tbody></table></div>';
 }
 function cfKpi(label,value,info){
   return '<div class="cf-kpi"><span class="cf-kpi-label">'+cfText(label)+'</span>'+
@@ -3263,8 +3269,15 @@ function cfStatementOverview(overview){
   if(overview.error)return '<p class="cf-bad">Ekstre özeti okunamadı; Ekstreler bölümünden bağlantıyı kontrol et.</p>';
   if(!overview.count)return '<p class="cf-muted">Henüz kaydedilmiş ekstre yok. Ekstreler bölümünden PDF/Excel yükle.</p>';
   return '<div class="cf-inline-summary"><span><strong>'+overview.count+
-    '</strong> ekstre</span><span>Toplam borç <strong>'+cfMoney(overview.debt)+
+    '</strong> ekstre</span><span>Arşiv toplam borcu <strong>'+cfMoney(overview.debt)+
     '</strong></span><span>Toplam asgari <strong>'+cfMoney(overview.minimum)+'</strong></span></div>'+
+    (overview.pendingCount?
+      '<div class="cf-sync-alert"><strong>⚠️ '+overview.pendingCount+' ekstre henüz nakit planına aktarılmadı.</strong>'+
+      '<span>Kart borçları ve gelecek taksitler bu nedenle tahmin tablosunda eksik görünüyor.</span>'+
+      '<button class="btn btn-p btn-sm" onclick="cfImportArchivedStatements()">Ekstreleri nakit planına aktar</button>'+
+      (overview.pendingWarnings?.length?'<small>Kontrol: '+overview.pendingWarnings.map(cfText).join(' · ')+'</small>':'')+
+      '</div>':'')+
+    (overview.skippedCount?'<p class="cf-muted">Bazı kartlar otomatik eşleştirilemiyor; Ekstreler bölümünden kartını elle seç.</p>':'')+
     '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
     '<th>Kart</th><th>Ekstre borcu</th><th>Asgari</th><th>Son ödeme</th><th>Durum</th>'+
     '</tr></thead><tbody>'+overview.statements.map(st=>
@@ -3352,7 +3365,7 @@ async function renderCashflow(){
       cfStatementOverview(overview)+'</div>'+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Önümüzdeki 12 ay</h3>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'plan\')">Nakit planını düzenle</button></div>'+
-      '<p class="cf-muted">Ev ve araba kredileri tam ödenir. Kart asgarileri ve senin belirlediğin ek ödeme ayrıca gösterilir.</p>'+
+      '<p class="cf-muted">Kart taksitleri ödeme ayının borcuna, ay içi alışverişler sonraki karta borcuna eklenir. Ev ve araba kredileri tam ödenir.</p>'+
       cfCompactForecast(rows)+'</div>'+
     '<div class="cf-compact-callout">Ay sonu birikim: <strong>'+cfMoney(current.savings)+
       '</strong> · Gereken Enpara Ekpara: <strong>'+cfMoney(current.overdraftDraw)+
