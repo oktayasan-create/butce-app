@@ -418,6 +418,7 @@ export function computeCashFlow(p,periods=12){
       minimumTotal,afterMandatoryCash,extraTotal:r2(state.reduce((sum,c)=>sum+c.extra,0)),
       requestedExtra:desiredExtra,unmetExtra,
       cardSpending:r2(state.reduce((sum,c)=>sum+c.newSpending+(c.statementVerified?0:c.dueInstallments),0)),
+      cardPurchases:r2(state.reduce((sum,c)=>sum+c.newSpending,0)),
       installmentTotal,installments:monthlyInstallments,
       actualCardSpending:live.cardExpenses,actualCashSpending:live.cashExpenses,
       actualIncome:live.income,actualCardPayments:live.paymentTotal,
