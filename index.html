@@ -3082,6 +3082,66 @@ function cfActivityLog(current){
       '<button class="btn btn-danger btn-sm" style="margin-left:8px" onclick="cfDeleteEntry(\''+e.id+'\')">Sil</button></div></div>';
   }).join(''):'<div class="cf-muted">Henüz bu ay işlem kaydı yok.</div>';
 }
+function cfCompactForecast(rows){
+  return '<div class="cf-scroll"><table class="cf-table cf-compact-forecast">'+
+  '<thead><tr><th>Ay</th><th>Nakit gelir</th><th>Tam kredi ödemesi</th>'+
+  '<th>Kart asgarisi</th><th>Ek kart ödemesi</th><th>Ekpara ihtiyacı</th>'+
+  '<th>Biriken nakit</th><th>Kart borcu</th></tr></thead><tbody>'+
+  rows.map(r=>{
+    const status=r.overdraftDraw>0?'cf-overdraft-month':r.cardsPaidOff?.length?'cf-paidoff-month':
+      r.savings>0?'cf-savings-month':'';
+    return '<tr class="'+status+'"><td><strong>'+cfText(r.month)+'</strong>'+
+      (r.overdraftDraw>0?'<small class="cf-muted"> · Ekpara</small>':'')+
+      (r.cardsPaidOff?.length?'<small class="cf-muted"> · Kart kapandı</small>':'')+
+      '</td><td>'+cfMoney(r.income)+'</td><td><strong>'+cfMoney(r.loanPayments)+'</strong></td>'+
+      '<td>'+cfMoney(r.minimumTotal)+'</td><td>'+cfMoney(r.extraTotal)+'</td>'+
+      '<td class="'+(r.overdraftDraw>0?'cf-bad':'')+'">'+cfMoney(r.overdraftDraw)+'</td>'+
+      '<td class="'+(r.savings>0?'cf-good':'')+'">'+cfMoney(r.savings)+'</td>'+
+      '<td>'+cfMoney(r.closingDebt)+'</td></tr>';
+  }).join('')+'</tbody></table></div>';
+}
+function cfKpi(label,value,info){
+  return '<div class="cf-kpi"><span class="cf-kpi-label">'+cfText(label)+'</span>'+
+    '<strong>'+cfMoney(value)+'</strong>'+
+    (info?'<small class="cf-muted">'+cfText(info)+'</small>':'')+'</div>';
+}
+function cfLoanSummary(current){
+  const loans=current.loanDetails||[];
+  return '<div class="cf-loan-summary"><div class="cf-inline-summary">'+
+    '<span><strong>Ev / Araba / Diğer krediler</strong> · tam ödeme zorunlu</span>'+
+    '<strong>'+cfMoney(current.loanPayments)+'/ay</strong></div>'+
+    (loans.length?'<div class="cf-loan-tags">'+loans.map(l=>
+      '<span>'+cfText(l.name)+' <strong>'+cfMoney(l.amount)+'</strong></span>').join('')+'</div>':
+      '<p class="cf-muted">Bu ay için kredi taksiti tanımlanmadı. Ev veya araba kredin varsa Nakit Planı bölümünden ekle.</p>')+
+    '<p class="cf-muted">Kredi taksitleri kartların asgarisinden bağımsız, her ay tam tutarıyla nakitten düşülür.</p></div>';
+}
+function cfStatementOverview(overview){
+  if(!overview||overview.loading)return '<p class="cf-muted">Ekstre bilgileri yükleniyor…</p>';
+  if(overview.error)return '<p class="cf-bad">Ekstre özeti okunamadı; Ekstreler bölümünden bağlantıyı kontrol et.</p>';
+  if(!overview.count)return '<p class="cf-muted">Henüz kaydedilmiş ekstre yok. Ekstreler bölümünden PDF/Excel yükle.</p>';
+  return '<div class="cf-inline-summary"><span><strong>'+overview.count+
+    '</strong> ekstre</span><span>Toplam borç <strong>'+cfMoney(overview.debt)+
+    '</strong></span><span>Toplam asgari <strong>'+cfMoney(overview.minimum)+'</strong></span></div>'+
+    '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
+    '<th>Kart</th><th>Ekstre borcu</th><th>Asgari</th><th>Son ödeme</th><th>Durum</th>'+
+    '</tr></thead><tbody>'+overview.statements.map(st=>
+      '<tr><td>'+cfText(st.cardLabel)+'</td><td>'+cfMoney(st.balance)+'</td>'+
+      '<td>'+cfMoney(st.minimum)+'</td><td>'+cfText(st.dueDate||'—')+'</td>'+
+      '<td>'+(st.mismatch?'<span class="cf-tag cf-tag-warning">Taksit kontrolü</span>':
+        st.planned?'<span class="cf-tag cf-tag-success">Plana işlendi</span>':
+        '<span class="cf-tag">Arşivde</span>')+'</td></tr>').join('')+'</tbody></table></div>'+
+    '<div style="margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="cfSetView(\'statements\')">Ekstreleri yönet</button></div>';
+}
+function cfDetailPanel(id,title,content){
+  return '<details class="cf-details-panel" '+(cfOpenPanels.has(id)?'open ':'')+
+    '><summary onclick="cfSetPanel(\''+id+'\',!this.parentElement.open)">'+title+'</summary>'+
+    '<div class="cf-panel-inner">'+content+'</div></details>';
+}
+function cfNavButton(id,title){
+  return '<button type="button" role="tab" aria-selected="'+(cfView===id?'true':'false')+
+    '" class="cf-nav-btn'+(cfView===id?' cf-nav-active':'')+'" onclick="cfSetView(\''+
+    id+'\')">'+title+'</button>';
+}
 async function renderCashflow(){
   const root=document.getElementById("tab-cashflow");
   if(!root || !auth.currentUser)return;
