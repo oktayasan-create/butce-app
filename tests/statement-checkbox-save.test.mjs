@@ -28,7 +28,7 @@ Object.defineProperty(root,"innerHTML",{
   set(value){
     savedHtml=value;
     for(const id of ["statement-review-ack","statement-save-draft","statement-save-status"]){
-      const tag=value.match(new RegExp("<(?:input|button|div)\\s+[^>]*id=\\""+id+"\\"[^>]*>","i"))?.[0];
+      const tag=value.match(new RegExp(`<(?:input|button|div)\\s+[^>]*id="${id}"[^>]*>`,"i"))?.[0];
       if(tag){
         nodes.set(id,{disabled:/\sdisabled(?:\s|>)/.test(tag),
           checked:/\schecked(?:\s|>)/.test(tag),className:"",textContent:"",
