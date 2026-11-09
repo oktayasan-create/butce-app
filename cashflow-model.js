@@ -295,7 +295,18 @@ export function computeCashFlow(p,periods=12){
     const live=summarizeCashFlowEntries(p,key);
     const openingCash=cash,openingOverdraft=overdraftDebt;
     const openingDebt=r2(Object.values(cardDebt).reduce((sum,value)=>sum+value,0));
-    const scheduledIncomeRules=p.recurringIncome.filter(rule=>appliesRecurring(rule,key));
+    const overlappingIncomeRules=p.recurringIncome.filter(rule=>appliesRecurring(rule,key));
+    // New-year salary revision supersedes an older overlapping salary interval
+    // for the same owner; other/additional income types are additive.
+    const latestSalaryByOwner=new Map();
+    for(const rule of overlappingIncomeRules.filter(x=>x.kind==="salary")){
+      const older=latestSalaryByOwner.get(rule.owner);
+      if(!older || rule.startMonth>older.startMonth)latestSalaryByOwner.set(rule.owner,rule);
+    }
+    const scheduledIncomeRules=[
+      ...overlappingIncomeRules.filter(rule=>rule.kind!=="salary"),
+      ...latestSalaryByOwner.values()
+    ];
     const scheduledIncome=r2(scheduledIncomeRules.reduce((sum,rule)=>sum+rule.amount,0));
     // A dated income schedule replaces the old undifferentiated monthly income.
     // Separate one-off income movements are additive and still visible.
