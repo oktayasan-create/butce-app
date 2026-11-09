@@ -119,7 +119,7 @@ assert.notEqual(JSON.stringify(p),before,"Only intentional edits change data");
 
 await sandbox.window.cfSavePlan();
 assert.equal(saved.length,1,"Explicit Plan Save persists user plan");
-assert.equal(saved[0][0],"data/cashflowPlan");
+assert(saved[0][0].endsWith("/data/cashflowPlan"),"Save must target cashflowPlan document");
 assert.equal(saved[0][1].plan.loans[0].amount,12000);
 assert.equal(saved[0][1].plan.loans[1].amount,6000);
 assert.equal(saved[0][1].plan.cards.length,2);
