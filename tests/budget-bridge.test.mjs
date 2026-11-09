@@ -111,7 +111,7 @@ assert.equal(rr.actualCardPayments,24000);
 assert.equal(rr.minimumRemainingTotal,0);
 assert.equal(rr.cards[1].paymentStatus,"Tamamı ödendi");
 assert.equal(rr.cards[1].closing,250,"Full statement settled; new current-month purchase still becomes next statement debt");
-assert.equal(rr.overdraftDraw,8400,"Cash shortage finances paid card and required loans");
+assert.equal(rr.overdraftDraw,10400,"16k income minus 24k actual payments, 2k full loans and 400 cash bills");
 assert.equal(rr.loanPayments,2000);
 
 const manyCards=structuredClone(plan);manyCards.budgetLink.categories={};
