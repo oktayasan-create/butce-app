@@ -11,15 +11,15 @@ const r=(text,parts=[],page=3)=>({text,parts,page});
 const ykbRows=[
  r("HESAP BİLGİLERİ"),r("Hesap Kesim Tarihi 08 Kasım 2026"),
  r("Son Ödeme Tarihi 18 Kasım 2026"),
- r("Dönem Borcu : 133.298,45 TL"),
- r("Ödenmesi Gereken Asgari Tutar/Oran : 53.319,38 TL / 40%"),
- r("Kalan Toplam Taksit Tutarı : 12.559,35 TL"),
- r("Kart Numarası: 0000 00** **** 9440"),
+ r("Dönem Borcu : 132.287,35 TL"),
+ r("Ödenmesi Gereken Asgari Tutar/Oran : 52.019,28 TL / 40%"),
+ r("Kalan Toplam Taksit Tutarı : 11.459,25 TL"),
+ r("Kart Numarası: 0000 00** **** 9157"),
  r("İşlem Tarihi İşlemler Tutar(TL) Kalan Tutar/Taksit Puan"),
  r("02 Kasım 2026 TEST STORE TR",[
    part(40,"02"),part(52,"Kasım"),part(80,"2026"),part(120,"TEST STORE TR")
  ]),
- r("TOPLAM 133.298,45")
+ r("TOPLAM 132.287,35")
 ];
 const out=reader.parseStatementPDFRows(ykbRows,"ykb.pdf","testabcdefgh");
 assert.equal(out.statement.bank,"Yapı Kredi");
