@@ -12,7 +12,7 @@ import {advanceMonth} from "./cashflow-model.js";
 const tr=x=>String(x||"").toLocaleLowerCase("tr-TR")
   .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
 const isCashName=name=>/\b(aidat|kuafor|berber)\b/.test(tr(name));
-const isCardName=name=>/\b(market|elektrik|dogalgaz|su|abonelik|uyelik|internet|telefon|yemek|kafe|cafe|icecek)\b/.test(tr(name));
+const isCardName=name=>/\b(market|elektrik|dogalgaz|su|suyu|abonelik|uyelik|internet|telefon|yemek|kafe|cafe|icecek)\b/.test(tr(name));
 function matchPlanExpense(name,p){
   const normalize=tr(name);
   const match=p.categories.expense.find(x=>tr(x.name)===normalize);
