@@ -391,7 +391,8 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
         const mismatch=st.remainingInstallmentsTotal!=null&&
           Math.abs(st.remainingInstallmentsTotal-installmentTotal)>1;
         return {id:st.id,cardLabel:st.cardLabel,bank:st.bank,balance:st.balance,
-          minimum:st.minimum,dueDate:st.dueDate,planned,installmentCount,installmentTotal,mismatch};
+          minimum:st.minimum,dueDate:st.dueDate,dueMonth:statementDueMonth(st),
+          statementDate:st.statementDate,planned,installmentCount,installmentTotal,mismatch};
       })};
   }
   function card(st,source){
@@ -425,11 +426,11 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     const futureTotal=future.reduce((sum,t)=>sum+t.amount*t.remainingInstallments,0);
     const mismatch=st.remainingInstallmentsTotal!=null&&Math.abs(futureTotal-st.remainingInstallmentsTotal)>1;
     const planned=(getPlan()?.statementSnapshots||[]).some(sn=>sn.sourceStatementId===st.id);
-    const opened=source==="draft"||statementExpanded.has(source+"|"+st.id);
+    const opened=statementExpanded.has(source+"|"+st.id);
     return '<details class="cf-statement-card cf-statement-accordion" '+(opened?'open ':'')+
       '><summary class="cf-statement-summary" onclick="statementExpandedSet(\''+source+'\',\''+st.id+'\',!this.parentElement.open)">'+
       '<span class="cf-statement-title"><strong>'+esc(st.cardLabel)+'</strong><span class="cf-muted">'+
-      esc(st.statementDate||st.periodLabel||'')+' · '+st.transactions.length+' işlem</span></span>'+
+      'Ekstre: '+esc(st.statementDate||st.periodLabel||'')+' · Ödeme: '+esc(statementDueMonth(st)||'belirsiz')+' · '+st.transactions.length+' işlem</span></span>'+
       '<span class="cf-statement-amount">'+money(st.balance)+' <small>Ekstre</small></span>'+
       '<span class="cf-statement-amount">'+money(st.minimum)+' <small>Asgari</small></span>'+
       '<span class="cf-statement-status">'+(mismatch?'<span class="cf-tag cf-tag-warning">Taksit farkı</span>':
@@ -454,6 +455,34 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       '<th>Tutar</th><th>Taksit</th>'+(source==="draft"?'<th>İşlem</th>':'')+'</tr>'+rows+'</table></div>'+
       '<p class="cf-muted"><strong>Kategori dağılımı:</strong> '+categorySummary+'</p>'+
       '<p class="cf-muted">'+esc(counts)+'</p></details>'+ (source==="saved"?statementPlanControls(st):'')+'</div></details>';
+  }
+  function statementMonthCards(){
+    const grouped=new Map();
+    for(const st of inbox?.statements||[]){
+      const month=statementDueMonth(st)||"undated";
+      if(!grouped.has(month))grouped.set(month,[]);
+      grouped.get(month).push(st);
+    }
+    const monthName=month=>{
+      if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(month))return "Ödeme ayı belirsiz";
+      const names=["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran",
+        "Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+      return names[Number(month.slice(5))-1]+" "+month.slice(0,4);
+    };
+    return [...grouped].sort(([a],[b])=>b.localeCompare(a)).map(([month,items])=>{
+      const amount=items.reduce((sum,st)=>sum+(st.balance||0),0);
+      const minimum=items.reduce((sum,st)=>sum+(st.minimum||0),0);
+      const open=statementExpanded.has("month|"+month);
+      return '<details class="cf-group-accordion cf-statement-month" '+(open?'open ':'')+
+        '><summary onclick="statementExpandedSet(\'month\',\''+month+'\',!this.parentElement.open)">'+
+        '<span><strong>'+esc(monthName(month))+'</strong> <small class="cf-muted">· '+
+          items.length+' ekstre · Ödeme ayı</small></span>'+
+        '<span><strong>'+money(amount)+'</strong> toplam · <strong>'+money(minimum)+
+        '</strong> asgari</span></summary>'+
+        '<div class="cf-panel-inner"><p class="cf-muted">Harcama dönemi ve ödeme ayı farklı olabilir. Örneğin Ekim harcamaları Kasım ekstresi olarak ödenir.</p>'+
+        '<div class="cf-statement-grid">'+items.sort((a,b)=>String(b.statementDate||"").localeCompare(String(a.statementDate||"")))
+          .map(st=>card(st,"saved")).join('')+'</div></div></details>';
+    }).join("");
   }
   function render(){
     const el=document.getElementById("cf-statement-panel");if(!el)return;
@@ -482,7 +511,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       '<div id="statement-save-status" role="status" aria-live="polite" class="cf-statement-save-status'+
       (saveStatus.kind?' cf-save-'+saveStatus.kind:'')+'">'+esc(saveStatus.message)+'</div>'+
       (inbox?.statements?.length?'<h4 class="cf-subheading">Kaydedilmiş ekstreler ('+inbox.statements.length+')</h4>'+
-        '<div class="cf-statement-grid">'+inbox.statements.map(st=>card(st,"saved")).join('')+'</div>'+
+        '<div class="cf-statement-month-list">'+statementMonthCards()+'</div>'+
         '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="statementSaveCategories()">Kategori düzeltmelerini kaydet</button>':'')+
       '<details class="cf-more-info"><summary>İçe aktarma hakkında</summary><p class="cf-muted">Taranmış PDF desteklenmez. Ekstreyi arşive kaydetmek nakit planını değiştirmez; kartı seçip plana uyguladıktan sonra Planı Kaydet gerekir. Harcamalar ikinci kez eklenmez.</p></details>';
   }
