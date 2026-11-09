@@ -127,7 +127,7 @@ assert.equal(p.recurringExpenses[aidatIndex].endMonth,"2026-12");
 assert.equal(p.recurringExpenses[aidatIndex+1].startMonth,"2027-01");
 sandbox.window.cfRecurringExpense(aidatIndex+1,"amount","320");
 assert.equal(model.computeCashFlow(p,3)[2].recurringCashTotal,320);
-assert(root.innerHTML.includes("Tam kredi ödemesi"));
+assert(root.innerHTML.includes("Kredi taksitleri – TAM"));
 assert(root.innerHTML.includes("Ev Kredisi"));
 assert(root.innerHTML.includes("Araba Kredisi"));
 assert(root.innerHTML.includes("Senin seçtiğin ek kart ödemesi"));
