@@ -313,12 +313,76 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     const key=source+"|"+id;
     if(open)statementExpanded.add(key);else statementExpanded.delete(key);
   }
+  function inferredCard(st,plan){
+    const normalized=x=>String(x||"").toLocaleLowerCase("tr-TR");
+    const candidate=plan.cards.filter(c=>{
+      const n=normalized(c.name);
+      if(st.bank==="Garanti BBVA")return n.includes("garanti")||n.includes("bonus");
+      if(st.bank==="Yapı Kredi")return n.includes("ykb")||n.includes("yapı kredi")||
+        n.includes("world")||n.includes("opet");
+      if(st.bank==="Enpara")return n.includes("enpara");
+      return false;
+    });
+    if(candidate.length===1)return candidate[0].id;
+    // When a bank has multiple cards, last four digits can disambiguate.
+    const tail=st.cardLabel?.match(/(\d{4})\s*$/)?.[1];
+    if(tail){
+      const unique=candidate.filter(c=>normalized(c.name).includes(tail));
+      if(unique.length===1)return unique[0].id;
+    }
+    return null;
+  }
+  function previewAllToPlan(){
+    if(!inbox||!getPlan())return {plan:null,applied:[],skipped:[],warnings:[]};
+    let plan=structuredClone(getPlan());
+    const applied=[],skipped=[],warnings=[];
+    const ordered=[...inbox.statements].sort((a,b)=>
+      String(a.dueDate||"").localeCompare(String(b.dueDate||"")));
+    for(const st of ordered){
+      if(plan.statementSnapshots.some(sn=>sn.sourceStatementId===st.id))continue;
+      const cardId=inferredCard(st,plan);
+      if(!cardId){
+        skipped.push(st.cardLabel+": Kart eşleşmesi belirsiz. Ekstreler bölümünden kartı seç.");
+        continue;
+      }
+      try{
+        const prepared=prepareStatementPlan(plan,st,{cardId});
+        plan=prepared.plan;
+        applied.push({name:st.cardLabel,card:prepared.cardName,
+          balance:st.balance,minimum:st.minimum,
+          installments:prepared.installmentsAdded,dueMonth:prepared.dueMonth});
+        if(prepared.warnings.length)warnings.push(st.cardLabel+": "+prepared.warnings.join(" "));
+      }catch(e){skipped.push(st.cardLabel+": "+String(e?.message||e).slice(0,140));}
+    }
+    return {plan,applied,skipped,warnings};
+  }
+  function applyAllToPlan(){
+    const next=previewAllToPlan();
+    if(!next.plan||!next.applied.length){
+      notify(next.skipped.length?"Eşleşmeyen kartları Ekstreler bölümünden seç.":"Bekleyen ekstre aktarımı yok.");
+      return;
+    }
+    const preview="Nakit planına aktarılacak ekstreler:\n"+
+      next.applied.map(x=>x.name+" → "+x.card+
+        " · Borç "+money(x.balance)+" · Asgari "+money(x.minimum)+
+        " · Gelecek "+x.installments+" taksit").join("\n")+
+      (next.warnings.length?"\n\nÖNEMLİ KONTROL:\n"+next.warnings.join("\n"):"")+
+      (next.skipped.length?"\n\nATLANACAK:\n"+next.skipped.join("\n"):"")+
+      "\n\nEv/araba kredilerin ve manuel kayıtların korunacak. İşlem sonrası Planı Kaydet'e basmalısın. Devam edilsin mi?";
+    if(!confirm(preview))return;
+    onPlanChange(next.plan);
+    notify(next.applied.length+" ekstre nakit planına eklendi. Planı Kaydet'e bas.");
+  }
   function getOverview(){
     if(auth.currentUser)void ensureLoaded();
     const statements=inbox?.statements||[];
     const total=key=>Math.round(statements.reduce((sum,st)=>sum+(Number(st[key])||0),0)*100)/100;
+    const pending=previewAllToPlan();
     return {count:statements.length,loading:loading||inbox===null,error,
       debt:total("balance"),minimum:total("minimum"),
+      pendingCount:pending.applied.length,
+      skippedCount:pending.skipped.length,
+      pendingWarnings:pending.warnings,
       statements:statements.map(st=>{
         const planned=(getPlan()?.statementSnapshots||[]).some(sn=>sn.sourceStatementId===st.id);
         const future=st.transactions.filter(tx=>tx.type==="purchase"&&tx.remainingInstallments>0);
@@ -422,7 +486,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
         '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="statementSaveCategories()">Kategori düzeltmelerini kaydet</button>':'')+
       '<details class="cf-more-info"><summary>İçe aktarma hakkında</summary><p class="cf-muted">Taranmış PDF desteklenmez. Ekstreyi arşive kaydetmek nakit planını değiştirmez; kartı seçip plana uyguladıktan sonra Planı Kaydet gerekir. Harcamalar ikinci kez eklenmez.</p></details>';
   }
-  return {reset,render,getOverview,selectExpanded,selectFile,saveDraft,saveCategories,categoryEdit,
+  return {reset,render,getOverview,previewAllToPlan,applyAllToPlan,selectExpanded,selectFile,saveDraft,saveCategories,categoryEdit,
     selectPlanCard,applyToPlan,
     editStatement,editMovement,excludeMovement,reviewAck(value){
       reviewAcknowledged=Boolean(value);
