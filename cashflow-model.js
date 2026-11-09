@@ -346,7 +346,8 @@ export function computeCashFlow(p,periods=12){
       const actualType=rule.payment==="card"?"card_expense":"cash_expense";
       // A real entry in the same category and payment channel replaces its
       // forecast estimate; otherwise the same bill would be counted twice.
-      const hasActual=live.items.some(e=>e.type===actualType&&e.categoryId===rule.categoryId&&
+      const hasActual=rule.categoryId!=="exp_other"&&live.items.some(e=>
+        e.type===actualType&&e.categoryId===rule.categoryId&&
         (actualType!=="card_expense"||e.cardId===rule.cardId));
       if(hasActual)continue;
       if(rule.payment==="cash")recurringCash.push(rule);
@@ -398,7 +399,8 @@ export function computeCashFlow(p,periods=12){
         dueInstallments,statementVerified:!!statementSnapshot,estimatedMinimum,minimum,
         actualPaid,minimumRemaining,paymentApplied,paidExtra,paymentStatus,
         missedMinimum:0,actualPayment:actualPaid>0,
-        extra:0,newSpending:r2(positive(m.cardSpends?.[c.id])+positive(live.byCard[c.id])+positive(recurringCardById[c.id])),
+        extra:0,newSpending:r2((linkedBudget?0:positive(m.cardSpends?.[c.id]))+
+          positive(live.byCard[c.id])+positive(recurringCardById[c.id])),
         interestPct,interest:0,interestBase:0,interestTax:0,closing:0,paidOff:false,
         lateInterest:0};
     });
