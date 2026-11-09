@@ -137,4 +137,61 @@ assert.equal(parsed.statement.transactions[0].remainingInstallments,2);
 const forecastInstallments=statementInstallmentSchedule(parsed.statement,"goodcard");
 assert.equal(forecastInstallments[0].startMonth,"2026-12");
 assert.deepEqual(calculateInstallmentTimeline(forecastInstallments).map(x=>x.month),["2026-12","2027-01"]);
+
+// The YKB PDF has a second-line installment annotation; no bank PII here.
+const ykbPdfRows=[
+  row("YAPI KREDİ WORLD"),
+  row("Hesap Kesim Tarihi : 8 Kasım 2026"),
+  row("Son Ödeme Tarihi : 18 Kasım 2026"),
+  row("Dönem Borcu : 13.300,00 TL"),
+  row("Ödenmesi Gereken Asgari Tutar/Oran : 5.300,00 TL / 40%"),
+  row("Kalan Toplam Taksit Tutarı : 600,00 TL"),
+  row("Kart Numarası : ** **** 9440"),
+  row("İşlem Tarihi İşlemler Tutar(TL) Kalan Tutar/Taksit Puan"),
+  row("24 Ekim 2026 STORE SHOES TR 300,00 600,00 / 2",
+     [part(40,"24"),part(50,"Ekim"),part(67,"2026"),part(105,"STORE SHOES TR"),
+      part(405,"300,00"),part(483,"600,00"),part(512,"/"),part(516,"2")]),
+  row("900,00 TL'lik işlemin 1 / 3 taksidi",
+     [part(105,"900,00 TL'lik işlemin 1 / 3 taksidi")]),
+  row("08 Kasım 2026 DÖNEM FAİZİ 125,00",
+     [part(40,"08"),part(50,"Kasım"),part(72,"2026"),part(105,"DÖNEM FAİZİ"),part(405,"125,00")]),
+  row("TOPLAM 13.300,00")
+];
+const yy=file.parseStatementPDFRows(ykbPdfRows,"ykb.pdf","hash4234");
+assert.equal(yy.statement.bank,"Yapı Kredi");
+assert.equal(yy.statement.minimum,5300);
+assert.equal(yy.statement.dueDate,"2026-11-18");
+assert.equal(yy.statement.remainingInstallmentsTotal,600);
+assert.equal(yy.statement.transactions.length,2);
+assert.equal(yy.statement.transactions[0].installmentCurrent,1);
+assert.equal(yy.statement.transactions[0].installmentTotal,3);
+assert.equal(yy.statement.transactions[0].remainingInstallments,2);
+assert.equal(statementInstallmentSchedule(yy.statement,"ykb_card")[0].startMonth,"2026-12");
+
+const enparaPdfRows=[
+ row("Kredi Kartı Ekstresi Enpara"),
+ row("Ekstre tarihi 02/11/2026"),
+ row("Ekstre borcu 2.300,00 TL"),
+ row("Minimum ödeme tutarı 460,00 TL"),
+ row("Son ödeme tarihi 12/11/2026"),
+ row("Kart numarası ** **** 0079"),
+ row("İşlem tarihi Açıklama Taksit Tutar"),
+ row("07/10/2026 Ödeme - Enpara.com Cep Şubesi - 430,00 TL",
+  [part(34,"07/10/2026"),part(118,"Ödeme"),part(150,"-"),
+   part(156,"Enpara.com Cep Şubesi"),part(508,"-"),part(513,"430,00"),part(551,"TL")]),
+ row("08/10/2026 MARKET STORE 200,00 TL",
+  [part(34,"08/10/2026"),part(118,"MARKET STORE"),part(521,"200,00"),part(551,"TL")]),
+ row("02/11/2026 Faizlerin KKDF'si 20,00 TL",
+  [part(34,"02/11/2026"),part(118,"Faizlerin KKDF'si"),part(521,"20,00"),part(551,"TL")])
+];
+const ee=file.parseStatementPDFRows(enparaPdfRows,"enpara.pdf","hash12345");
+assert.equal(ee.statement.bank,"Enpara");
+assert.equal(ee.statement.balance,2300);
+assert.equal(ee.statement.minimum,460);
+assert.equal(ee.statement.transactions.length,3);
+assert.equal(ee.statement.transactions[0].type,"payment");
+assert.equal(ee.statement.transactions[1].type,"purchase");
+assert.equal(ee.statement.transactions[2].type,"tax");
+assert.equal(statementInstallmentSchedule(ee.statement,"enpara_card").length,0);
+
 console.log("PASS: bank snapshots, no double-counting, future installment dates, duplicate-proof replanning, Enpara spouse card and actual PDF column fixture");
