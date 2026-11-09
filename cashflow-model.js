@@ -17,12 +17,36 @@ const defaultCategories = {
     ['exp_fuel','Akaryakıt'], ['exp_health','Sağlık / Bakım'],
     ['exp_clothes','Giyim / Aksesuar'], ['exp_home','Ev / Dekorasyon'],
     ['exp_ecommerce','E-Ticaret'], ['exp_entertainment','Eğlence / Hobi'],
-    ['exp_tax','Vergi'], ['exp_insurance','Emeklilik / Sigorta'], ['exp_other','Diğer']
+    ['exp_tax','Vergi'], ['exp_insurance','Emeklilik / Sigorta'], ['exp_other','Diğer'],
+    ['exp_electricity','Elektrik'],['exp_water_bill','Su'],['exp_naturalgas','Doğalgaz'],
+    ['exp_subscription','Üyelik'],['exp_building_fee','Apartman Aidatı'],
+    ['exp_drinkingwater','İçme Suyu'],['exp_hairdresser','Kuaför'],['exp_food_cafe','Yemek & Kafe']
   ].map(([id,name])=>({id,name,active:true})),
   income:[
     ['inc_salary','Maaş'], ['inc_extra','Ek Gelir'], ['inc_other','Diğer Gelir']
   ].map(([id,name])=>({id,name,active:true}))
 };
+const recurringExpenseDefaults=[
+  ["market","Market","card","exp_market"],
+  ["electricity","Elektrik","card","exp_electricity"],
+  ["water_bill","Su","card","exp_water_bill"],
+  ["naturalgas","Doğalgaz","card","exp_naturalgas"],
+  ["subscriptions","Üyelik","card","exp_subscription"],
+  ["building_fee","Apartman aidatı","cash","exp_building_fee"],
+  ["drinking_water","İçme suyu","card","exp_drinkingwater"],
+  ["hairdresser","Kuaför","cash","exp_hairdresser"],
+  ["food_cafe","Yemek & Kafe","card","exp_food_cafe"]
+];
+function defaultRecurringExpenses(startMonth){
+  return recurringExpenseDefaults.map(([slug,name,payment,categoryId])=>({
+    id:"regular_"+slug,name,payment,categoryId,
+    amount:0,startMonth,endMonth:"2099-12",
+    cardId:null,active:true
+  }));
+}
+function appliesRecurring(rule,month){
+  return rule.active!==false && rule.startMonth<=month && month<=rule.endMonth && rule.amount>0;
+}
 export function isoMonth(date = new Date()) {
   return date.getFullYear()+"-"+String(date.getMonth()+1).padStart(2,"0");
 }
@@ -35,6 +59,7 @@ export function emptyCashFlowPlan() {
   return {version:3,startMonth:isoMonth(),openingCash:0,autoExtra:false,reserve:0,
     cards:[],categories:structuredClone(defaultCategories),entries:[],months:{},
     loans:[],installments:[],statementSnapshots:[],
+    recurringIncome:[],recurringExpenses:defaultRecurringExpenses(isoMonth()),
     overdraft:{name:"Enpara Ekpara",openingDebt:0,limit:0,interestPct:4.25},
     tax:{kkdfPct:15,bsmvPct:15}};
 }
@@ -57,6 +82,14 @@ export function normalizeCashFlowPlan(raw) {
     p.cards=p.cards.map(c=>({...c,interestMode:"manual",active:c.active!==false}));
   }
   if(!Array.isArray(p.statementSnapshots))p.statementSnapshots=[];
+  if(!Array.isArray(p.recurringIncome))p.recurringIncome=[];
+  if(!Array.isArray(p.recurringExpenses))p.recurringExpenses=defaultRecurringExpenses(p.startMonth);
+  // Upgrade previously saved plans without mutating their historical entries.
+  // Add only new named categories and zero-value presets; never duplicate a rule.
+  for(const category of defaultCategories.expense){
+    if(!p.categories.expense.some(c=>c.id===category.id))
+      p.categories.expense.push(structuredClone(category));
+  }
   p.cards=p.cards.map(c=>({interestMode:"manual",...c}));
   if(!validCashFlowPlan(p))throw new Error("Corrupt plan; cannot safely replace saved data");
   return p;
@@ -87,6 +120,8 @@ export function validCashFlowPlan(p) {
      !p.categories||!Array.isArray(p.entries)||p.entries.length>2500||
       !Array.isArray(p.loans)||p.loans.length>50||!Array.isArray(p.installments)||p.installments.length>250||
       !Array.isArray(p.statementSnapshots)||p.statementSnapshots.length>160||
+      !Array.isArray(p.recurringIncome)||p.recurringIncome.length>100||
+      !Array.isArray(p.recurringExpenses)||p.recurringExpenses.length>100||
       !p.overdraft||!p.tax)return false;
   const cardIds=new Set();
   for(const c of p.cards){
@@ -145,6 +180,32 @@ export function validCashFlowPlan(p) {
          typeof c.active!=="boolean")return false;
       categoryIds[kind].add(c.id);
     }
+  }
+  const recurringIds=new Set();
+  for(const rule of p.recurringIncome){
+    if(!rule||!identifierPattern.test(rule.id)||recurringIds.has(rule.id)||
+       typeof rule.name!=="string"||!rule.name.trim()||rule.name.length>90||
+       typeof rule.owner!=="string"||!rule.owner.trim()||rule.owner.length>50||
+       !["salary","extra","other"].includes(rule.kind)||
+       !Number.isFinite(rule.amount)||rule.amount<0||
+       !monthPattern.test(rule.startMonth)||!monthPattern.test(rule.endMonth)||
+       rule.endMonth<rule.startMonth||
+       (rule.active!==undefined&&typeof rule.active!=="boolean"))return false;
+    recurringIds.add(rule.id);
+  }
+  for(const rule of p.recurringExpenses){
+    if(!rule||!identifierPattern.test(rule.id)||recurringIds.has(rule.id)||
+       typeof rule.name!=="string"||!rule.name.trim()||rule.name.length>90||
+       !categoryIds.expense.has(rule.categoryId)||
+       !["cash","card"].includes(rule.payment)||
+       !Number.isFinite(rule.amount)||rule.amount<0||
+       !monthPattern.test(rule.startMonth)||!monthPattern.test(rule.endMonth)||
+       rule.endMonth<rule.startMonth||
+       (rule.active!==undefined&&typeof rule.active!=="boolean")||
+       (rule.cardId!==null&&rule.cardId!==undefined&&!cardIds.has(rule.cardId))||
+       (rule.payment==="card"&&rule.amount>0&&!cardIds.has(rule.cardId))
+    )return false;
+    recurringIds.add(rule.id);
   }
   const entryIds=new Set();
   for(const e of p.entries){
@@ -231,12 +292,35 @@ export function computeCashFlow(p,periods=12){
     const live=summarizeCashFlowEntries(p,key);
     const openingCash=cash,openingOverdraft=overdraftDebt;
     const openingDebt=r2(Object.values(cardDebt).reduce((sum,value)=>sum+value,0));
-    const income=live.income>0?live.income:positive(m.income);
+    const scheduledIncomeRules=p.recurringIncome.filter(rule=>appliesRecurring(rule,key));
+    const scheduledIncome=r2(scheduledIncomeRules.reduce((sum,rule)=>sum+rule.amount,0));
+    // A dated income schedule replaces the old undifferentiated monthly income.
+    // Separate one-off income movements are additive and still visible.
+    const income=scheduledIncomeRules.length?
+      r2(scheduledIncome+live.income):
+      (live.income>0?live.income:positive(m.income));
+    const recurringCash=[],recurringCard=[],recurringCardById={};
+    for(const rule of p.recurringExpenses){
+      if(!appliesRecurring(rule,key))continue;
+      const actualType=rule.payment==="card"?"card_expense":"cash_expense";
+      // A real entry in the same category and payment channel replaces its
+      // forecast estimate; otherwise the same bill would be counted twice.
+      const hasActual=live.items.some(e=>e.type===actualType&&e.categoryId===rule.categoryId&&
+        (actualType!=="card_expense"||e.cardId===rule.cardId));
+      if(hasActual)continue;
+      if(rule.payment==="cash")recurringCash.push(rule);
+      else{
+        recurringCard.push(rule);
+        recurringCardById[rule.cardId]=r2((recurringCardById[rule.cardId]||0)+rule.amount);
+      }
+    }
+    const recurringCashTotal=r2(recurringCash.reduce((sum,rule)=>sum+rule.amount,0));
+    const recurringCardTotal=r2(recurringCard.reduce((sum,rule)=>sum+rule.amount,0));
     const loanDetails=p.loans.filter(l=>l.active!==false)
       .map(l=>({id:l.id,name:l.name,amount:activeLoanPayment(l,key)})).filter(l=>l.amount>0);
     const loanPayments=r2(loanDetails.reduce((sum,l)=>sum+l.amount,0));
     const fixedCash=positive(m.fixedCash);
-    const otherCash=r2(positive(m.otherCash)+live.cashExpenses);
+    const otherCash=r2(positive(m.otherCash)+live.cashExpenses+recurringCashTotal);
     const chargedOverdraftCost=dueOverdraftCost;
     dueOverdraftCost=0;
     const monthlyInstallments=p.installments.filter(v=>v.active!==false)
@@ -264,7 +348,7 @@ export function computeCashFlow(p,periods=12){
       const interestPct=monthlyCardRate(statementDebt,c);
       return {id:c.id,name:c.name,active:c.active!==false,opening,statementDebt,
         dueInstallments,statementVerified:!!statementSnapshot,estimatedMinimum,minimum,missedMinimum,actualPayment:hasActualPayment,
-        extra:0,newSpending:r2(positive(m.cardSpends?.[c.id])+positive(live.byCard[c.id])),
+        extra:0,newSpending:r2(positive(m.cardSpends?.[c.id])+positive(live.byCard[c.id])+positive(recurringCardById[c.id])),
         interestPct,interest:0,interestBase:0,interestTax:0,closing:0,paidOff:false,
         lateInterest:0};
     });
@@ -324,6 +408,13 @@ export function computeCashFlow(p,periods=12){
     rows.push({
       month:key,openingCash,openingOverdraft,
       income,fixedCash,otherCash,loanPayments,loanDetails,mandatoryTotal,chargedOverdraftCost,
+      scheduledIncome,scheduledIncomeRules:scheduledIncomeRules.map(rule=>({
+        id:rule.id,name:rule.name,owner:rule.owner,kind:rule.kind,amount:rule.amount})),
+      recurringCashTotal,recurringCardTotal,
+      recurringExpenses:[...recurringCash.map(rule=>({
+        id:rule.id,name:rule.name,payment:rule.payment,amount:rule.amount})),
+        ...recurringCard.map(rule=>({
+        id:rule.id,name:rule.name,payment:rule.payment,amount:rule.amount,cardId:rule.cardId}))],
       minimumTotal,afterMandatoryCash,extraTotal:r2(state.reduce((sum,c)=>sum+c.extra,0)),
       requestedExtra:desiredExtra,unmetExtra,
       cardSpending:r2(state.reduce((sum,c)=>sum+c.newSpending+(c.statementVerified?0:c.dueInstallments),0)),
