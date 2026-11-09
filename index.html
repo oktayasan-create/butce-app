@@ -3444,6 +3444,97 @@ async function renderCashflow(){
 
 }
 window.renderCashflow=renderCashflow;
+const cfMonthRx=/^20\d{2}-(0[1-9]|1[0-2])$/;
+function cfScheduleId(prefix){
+  return prefix+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);
+}
+window.cfAddScheduledIncome=function(owner,kind){
+  if(!cfPlan||cfPlan.recurringIncome.length>=100)return;
+  if(!["Ben","Eşim","Diğer"].includes(owner)||!["salary","extra","other"].includes(kind))return;
+  const name=kind==="salary"?(owner==="Ben"?"Benim maaşım":"Eşimin maaşı"):"Ek gelir";
+  cfPlan.recurringIncome.push({
+    id:cfScheduleId("income_"),name,owner,kind,
+    amount:0,startMonth:cfSelectedMonth,endMonth:"2099-12",active:true
+  });
+  cfDirty=true;cfView="plan";renderCashflow();
+};
+window.cfScheduledIncome=function(index,field,value){
+  const x=cfPlan?.recurringIncome[index];
+  if(!x)return;
+  if(field==="name"){const v=String(value).trim();if(!v)return;x.name=v.slice(0,90);}
+  else if(field==="owner"){if(!["Ben","Eşim","Diğer"].includes(value))return;x.owner=value;}
+  else if(field==="kind"){if(!["salary","extra","other"].includes(value))return;x.kind=value;}
+  else if(field==="amount")x.amount=cfLimit(value);
+  else if(["startMonth","endMonth"].includes(field)){
+    if(!cfMonthRx.test(value))return;
+    x[field]=value;
+    if(x.startMonth>x.endMonth){
+      if(field==="startMonth")x.endMonth=x.startMonth;else x.startMonth=x.endMonth;
+    }
+  }else return;
+  cfDirty=true;renderCashflow();
+};
+window.cfRemoveScheduledIncome=function(index){
+  if(!cfPlan?.recurringIncome[index])return;
+  if(!confirm("Bu gelir dönemini plandan kaldırmak istiyor musun? Geçmiş işlem kayıtları korunur."))return;
+  cfPlan.recurringIncome.splice(index,1);
+  cfDirty=true;renderCashflow();
+};
+window.cfRecurringExpense=function(index,field,value){
+  const r=cfPlan?.recurringExpenses[index];if(!r)return;
+  if(field==="amount"){
+    const amount=cfLimit(value);
+    if(amount>0&&r.payment==="card"&&!cfPlan.cards.some(c=>c.id===r.cardId)){
+      showToast("Bu gider için önce kredi kartını seçmelisin.");renderCashflow();return;
+    }
+    r.amount=amount;
+  }else if(field==="name"){
+    const name=String(value).trim();if(!name)return;r.name=name.slice(0,90);
+  }else if(field==="payment"){
+    if(!["card","cash"].includes(value))return;
+    if(value==="card"&&r.amount>0&&!cfPlan.cards.some(c=>c.id===r.cardId)){
+      showToast("Kart giderine çevirmeden önce kartını seçmelisin.");renderCashflow();return;
+    }
+    r.payment=value;
+  }else if(field==="cardId"){
+    if(value!==""&&!cfPlan.cards.some(c=>c.id===value))return;
+    r.cardId=value||null;
+  }else if(["startMonth","endMonth"].includes(field)){
+    if(!cfMonthRx.test(value))return;
+    r[field]=value;
+    if(r.startMonth>r.endMonth){
+      if(field==="startMonth")r.endMonth=r.startMonth;else r.startMonth=r.endMonth;
+    }
+  }else return;
+  cfDirty=true;renderCashflow();
+};
+window.cfAddRecurringExpense=function(){
+  if(!cfPlan||cfPlan.recurringExpenses.length>=100)return;
+  const id=cfScheduleId("regular_custom_");
+  cfPlan.recurringExpenses.push({
+    id,name:"Diğer düzenli gider",payment:"cash",
+    categoryId:"exp_other",amount:0,cardId:null,
+    startMonth:cfSelectedMonth,endMonth:"2099-12",active:true
+  });
+  cfDirty=true;renderCashflow();
+};
+window.cfSplitRecurringExpense=function(index){
+  const r=cfPlan?.recurringExpenses[index];if(!r||cfPlan.recurringExpenses.length>=100)return;
+  const start=prompt("Yeni tutarın başlayacağı ay (YYYY-AA). Örneğin 2027-01:",advanceMonth(cfSelectedMonth,1));
+  if(start===null)return;
+  if(!cfMonthRx.test(start)||start<=r.startMonth||start>r.endMonth){
+    showToast("Yeni dönem önceki dönemin içinde, başlangıç ayından sonra olmalı.");return;
+  }
+  const oldEnd=r.endMonth,oldAmount=r.amount;
+  const name=r.name;
+  r.endMonth=advanceMonth(start,-1);
+  cfPlan.recurringExpenses.splice(index+1,0,{
+    ...structuredClone(r),id:cfScheduleId("regular_period_"),
+    startMonth:start,endMonth:oldEnd,amount:oldAmount,name
+  });
+  cfDirty=true;renderCashflow();
+  showToast("Yeni dönem eklendi. "+start+" için yeni aylık tutarı gir.");
+};
 window.cfRoot=function(field,value){
   if(!cfPlan || !["startMonth","openingCash","reserve","autoExtra"].includes(field))return;
   if(field==="startMonth") {if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return; cfPlan.startMonth=value;cfSelectedMonth=value;}
