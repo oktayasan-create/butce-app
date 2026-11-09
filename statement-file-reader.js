@@ -251,17 +251,180 @@ export function parseStatementExcelRows(sheets,fileName="statement.xlsx",hash="l
     previousBalance:summary.summary.previousBalance??null,periodSpending:summary.summary.periodSpending??null,
     remainingInstallmentsTotal:null,transactions},warnings};
 }
-function pdfPageLines(items){
+function pdfPageRows(items){
   const buckets=[];
   for(const item of items){
-    const text=String(item.str||"");if(!text.trim())continue;
+    const str=String(item.str||"");if(!str.trim())continue;
     const x=item.transform?.[4]??0,y=item.transform?.[5]??0;
     let group=buckets.find(g=>Math.abs(g.y-y)<2);
     if(!group){group={y,parts:[]};buckets.push(group);}
-    group.parts.push({x,text});
+    group.parts.push({x,str:str.trim()});
   }
   buckets.sort((a,b)=>b.y-a.y);
-  return buckets.map(g=>g.parts.sort((a,b)=>a.x-b.x).map(p=>p.text).join(" ").replace(/\s+/g," ").trim());
+  return buckets.map(g=>{
+    g.parts.sort((a,b)=>a.x-b.x);
+    return {text:normalizeLine(g.parts.map(p=>p.str).join(" ")),parts:g.parts};
+  });
+}
+function pdfRowValue(rows,label){
+  for(const row of rows){
+    if(!label.test(row.text))continue;
+    const hit=fromLineCurrency(row.text);
+    if(hit.length)return Math.abs(parseStatementMoney(hit[0][1]));
+  }
+  return null;
+}
+function pdfRowDate(rows,label){
+  const r=rows.find(r=>label.test(r.text));
+  if(!r)return null;
+  const hit=r.text.match(/(\d{1,2}[./-]\d{1,2}[./-]20\d{2}|\d{1,2}\s+(?:Ocak|Şubat|Subat|Mart|Nisan|Mayıs|Mayis|Haziran|Temmuz|Ağustos|Agustos|Eylül|Eylul|Ekim|Kasım|Kasim|Aralık|Aralik)\s+20\d{2})/i);
+  return hit?parseStatementDate(hit[1]):null;
+}
+function bankMoney(row,minX,maxX=999){
+  const candidates=row.parts.filter(p=>p.x>=minX&&p.x<maxX);
+  for(const p of candidates){
+    const m=p.str.match(/([+-]?\s*\d{1,3}(?:\.\d{3})*,\d{2}|[+-]?\s*\d+,\d{2})([+-])?/);
+    if(!m)continue;
+    let signed=parseStatementMoney(m[1]);
+    if(signed===null)continue;
+    const leading=String(p.str).trim();
+    if(m[2]==="-")signed=-Math.abs(signed);
+    else if(m[2]==="+")signed=Math.abs(signed);
+    // Enpara renders payment minus as a separate text span to the left.
+    if(row.parts.some(x=>x.x>=minX-12&&x.x<p.x&&/^[−-]$/.test(x.str.trim())))signed=-Math.abs(signed);
+    return {signed,creditMark:/^\+/.test(m[1].trim())||m[2]==="+",part:p};
+  }
+  return null;
+}
+function pdfCardTail(rows,bank){
+  const label=bank==="Enpara"?/Kart numarası/i:/Kart Numarası/i;
+  const row=rows.find(r=>label.test(r.text));
+  const m=row?.text.match(/\*{2,4}\s+\*{2,4}\s*(\d{4})/)||
+    row?.text.match(/\*{2,4}\s*(\d{4})/);
+  return m?m[1]:null;
+}
+function pdfInstallmentFromRow(row,bank){
+  if(bank==="Garanti BBVA"){
+    const m=row.text.match(/(\d[\d.,]*)\s*x\s*(\d{1,2})\s*=\s*[\d.,]+\s*(\d{1,2})\.\s*Taksit/i);
+    if(m){
+      const total=Number(m[2]),current=Number(m[3]);
+      if(total>=current&&current>=1&&total<=120)return {current,total,remaining:total-current};
+    }
+  }
+  if(bank==="Enpara"){
+    const mid=row.parts.filter(p=>p.x>=360&&p.x<495).map(p=>p.str).join(" ");
+    const m=mid.match(/\b(\d{1,2})\s*\/\s*(\d{1,2})\b/);
+    if(m){
+      const current=Number(m[1]),total=Number(m[2]);
+      if(current<=total&&total<=120)return {current,total,remaining:total-current};
+    }
+  }
+  if(bank==="Yapı Kredi"){
+    const tail=row.parts.filter(p=>p.x>=460&&p.x<545).map(p=>p.str).join(" ");
+    const m=tail.match(/\d[\d.,]*\s*\/\s*(\d{1,2})/);
+    if(m){const remaining=Number(m[1]);if(remaining<=120)return {current:null,total:null,remaining};}
+  }
+  return null;
+}
+export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"){
+  const text=rows.map(r=>r.text).join("\n");
+  if(text.length<100)throw Error("PDF'de okunabilir metin bulunamadı.");
+  const bank=/Bonus Gold|Dönem Borcunuz|Garanti BBVA|BONUS PROGRAM ORTAKLARI/i.test(text)?"Garanti BBVA":
+    /Enpara|Kredi Kartı Ekstresi/i.test(text)?"Enpara":
+    /YAPI KREDİ|YAPI KREDI|WORLD|HESAP BİLGİLERİ/i.test(text)?"Yapı Kredi":null;
+  if(!bank)throw Error("Bankanın PDF düzeni tanınamadı; ekstre otomatik kaydedilmeyecek.");
+  const date=pdfRowDate(rows,bank==="Garanti BBVA"?/Hesap Kesim Tarihi/i:
+    bank==="Enpara"?/Ekstre tarihi/i:/Hesap Kesim Tarihi/i);
+  const dueDate=pdfRowDate(rows,/Son Ödeme Tarihi/i);
+  const balance=pdfRowValue(rows,bank==="Garanti BBVA"?/Dönem Borcunuz/i:
+    bank==="Enpara"?/Ekstre borcu/i:/^Dönem Borcu\s*:/i);
+  const minimum=pdfRowValue(rows,bank==="Garanti BBVA"?/Min\.\s*Ödeme Tutarı/i:
+    bank==="Enpara"?/Minimum ödeme tutarı/i:/Ödenmesi Gereken Asgari Tutar\/Oran/i);
+  const previousBalance=bank==="Yapı Kredi"?pdfRowValue(rows,/Önceki Dönem Hesap Özeti Borcu/i):
+    bank==="Garanti BBVA"?pdfRowValue(rows,/ÖNCEKİ DÖNEMDEN DEVİR EDİLEN TUTAR/i):null;
+  const periodSpending=bank==="Yapı Kredi"?pdfRowValue(rows,/Dönem İçi Harcamalar/i):null;
+  const remainingInstallmentsTotal=bank==="Yapı Kredi"?
+    pdfRowValue(rows,/Kalan Toplam Taksit Tutarı/i):null;
+  const last4=pdfCardTail(rows,bank);
+  const period=date?.replaceAll("-","")||"unknown";
+  const prefix=(bank==="Garanti BBVA"?"garanti":bank==="Enpara"?"enpara":"ykb")+
+    "_"+period+"_"+(last4||hash.slice(0,6));
+  const tx=[],warnings=[],stats={dated:0,unreadable:0};
+  let inSection=bank==="Enpara";
+  const dateRx=/(\d{1,2}\s+(?:Ocak|Şubat|Subat|Mart|Nisan|Mayıs|Mayis|Haziran|Temmuz|Ağustos|Agustos|Eylül|Eylul|Ekim|Kasım|Kasim|Aralık|Aralik)\s+20\d{2}|\d{1,2}[./-]\d{1,2}[./-]20\d{2})/i;
+  for(const row of rows){
+    if(bank==="Yapı Kredi"&&/İşlem Tarihi\s+İşlemler/i.test(row.text)){inSection=true;continue;}
+    if(bank==="Garanti BBVA"&&/İşlem Tarihi\s+Dönem İçi İşlemler/i.test(row.text)){inSection=true;continue;}
+    if(bank!=="Enpara" && /^\s*(TOPLAM|Toplam|EKSTRE ÖZETİ|PUAN ÖZETİ)\b/i.test(row.text)){inSection=false;continue;}
+    if(!inSection)continue;
+    if(bank==="Yapı Kredi"&&/TL'lik (?:işlemin|iadenin)\s+\d{1,2}\s*\/\s*\d{1,2}\s*taksidi/i.test(row.text)){
+      const m=row.text.match(/(\d{1,2})\s*\/\s*(\d{1,2})\s*taksidi/i);
+      if(m&&tx.length){
+        const cur=Number(m[1]),total=Number(m[2]);
+        if(cur>0&&total>=cur&&total<=120){
+          tx[tx.length-1].installmentCurrent=cur;
+          tx[tx.length-1].installmentTotal=total;
+          tx[tx.length-1].remainingInstallments=total-cur;
+        }
+      }
+      continue;
+    }
+    const dateMatch=row.text.match(dateRx);
+    if(!dateMatch)continue;
+    // Real statement transaction dates are to the far left; other dates in
+    // statement footnotes or merchant descriptions must not be counted.
+    const early=row.parts.some(p=>p.x<165&&dateRx.test(p.str));
+    const dateStr=parseStatementDate(dateMatch[1]);
+    if(!dateStr||!early)continue;
+    const amount=bank==="Garanti BBVA"?bankMoney(row,495,570):
+      bank==="Enpara"?bankMoney(row,495,580):bankMoney(row,385,465);
+    stats.dated++;
+    if(!amount){stats.unreadable++;continue;}
+    const merchantParts=row.parts.filter(p=>
+      p.x>=(bank==="Garanti BBVA"?165:bank==="Enpara"?105:100)&&
+      p.x<(bank==="Garanti BBVA"?303:bank==="Enpara"?495:385));
+    let description=normalizeLine(merchantParts.map(p=>p.str).join(" "));
+    if(!description){
+      const tail=row.text.slice(dateMatch.index+dateMatch[0].length);
+      description=normalizeLine(tail.split(/\d[\d.,]*\s*(?:TL)?/)[0]);
+    }
+    if(!description||/^(TOPLAM|ÖNCEKİ DÖNEM|BİR ÖNCEKİ EKSTRE|Puan)/i.test(description))continue;
+    if(bank==="Garanti BBVA"&&/BONUS MARKET KAMPANYASI|AKTİVASYON KAMPANYASI/i.test(description))continue;
+    let type=classifyStatementTransaction(description,amount.signed,bank);
+    if(bank==="Garanti BBVA"){
+      if(/ÖDEMENİZ İÇİN TEŞEKKÜR EDERİZ|KREDİ KARTI ÖDEMESİ/i.test(description))type="payment";
+      else if(amount.creditMark)type="refund";
+    }else if(bank==="Yapı Kredi"&&amount.creditMark && type!=="payment")type="refund";
+    else if(bank==="Enpara"&&/Ödeme\s*-\s*Enpara/i.test(description))type="payment";
+    const t=makeTx(prefix,tx.length+1,dateStr,description,amount.signed,type);
+    const inst=pdfInstallmentFromRow(row,bank);
+    if(inst){
+      t.installmentCurrent=inst.current;
+      t.installmentTotal=inst.total;
+      t.remainingInstallments=inst.remaining;
+    }
+    tx.push(t);
+  }
+  if(stats.unreadable)warnings.push(stats.unreadable+" işlem satırında tutar okunamadı; ekstreyi kontrol et.");
+  if(!tx.length)warnings.push("Bu PDF'den hiç işlem okunamadı; bankanın farklı PDF düzeni olabilir.");
+  if(!date)warnings.push("Ekstre kesim tarihi okunamadı.");
+  if(balance==null)warnings.push("Dönem borcu okunamadı.");
+  if(minimum==null)warnings.push("Asgari ödeme okunamadı.");
+  if(balance!==null&&minimum!==null&&minimum>balance)warnings.push("Asgari ödeme dönem borcunu aşıyor.");
+  if(bank==="Yapı Kredi"&&remainingInstallmentsTotal!=null){
+    const remaining=tx.filter(t=>t.type==="purchase"&&t.remainingInstallments>0)
+      .reduce((sum,t)=>sum+t.amount*t.remainingInstallments,0);
+    if(Math.abs(remaining-remainingInstallmentsTotal)>1)
+      warnings.push("Taksit kontrolü: İşlemlerden hesaplanan kalan "+remaining.toFixed(2)+
+        " TL, ekstre toplamı "+remainingInstallmentsTotal.toFixed(2)+
+        " TL ile uyuşmuyor. Taksitleri onaylamadan önce karşılaştır.");
+  }
+  return {statement:{
+    id:prefix,bank,cardLabel:bank+(last4?" •••• "+last4:" • "+fileName.slice(0,28)),
+    statementDate:date,periodLabel:date?.slice(0,7)||null,dueDate,
+    balance:Math.max(0,balance??0),minimum:Math.max(0,minimum??0),
+    previousBalance,periodSpending,remainingInstallmentsTotal,transactions:tx
+  },warnings};
 }
 async function bytesHash(bytes){
   const digest=await crypto.subtle.digest("SHA-256",bytes);
@@ -283,10 +446,10 @@ export async function parseStatementFile(file,{pdfJs=null,xlsx=null}={}){
       for(let i=1;i<=pdf.numPages;i++){
         const page=await pdf.getPage(i);
         const content=await page.getTextContent();
-        text.push(...pdfPageLines(content.items));
+        text.push(...pdfPageRows(content.items));
       }
     }finally{await pdf.destroy();}
-    return parseStatementPDFText(text.join("\n"),name,hash);
+    return parseStatementPDFRows(text,name,hash);
   }
   if(ext==="xlsx"||ext==="xls"){
     const lib=xlsx||await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
