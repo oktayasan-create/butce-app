@@ -373,7 +373,7 @@ export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"
     if(!dateMatch)continue;
     // Real statement transaction dates are to the far left; other dates in
     // statement footnotes or merchant descriptions must not be counted.
-    const early=row.parts.some(p=>p.x<165&&dateRx.test(p.str));
+    const early=dateRx.test(row.parts.filter(p=>p.x<165).map(p=>p.str).join(" "));
     const dateStr=parseStatementDate(dateMatch[1]);
     if(!dateStr||!early)continue;
     const amount=bank==="Garanti BBVA"?bankMoney(row,495,570):
