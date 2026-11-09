@@ -329,9 +329,18 @@ function pdfInstallmentFromRow(row,bank){
 export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"){
   const text=rows.map(r=>r.text).join("\n");
   if(text.length<100)throw Error("PDF'de okunabilir metin bulunamadı.");
-  const bank=/Bonus Gold|Dönem Borcunuz|Garanti BBVA|BONUS PROGRAM ORTAKLARI/i.test(text)?"Garanti BBVA":
-    /Enpara|Kredi Kartı Ekstresi/i.test(text)?"Enpara":
-    /YAPI KREDİ|YAPI KREDI|WORLD|HESAP BİLGİLERİ/i.test(text)?"Yapı Kredi":null;
+  // Identify the issuer from distinctive statement HEADERS, not from wording
+  // in long explanatory footnotes (e.g. "Dönem borcunuzun" in YKB).
+  // Require two bank-specific signatures; do not guess from a card brand alone.
+  const isYkb=/HESAP BİLGİLERİ/i.test(text)&&
+    /Ödenmesi Gereken Asgari Tutar\/Oran/i.test(text)&&
+    /Kalan Toplam Taksit Tutarı/i.test(text);
+  const isEnpara=/Ekstre tarihi/i.test(text)&&
+    /Minimum ödeme tutarı/i.test(text)&&/Enpara/i.test(text);
+  const isGaranti=/Dönem Borcunuz\s+[\d.,]+\s*TL/i.test(text)&&
+    /Min\.\s*Ödeme Tutarı/i.test(text)&&
+    /Bonus Gold|BONUS PROGRAM ORTAKLARI|Garanti BBVA/i.test(text);
+  const bank=isYkb?"Yapı Kredi":isEnpara?"Enpara":isGaranti?"Garanti BBVA":null;
   if(!bank)throw Error("Bankanın PDF düzeni tanınamadı; ekstre otomatik kaydedilmeyecek.");
   const date=pdfRowDate(rows,bank==="Garanti BBVA"?/Hesap Kesim Tarihi/i:
     bank==="Enpara"?/Ekstre tarihi/i:/Hesap Kesim Tarihi/i);
@@ -378,6 +387,12 @@ export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"
     if(!dateStr||!early)continue;
     const amount=bank==="Garanti BBVA"?bankMoney(row,495,570):
       bank==="Enpara"?bankMoney(row,495,580):bankMoney(row,385,465);
+    // Bonus campaigns are loyalty entries, not bank-account cash movements.
+    // The Garanti examples omit a "Tutar" column intentionally; do not
+    // misreport them as missing transaction amounts.
+    if(bank==="Garanti BBVA" &&
+      /BONUS MARKET KAMPANYASI|AKTİVASYON KAMPANYASI|BONUS BEDAVA ALIŞVERİŞ/i.test(row.text))
+      continue;
     stats.dated++;
     if(!amount){stats.unreadable++;continue;}
     const merchantParts=row.parts.filter(p=>
