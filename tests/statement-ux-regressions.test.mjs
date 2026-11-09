@@ -11,14 +11,14 @@ const ykb=[
  mk("HESAP BİLGİLERİ"),
  mk("Hesap Kesim Tarihi : 8 Kasım 2026"),
  mk("Son Ödeme Tarihi : 18 Kasım 2026"),
- mk("Dönem Borcu : 133.298,45 TL"),
- mk("Ödenmesi Gereken Asgari Tutar/Oran : 53.319,38 TL / 40%"),
- mk("Kalan Toplam Taksit Tutarı : 12.559,35 TL"),
+ mk("Dönem Borcu : 132.287,35 TL"),
+ mk("Ödenmesi Gereken Asgari Tutar/Oran : 52.019,28 TL / 40%"),
+ mk("Kalan Toplam Taksit Tutarı : 11.459,25 TL"),
  mk("Kart Numarası : 0000 00** **** 9999"),
  mk("İşlem Tarihi İşlemler Tutar(TL) Kalan Tutar/Taksit Puan"),
  mk("11 Ekim 2026 MARKET STORE 859,00",
    [part(40,"11"),part(50,"Ekim"),part(69,"2026"),part(105,"MARKET STORE"),part(405,"859,00")]),
- mk("TOPLAM 133.298,45"),
+ mk("TOPLAM 132.287,35"),
  mk("Dönem borcunuzun tamamını son ödeme tarihine kadar ödeyebilirsiniz."),
  mk("Dönem borcunuzun tamamını ödemeyerek kredilendirme tercih ettiğiniz takdirde"),
  mk("Alışveriş faiz oranlarına KKDF ve BSMV dahil değildir.")
@@ -26,8 +26,8 @@ const ykb=[
 const parsedYkb=parseStatementPDFRows(ykb,"ykb.pdf","local01").statement;
 assert.equal(parsedYkb.bank,"Yapı Kredi","YKB prose must never trigger Garanti detection");
 assert.match(parsedYkb.cardLabel,/Yapı Kredi/);
-assert.equal(parsedYkb.balance,133298.45);
-assert.equal(parsedYkb.minimum,53319.38);
+assert.equal(parsedYkb.balance,132287.35);
+assert.equal(parsedYkb.minimum,52019.28);
 assert.equal(parsedYkb.transactions.length,1);
 
 // The Bonus campaigns shown as unpaid rows are NOT missing merchant amounts.
@@ -35,8 +35,8 @@ const garanti=[
  mk("Bonus Gold Troy Bilgileriniz"),
  mk("Hesap Kesim Tarihi 30 Ekim 2026"),
  mk("Son Ödeme Tarihi 09 Kasım 2026"),
- mk("Dönem Borcunuz 159.866,61 TL"),
- mk("Min. Ödeme Tutarı 63.947,00 TL"),
+ mk("Dönem Borcunuz 149.876,51 TL"),
+ mk("Min. Ödeme Tutarı 59.123,00 TL"),
  mk("İşlem Tarihi Dönem İçi İşlemler Kalan Borç / Taksit Bonus (TL) Tutar (TL)"),
  mk("02 Ekim 2026 BONUS MARKET KAMPANYASI 500,00",
    [part(105,"02"),part(115,"Ekim"),part(131,"2026"),
@@ -53,7 +53,7 @@ const garanti=[
  mk("03 Ekim 2026 MARKET 200,00",
    [part(105,"03"),part(115,"Ekim"),part(131,"2026"),
     part(170,"MARKET"),part(525,"200,00")]),
- mk("TOPLAM 159.866,61")
+ mk("TOPLAM 149.876,51")
 ];
 const resultG=parseStatementPDFRows(garanti,"garanti.pdf","local02");
 assert.equal(resultG.statement.bank,"Garanti BBVA");
@@ -78,7 +78,7 @@ const ykbLegal=[
     part(105,"YAPI ve KREDI BANKASI A.Ş."),
     part(290,"Büyük Mükellefler V.D. / 123456789 Sıra No: 9999999"),
     part(610,"55,99 TRY USD Karşılığı 1,13 USD")]),
- mk("TOPLAM 133.298,45")
+ mk("TOPLAM 132.287,35")
 ];
 const legalResult=parseStatementPDFRows(ykbLegal,"ykb.pdf","local04");
 assert.equal(legalResult.statement.bank,"Yapı Kredi");
