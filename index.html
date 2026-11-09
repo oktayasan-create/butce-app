@@ -251,6 +251,11 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 .cf-statement-warning{border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:12px;
   color:var(--text);margin-top:12px;background:rgba(251,191,36,.08);font-size:13px}
 .cf-statement-warning p{margin:7px 0}
+.cf-statement-plan{border-top:1px solid var(--border);padding-top:12px;margin-top:12px}
+.cf-statement-plan .cf-statement-actions{align-items:end}
+.cf-statement-plan button{white-space:normal}
+.cf-statement-card{height:fit-content}
+
 .cf-statement-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
 .cf-statement-actions select{max-width:220px;min-width:130px;padding:7px;background:var(--bg4);border:1px solid var(--border);border-radius:8px;color:var(--text)}
 @media(max-width:900px){.cf-category-panels{grid-template-columns:1fr}}
@@ -2813,6 +2818,7 @@ let cfPlan = null, cfLoading = null, cfSelectedMonth = null, cfDirty = false, cf
 const statementUI=createStatementInboxUI({
   auth,db,doc,getDocFromServer,setDoc,safeHtml,
   getPlan:()=>cfPlan,
+  onPlanChange:plan=>{cfPlan=plan;cfDirty=true;renderCashflow();},
   rerender:()=>{if(cfPlan)renderCashflow();},
   notify:message=>showToast(message)
 });
@@ -2825,6 +2831,8 @@ window.statementSummaryEdit=(sid,field,value)=>statementUI.editStatement(sid,fie
 window.statementMovementEdit=(sid,tid,field,value)=>statementUI.editMovement(sid,tid,field,value);
 window.statementExcludeMovement=(sid,tid)=>statementUI.excludeMovement(sid,tid);
 window.statementReviewAck=checked=>statementUI.reviewAck(checked);
+window.statementPlanCard=(sid,cardId)=>statementUI.selectPlanCard(sid,cardId);
+window.statementPlanApply=sid=>statementUI.applyToPlan(sid);
 const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));

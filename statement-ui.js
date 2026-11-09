@@ -1,14 +1,17 @@
 import {normalizeStatementBundle,mergeStatementInbox,reconcileStatement} from "./statement-import.js";
 import {parseStatementFile} from "./statement-file-reader.js";
+import {prepareStatementPlan,statementDueMonth,statementInstallmentSchedule,calculateInstallmentTimeline} from "./statement-plan.js";
 
 /**
  * Private, browser-only PDF/Excel/JSON statement review.
- * Never modifies original transactions or cashflow projections.
+ * Does not alter legacy transactions. Only a separate, confirmed user action
+ * prepares changes to the cashflow plan; final save remains explicit.
  * Explicit owner sign-in, review and confirmation are required before Firestore save.
  */
-export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safeHtml,getPlan,rerender,notify}){
+export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safeHtml,getPlan,onPlanChange,rerender,notify}){
   let inbox=null,draft=null,loading=false,error="",dirty=false,uid=null;
   let importing=false,warnings=[],reviewAcknowledged=false;
+  let selectedPlanCards={};
   const esc=x=>safeHtml(String(x??""));
   const money=n=>new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY"}).format(n||0);
   const types={purchase:"Harcama",refund:"İade",payment:"Kart ödemesi",
@@ -16,7 +19,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
   const typeOptions=Object.entries(types);
   function reset(){
     inbox=null;draft=null;loading=false;error="";dirty=false;uid=null;
-    importing=false;warnings=[];reviewAcknowledged=false;
+    importing=false;warnings=[];reviewAcknowledged=false;selectedPlanCards={};
   }
   async function ensureLoaded(){
     const who=auth.currentUser?.uid;
@@ -170,6 +173,64 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       await saveInbox(clean);inbox=clean;dirty=false;notify("Kategori düzeltmeleri kaydedildi.");rerender();
     }catch(e){notify("Kategori değişiklikleri kaydedilemedi.");}
   }
+  function selectPlanCard(stId,cardId){
+    selectedPlanCards[stId]=cardId;rerender();
+  }
+  function statementPlanControls(st){
+    const plan=getPlan();
+    if(!plan)return '<p class="cf-muted">Nakit akışı planı yükleniyor.</p>';
+    const due=statementDueMonth(st);
+    const cardId=selectedPlanCards[st.id]||"";
+    const eligible=st.transactions.filter(t=>t.type==="purchase"&&t.remainingInstallments>0);
+    const total=eligible.reduce((sum,t)=>sum+t.amount*t.remainingInstallments,0);
+    const list=plan.cards.map(c=>'<option value="'+esc(c.id)+'"'+(cardId===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join("");
+    return '<div class="cf-statement-plan">'+
+      '<div style="font-weight:700">Nakit akışına otomatik aktar</div>'+
+      '<p class="cf-muted">Ekstre son ödeme ayı: '+esc(due||"Tarih eksik")+
+      ' · Gelecek aylara aktarılabilecek taksit: <strong>'+eligible.length+
+      ' işlem / '+money(total)+'</strong>. Taksitler ödeme ayına göre planlanır; mevcut ekstreye tekrar eklenmez.</p>'+
+      '<div class="cf-statement-actions">'+
+      '<label class="cf-muted">Hangi kredi kartına ait?<select onchange="statementPlanCard(\''+st.id+'\',this.value)">'+
+      '<option value="">Kart seç...</option>'+list+
+      '<option value="__new"'+(cardId==="__new"?' selected':'')+'>+ Yeni kart oluştur (Enpara – Damla dahil)</option>'+
+      '</select></label>'+
+      '<button class="btn btn-p btn-sm" '+(!cardId||!due?'disabled ':'')+
+      'onclick="statementPlanApply(\''+st.id+'\')">Ekstre + kalan taksitleri plana ekle</button></div>'+
+      '<p class="cf-muted">Bu işlemde tutarlar önce nakit akışı planında hazırlanır. Kalıcı olması için ayrıca <strong>Planı Kaydet</strong> düğmesine basılır. Eski harcamalar ikinci kez eklenmez.</p>'+
+      '</div>';
+  }
+  function applyToPlan(stId){
+    const st=entries("saved",stId);
+    const plan=getPlan();
+    const cardId=selectedPlanCards[stId];
+    if(!st||!plan||!cardId){notify("Önce kartı seç.");return;}
+    let name=null;
+    if(cardId==="__new"){
+      name=prompt("Yeni kartın adı (örnek: Enpara - Damla):",st.cardLabel);
+      if(name===null)return;
+      if(!name.trim()){notify("Kart adı boş olamaz.");return;}
+    }
+    try{
+      const prepared=prepareStatementPlan(plan,st,{cardId,newCardName:name});
+      const upcoming=prepared.timeline.slice(0,8).map(item=>item.month+": "+money(item.amount)).join("\n");
+      const issues=prepared.warnings.length?"\n\nKontrol:\n"+prepared.warnings.join("\n"):"";
+      const message=prepared.cardName+" kartı için ekstreyi uygulayalım mı?"+
+        "\nDönem borcu: "+money(prepared.statementBalance)+
+        "\nAsgari ödeme: "+money(prepared.statementMinimum)+
+        "\nÖdeme ayı: "+prepared.dueMonth+
+        "\nGelecek taksit: "+prepared.installmentsAdded+" işlem / "+money(prepared.remainingSum)+
+        (prepared.reference!==null?"\nBankanın kalan taksit toplamı: "+money(prepared.reference)+
+          " (fark "+money(prepared.diff)+")":"")+
+        (upcoming?"\n\nGelecek aylık taksitler:\n"+upcoming:"")+
+        (prepared.replacedInstallments?"\nÖnceki ekstrelerden oluşan "+prepared.replacedInstallments+" planlanan taksit güncellenecek.":"")+
+        issues+"\n\nDevam edersen planın önizlemesi değişir; kaydetmek için ayrıca Planı Kaydet'e basmalısın.";
+      if(!confirm(message))return;
+      onPlanChange(prepared.plan);
+      notify("Ekstre nakit akışına eklendi. Taksitleri kontrol edip Planı Kaydet'e bas.");
+    }catch(e){
+      notify("Nakit planına uygulanamadı: "+String(e?.message||"Kontrol gerekiyor").slice(0,160));
+    }
+  }
   function options(tx,source,stId){
     if(!["purchase","refund"].includes(tx.type))return esc(types[tx.type]);
     const categories=getPlan()?.categories?.expense?.map(c=>c.name)||["Diğer"];
@@ -230,7 +291,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       '<table class="cf-statement-table"><tr><th>Tarih</th><th>Açıklama</th><th>Tür</th><th>Kategori</th>'+
       '<th>Tutar</th><th>Taksit</th>'+(source==="draft"?'<th>İşlem</th>':'')+'</tr>'+rows+'</table></div>'+
       '<p class="cf-muted"><strong>Kategori dağılımı:</strong> '+categorySummary+'</p>'+
-      '<p class="cf-muted">'+esc(counts)+'</p></details></div>';
+      '<p class="cf-muted">'+esc(counts)+'</p></details>'+ (source==="saved"?statementPlanControls(st):'')+'</div>';
   }
   function render(){
     const el=document.getElementById("cf-statement-panel");if(!el)return;
@@ -256,9 +317,10 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       (inbox?.statements?.length?'<h4>Kaydedilmiş ekstreler ('+inbox.statements.length+')</h4>'+
         '<div class="cf-statement-grid">'+inbox.statements.map(st=>card(st,"saved")).join('')+'</div>'+
         '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="statementSaveCategories()">Kategori düzeltmelerini kaydet</button>':'')+
-      '<p class="cf-muted" style="margin-top:12px">Not: Metin seçilemeyen taranmış PDF’ler bu sürümde desteklenmez. Okuma hatası olursa belgeyi eski JSON yöntemiyle aktarabiliriz. Ekstre arşivi, mevcut kart borçlarını veya gelir-gider kayıtlarını otomatik değiştirmez; böylece çift sayım oluşmaz.</p></div>';
+      '<p class="cf-muted" style="margin-top:12px">Not: Metin seçilemeyen taranmış PDF’ler bu sürümde desteklenmez. Okuma hatası olursa belgeyi eski JSON yöntemiyle aktarabiliriz. Arşive kaydetmek tek başına nakit planını değiştirmez. Kart eşlemesi ve Planı Kaydet sonrasında yalnızca tahmini kart borcu/asgari/taksit planı güncellenir; eski harcamalar yeniden eklenmez.</p></div>';
   }
   return {reset,render,selectFile,saveDraft,saveCategories,categoryEdit,
+    selectPlanCard,applyToPlan,
     editStatement,editMovement,excludeMovement,reviewAck(value){reviewAcknowledged=Boolean(value);},
     cancelDraft(){draft=null;warnings=[];reviewAcknowledged=false;rerender();}};
 }

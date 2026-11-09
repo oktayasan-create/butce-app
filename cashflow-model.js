@@ -34,7 +34,7 @@ export function advanceMonth(month,offset) {
 export function emptyCashFlowPlan() {
   return {version:3,startMonth:isoMonth(),openingCash:0,autoExtra:false,reserve:0,
     cards:[],categories:structuredClone(defaultCategories),entries:[],months:{},
-    loans:[],installments:[],
+    loans:[],installments:[],statementSnapshots:[],
     overdraft:{name:"Enpara Ekpara",openingDebt:0,limit:0,interestPct:4.25},
     tax:{kkdfPct:15,bsmvPct:15}};
 }
@@ -50,11 +50,13 @@ export function normalizeCashFlowPlan(raw) {
     p.version=3;
     p.loans=[];
     p.installments=[];
+    p.statementSnapshots=[];
     p.overdraft={name:"Enpara Ekpara",openingDebt:0,limit:0,interestPct:4.25};
     p.tax={kkdfPct:15,bsmvPct:15};
     // Preserve all original card interest choices as user-entered manual values.
     p.cards=p.cards.map(c=>({...c,interestMode:"manual",active:c.active!==false}));
   }
+  if(!Array.isArray(p.statementSnapshots))p.statementSnapshots=[];
   p.cards=p.cards.map(c=>({interestMode:"manual",...c}));
   if(!validCashFlowPlan(p))throw new Error("Corrupt plan; cannot safely replace saved data");
   return p;
@@ -84,6 +86,7 @@ export function validCashFlowPlan(p) {
   if(!Array.isArray(p.cards)||p.cards.length>24||!p.months||typeof p.months!=="object" ||
      !p.categories||!Array.isArray(p.entries)||p.entries.length>2500||
       !Array.isArray(p.loans)||p.loans.length>50||!Array.isArray(p.installments)||p.installments.length>250||
+      !Array.isArray(p.statementSnapshots)||p.statementSnapshots.length>160||
       !p.overdraft||!p.tax)return false;
   const cardIds=new Set();
   for(const c of p.cards){
@@ -121,6 +124,17 @@ export function validCashFlowPlan(p) {
      !Number.isFinite(od.interestPct)||od.interestPct<0||od.interestPct>25||
      !Number.isFinite(tax.kkdfPct)||tax.kkdfPct<0||tax.kkdfPct>100||
      !Number.isFinite(tax.bsmvPct)||tax.bsmvPct<0||tax.bsmvPct>100)return false;
+  const snapshotKeys=new Set();
+  for(const snap of p.statementSnapshots){
+    if(!snap||!identifierPattern.test(snap.id)||!cardIds.has(snap.cardId)||
+       !monthPattern.test(snap.dueMonth)||!Number.isFinite(snap.balance)||
+       !Number.isFinite(snap.minimum)||snap.balance<0||snap.minimum<0||
+       snap.minimum>snap.balance+0.01 ||
+       (snap.statementDate!==null && snap.statementDate!==undefined&&!datePattern.test(snap.statementDate)))return false;
+    const key=snap.cardId+"|"+snap.dueMonth;
+    if(snapshotKeys.has(key))return false;
+    snapshotKeys.add(key);
+  }
   const categoryIds={expense:new Set(),income:new Set()};
   for(const kind of ["expense","income"]){
     const arr=p.categories[kind];
@@ -234,10 +248,13 @@ export function computeCashFlow(p,periods=12){
       installmentsByCard[inst.cardId]=r2((installmentsByCard[inst.cardId]||0)+inst.amount);
     }
     const state=p.cards.map(c=>{
-      const opening=r2(cardDebt[c.id]);
+      const statementSnapshot=p.statementSnapshots.find(sn=>sn.cardId===c.id&&sn.dueMonth===key);
+      const opening=r2(statementSnapshot?statementSnapshot.balance:cardDebt[c.id]);
       const dueInstallments=positive(installmentsByCard[c.id]);
-      const statementDebt=r2(opening+dueInstallments);
-      const estimatedMinimum=r2(statementDebt*c.minPct/100);
+      // A bank statement balance already includes every installment billed in
+      // this month. Do not add them to the bank-reported balance again.
+      const statementDebt=r2(opening+(statementSnapshot?0:dueInstallments));
+      const estimatedMinimum=r2(statementSnapshot?statementSnapshot.minimum:statementDebt*c.minPct/100);
       const override=m.minOverrides?.[c.id];
       const actualPayment=positive(live.payments[c.id]);
       const hasActualPayment=actualPayment>0;
@@ -246,7 +263,7 @@ export function computeCashFlow(p,periods=12){
       const missedMinimum=hasActualPayment?Math.max(0,r2(estimatedMinimum-minimum)):0;
       const interestPct=monthlyCardRate(statementDebt,c);
       return {id:c.id,name:c.name,active:c.active!==false,opening,statementDebt,
-        dueInstallments,estimatedMinimum,minimum,missedMinimum,actualPayment:hasActualPayment,
+        dueInstallments,statementVerified:!!statementSnapshot,estimatedMinimum,minimum,missedMinimum,actualPayment:hasActualPayment,
         extra:0,newSpending:r2(positive(m.cardSpends?.[c.id])+positive(live.byCard[c.id])),
         interestPct,interest:0,interestBase:0,interestTax:0,closing:0,paidOff:false,
         lateInterest:0};
@@ -288,7 +305,10 @@ export function computeCashFlow(p,periods=12){
       c.interest=r2(basicInterest+c.lateInterest);
       c.interestTax=r2(c.interest*(taxMultiplier-1));
       c.closing=r2(unpaid+c.interest+c.interestTax+c.newSpending);
-      c.paidOff=c.statementDebt>0 && c.closing===0;
+      const futureInstallment=p.installments.some(inst=>inst.active!==false&&inst.cardId===c.id&&
+        inst.startMonth<=advanceMonth(key,1)&&
+        advanceMonth(inst.startMonth,inst.count)>advanceMonth(key,1));
+      c.paidOff=c.statementDebt>0&&c.closing===0&&!futureInstallment;
       cardDebt[c.id]=c.closing;
     }
     // Overdraft is charged on an average monthly utilized balance as an approximation.
@@ -306,7 +326,7 @@ export function computeCashFlow(p,periods=12){
       income,fixedCash,otherCash,loanPayments,loanDetails,mandatoryTotal,chargedOverdraftCost,
       minimumTotal,afterMandatoryCash,extraTotal:r2(state.reduce((sum,c)=>sum+c.extra,0)),
       requestedExtra:desiredExtra,unmetExtra,
-      cardSpending:r2(state.reduce((sum,c)=>sum+c.newSpending+c.dueInstallments,0)),
+      cardSpending:r2(state.reduce((sum,c)=>sum+c.newSpending+(c.statementVerified?0:c.dueInstallments),0)),
       installmentTotal,installments:monthlyInstallments,
       actualCardSpending:live.cardExpenses,actualCashSpending:live.cashExpenses,
       actualIncome:live.income,actualCardPayments:live.paymentTotal,
