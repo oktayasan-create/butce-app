@@ -5,7 +5,7 @@ const p=await import("data:text/javascript;charset=utf-8,"+encodeURIComponent(co
 const {parseStatementMoney,parseStatementDate,guessStatementCategory,
  parseStatementPDFText,parseStatementExcelRows}=p;
 
-assert.equal(parseStatementMoney("23.126,79 TL"),23126.79);
+assert.equal(parseStatementMoney("22.136,69 TL"),22136.69);
 assert.equal(parseStatementMoney("- 4.318,00 TL"),-4318);
 assert.equal(parseStatementMoney("-21684.66"),-21684.66);
 assert.equal(parseStatementDate("2 Kasım 2026"),"2026-11-02");
@@ -17,7 +17,7 @@ assert.equal(guessStatementCategory("SHELL GAS"),"Akaryakıt");
 const enpara=[
  "Enpara Kredi Kartı Ekstresi",
  "Ekstre tarihi 02/11/2026",
- "Ekstre borcu 23.126,79 TL",
+ "Ekstre borcu 22.136,69 TL",
  "Minimum ödeme tutarı 4.626,00 TL",
  "Son ödeme tarihi 12/11/2026",
  "Bir önceki ekstre borcu 21.000,00 TL",
@@ -32,7 +32,7 @@ const enp=parseStatementPDFText(enpara,"enpara.pdf","abcdeffedcba").statement;
 assert.equal(enp.bank,"Enpara");
 assert.equal(enp.statementDate,"2026-11-02");
 assert.equal(enp.dueDate,"2026-11-12");
-assert.equal(enp.balance,23126.79);
+assert.equal(enp.balance,22136.69);
 assert.equal(enp.minimum,4626);
 assert.equal(enp.transactions.length,6);
 assert.equal(enp.transactions.filter(t=>t.type==="payment").length,1);
@@ -45,12 +45,12 @@ const ykb=[
  "HESAP BİLGİLERİ",
  "Hesap Kesim Tarihi : 7 Ekim 2026",
  "Son Ödeme Tarihi : 19 Ekim 2026",
- "Dönem Borcu : 183.327,17 TL",
- "Ödenmesi Gereken Asgari Tutar/Oran : 73.330,87 TL / 40%",
- "Önceki Dönem Hesap Özeti Borcu : 185.636,82 TL",
- "Dönem İçi Harcamalar : 71.945,08 TL",
+ "Dönem Borcu : 178.317,27 TL",
+ "Ödenmesi Gereken Asgari Tutar/Oran : 70.120,77 TL / 40%",
+ "Önceki Dönem Hesap Özeti Borcu : 180.626,72 TL",
+ "Dönem İçi Harcamalar : 69.935,18 TL",
  "Kalan Toplam Taksit Tutarı : 16.675,02 TL",
- "Kart Numarası : 4506 34** **** 9440",
+ "Kart Numarası : 4506 34** **** 9157",
  "İşlem Tarihi İşlemler Tutar(TL) Kalan Tutar/Taksit Puan",
  "08 Eylül 2026 ÖDEME-İNTERNET BANKACILIĞI +74.254,73",
  "07 Ekim 2026 DÖNEM FAİZİ 8.645,82",
@@ -66,10 +66,10 @@ const ykb=[
 const ykbParsed=parseStatementPDFText(ykb,"world.pdf","123456789abc");
 const y=ykbParsed.statement;
 assert.equal(y.bank,"Yapı Kredi");
-assert.equal(y.balance,183327.17);
-assert.equal(y.minimum,73330.87);
-assert.equal(y.previousBalance,185636.82);
-assert.equal(y.periodSpending,71945.08);
+assert.equal(y.balance,178317.27);
+assert.equal(y.minimum,70120.77);
+assert.equal(y.previousBalance,180626.72);
+assert.equal(y.periodSpending,69935.18);
 assert.equal(y.dueDate,"2026-10-19");
 assert.equal(y.transactions.length,5,"Promotional reward lines must not be imported");
 assert.equal(y.transactions.filter(t=>t.type==="payment").length,1);
@@ -91,15 +91,15 @@ const summary=[
  ["","Açıklama","TL","USD"],
  ["","Devredilen bakiye",63607.22,0],
  ["","Dönem harcamaları",119717.84,0],
- ["","Ödenecek minimum borç",63947,0],
- ["","Toplam borcunuz",159866.61,0]
+ ["","Ödenecek minimum borç",59123,0],
+ ["","Toplam borcunuz",149876.51,0]
 ];
 const output=parseStatementExcelRows({"Ekstre Islemleri - TL":sheet,"özet":summary},"garanti.xlsx","abcddcbaabc");
 const g=output.statement;
 assert.equal(g.bank,"Garanti BBVA");
 assert.equal(g.periodLabel,"2027-10","Must infer year from transactions, not hardcode 2026");
-assert.equal(g.balance,159866.61);
-assert.equal(g.minimum,63947);
+assert.equal(g.balance,149876.51);
+assert.equal(g.minimum,59123);
 assert.equal(g.transactions.length,4);
 assert.equal(g.transactions[0].type,"purchase");
 assert.equal(g.transactions[0].category,"Seyahat");
