@@ -655,6 +655,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, normalizeCashFlowPlan, addCashFlowCategory, setCategoryActive, setCardActive, addCashFlowEntry, summarizeCashFlowEntries } from "./cashflow-model.js";
 import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, statementPlanMonth, suggestStatementInstallments } from "./statement-import.js";
 import { createStatementInboxUI } from "./statement-ui.js";
+import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -2941,6 +2942,13 @@ window.addCat=function(){
 // ── INDEPENDENT CASH & CREDIT CARD SCENARIO ─────────────────
 let cfPlan = null, cfLoading = null, cfSelectedMonth = null, cfDirty = false, cfEntryType = "card_expense";
 let cfView="summary",cfEditInstallmentId=null;
+let cfRenderedRow=null,cfMissingBudgetCards=[];
+function cfLinkedBudgetForecast(){
+  if(!cfPlan)return {plan:cfPlan,linked:false,missingCards:[],breakdown:[]};
+  if(typeof projectBudgetToCashFlow!=="function"||typeof cats==="undefined"||typeof getBudget!=="function")
+    return {plan:cfPlan,linked:false,missingCards:[],breakdown:[]};
+  return projectBudgetToCashFlow(cfPlan,cats,getBudget);
+}
 const cfOpenInstallmentGroups=new Set(),cfOpenPanels=new Set();
 window.cfSetView=function(value){
   if(!["summary","statements","installments","plan"].includes(value))return;
@@ -3345,10 +3353,18 @@ async function renderCashflow(){
     return;
   }
   let rows;
-  try{ rows=computeCashFlow(cfPlan); }catch(err){root.innerHTML='<div class="card cb">Plan verilerinde hata var. Kayıt değiştirilmedi.</div>';return;}
+  try{
+    const forecast=cfLinkedBudgetForecast();
+    rows=computeCashFlow(forecast.plan);
+    cfMissingBudgetCards=forecast.missingCards;
+  }catch(err){
+    root.innerHTML='<div class="card cb">Plan veya bütçe verilerinde hata var. Kayıt değiştirilmedi.</div>';
+    return;
+  }
   const current=rows.find(r=>r.month===cfSelectedMonth)||rows[0];
   if(!current)return;
   cfSelectedMonth=current.month;
+  cfRenderedRow=current;
   const currentData=cfMonthData(cfSelectedMonth);
   const cardEditor=cfPlan.cards.length?cfPlan.cards.map((card,i)=>
     '<div style="border:1px solid var(--border);padding:15px;border-radius:12px;margin-top:10px">'+
