@@ -54,6 +54,7 @@ const sandbox={
  safeHtml:v=>String(v??"").replace(/[&<>"']/g,k=>({
    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[k])),
  showToast:v=>messages.push(v),setSyncStatus:()=>{},confirm:()=>true,
+ prompt:()=>"2027-01",
  createStatementInboxUI:uiStub,
  Date,Intl,Math,Number,String,Array,Object,JSON,structuredClone,...model
 };
@@ -100,6 +101,32 @@ sandbox.window.cfEditInstallment("g1");
 assert(!root.innerHTML.includes("cf-inline-editor"),"Close editing form");
 
 sandbox.window.cfSetView("plan");
+assert(root.innerHTML.includes("Gelir takvimi"));
+assert(root.innerHTML.includes("Ay içi düzenli giderler"));
+assert(root.innerHTML.includes("Apartman aidatı"));
+assert(root.innerHTML.includes("Yemek & Kafe"));
+assert(root.innerHTML.includes("İçme suyu"));
+assert(root.innerHTML.includes("Ekstreleri nakit planına aktar")===false,
+ "When no archived statements are pending do not show sync action");
+sandbox.window.cfAddScheduledIncome("Ben","salary");
+sandbox.window.cfScheduledIncome(0,"amount","30000");
+sandbox.window.cfAddScheduledIncome("Eşim","salary");
+sandbox.window.cfScheduledIncome(1,"amount","20000");
+assert.equal(p.recurringIncome.length,2);
+assert.equal(model.computeCashFlow(p,1)[0].income,50000);
+sandbox.window.cfRecurringExpense(0,"cardId","g");
+sandbox.window.cfRecurringExpense(0,"amount","400");
+assert.equal(model.computeCashFlow(p,1)[0].recurringCardTotal,400);
+assert.equal(model.computeCashFlow(p,1)[0].cardPurchases>=400,true);
+const aidatIndex=p.recurringExpenses.findIndex(x=>x.id==="regular_building_fee");
+sandbox.window.cfRecurringExpense(aidatIndex,"amount","250");
+assert.equal(model.computeCashFlow(p,1)[0].recurringCashTotal,250);
+sandbox.window.cfSplitRecurringExpense(aidatIndex);
+assert.equal(p.recurringExpenses.length,10);
+assert.equal(p.recurringExpenses[aidatIndex].endMonth,"2026-12");
+assert.equal(p.recurringExpenses[aidatIndex+1].startMonth,"2027-01");
+sandbox.window.cfRecurringExpense(aidatIndex+1,"amount","320");
+assert.equal(model.computeCashFlow(p,3)[2].recurringCashTotal,320);
 assert(root.innerHTML.includes("Tam kredi ödemesi"));
 assert(root.innerHTML.includes("Ev Kredisi"));
 assert(root.innerHTML.includes("Araba Kredisi"));
