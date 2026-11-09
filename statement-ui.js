@@ -301,11 +301,14 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       '<label class="cf-muted">Ekstre dosyaları (birden fazla seçilebilir)'+
       '<input type="file" multiple accept=".pdf,.xlsx,.xls,.json,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/json" onchange="statementSelectFile(this)" style="display:block;margin-top:8px;max-width:100%"></label>'+
       (importing?'<p class="cf-muted">PDF / Excel dosyaları bu cihazda işleniyor...</p>':'')+
-      (error?'<p role="alert" style="color:#fb7185">'+esc(error)+'</p>':'')+
+      (error?'<div role="alert" class="cf-statement-error">⛔ <strong>Ekstre okuma hatası</strong><div style="margin-top:6px">'+esc(error)+'</div><div style="margin-top:8px;font-size:13px">Hatalı dosyayı kaydetme. Bankanın PDF biçimini kontrol edip yeniden yükle.</div></div>':'')+
       (loading?'<p class="cf-muted">Kişisel ekstre arşivi yükleniyor...</p>':'')+
-      (warnings.length?'<div role="alert" class="cf-statement-warning"><strong>Kontrol gerektiren alanlar</strong>'+
-        warnings.map(w=>'<p>'+esc(w.name)+': '+w.messages.map(esc).join(" • ")+'</p>').join('')+
-        '</div>':'')+
+      (warnings.length?'<div role="alert" aria-live="assertive" class="cf-statement-warning">'+
+        '<div class="cf-statement-warning-head">⚠️ Kontrol gerektiren bilgiler ('+
+        warnings.reduce((n,w)=>n+w.messages.length,0)+')</div>'+
+        warnings.map(w=>'<div><strong>📄 '+esc(w.name)+'</strong><ul>'+
+          w.messages.map(m=>'<li>'+esc(m)+'</li>').join('')+'</ul></div>').join('')+
+        '<div class="cf-statement-warning-note">Eksik veya yanlış satırları bankanın orijinal ekstresiyle karşılaştır. Kontrol etmeden onay verme.</div></div>':'')+
       (draft?.statements?.length?'<h4>Yeni ekstre önizlemesi · '+draft.statements.length+' dosya</h4>'+
         '<div class="cf-statement-grid">'+draft.statements.map(st=>card(st,"draft")).join('')+'</div>'+
         '<label class="cf-review-check"><input id="statement-review-ack" type="checkbox" '+(reviewAcknowledged?'checked ':'')+
