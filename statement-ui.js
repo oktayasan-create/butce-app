@@ -106,6 +106,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     const button=document.getElementById("statement-save-draft");
     if(box)box.checked=false;
     if(button)button.disabled=true;
+    setSaveStatus("ready","Bu ekstrede değişiklik yaptın. Kaydetmek için kontrol kutusunu yeniden işaretle.");
   }
   function categoryEdit(source,statementId,txId,newName){
     const tx=entries(source,statementId)?.transactions.find(t=>t.id===txId);
@@ -388,6 +389,16 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
   }
   return {reset,render,selectFile,saveDraft,saveCategories,categoryEdit,
     selectPlanCard,applyToPlan,
-    editStatement,editMovement,excludeMovement,reviewAck(value){reviewAcknowledged=Boolean(value);},
+    editStatement,editMovement,excludeMovement,reviewAck(value){
+      reviewAcknowledged=Boolean(value);
+      // The button is rendered DISABLED before review. The checkbox must
+      // actually toggle that DOM state; changing only the JS flag does NOT
+      // enable clicks, which previously made saving appear to do nothing.
+      const saveButton=typeof document!=="undefined"?document.getElementById("statement-save-draft"):null;
+      if(saveButton)saveButton.disabled=!reviewAcknowledged||saving;
+      setSaveStatus(reviewAcknowledged?"ready":"",
+        reviewAcknowledged?
+        "Kontrol onayı verildi. Kaydet butonu etkin; kayıt sonucu aşağıda gösterilecek.":"");
+    },
     cancelDraft(){draft=null;warnings=[];reviewAcknowledged=false;rerender();}};
 }
