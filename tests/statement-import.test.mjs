@@ -55,6 +55,7 @@ assert(markup.includes('statementUI.reset()'),'Signout must clear statement stat
 assert(view.includes('await setDoc(doc(db,"data","statementInbox")'),
   'Save only to private Firestore document');
 assert(view.includes('confirm('),'User must explicitly confirm statement writes');
-assert(view.includes('PDF / Excel Ekstrelerini İçe Aktar'),'Supported direct PDF and Excel import must be shown');
+assert(view.includes('accept=".pdf,.xlsx,.xls,.json'),'Supported direct PDF and Excel import must remain');
+assert(view.includes('Ekstreleri yönet'),'Compact statement page heading must be visible');
 assert(!view.includes('fetch('),'No statement upload to third-party endpoint');
 console.log('PASS: review, purchase/refund, dedup, installments, input validation, privacy and compact UI');
