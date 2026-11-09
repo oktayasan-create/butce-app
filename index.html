@@ -3186,7 +3186,7 @@ function cfCardPaymentSection(current){
     '</div><div class="cf-inline-actions">'+
     '<button class="btn btn-ghost btn-sm" onclick="cfPaymentPreset()">Tutarı getir</button>'+
     '<button class="btn btn-p btn-sm" onclick="cfSavePaidCard()">+ Yapılan ödemeyi kaydet</button>'+
-    '<span class="cf-muted">Kalıcı olması için ayrıca Planı Kaydet'e bas.</span></div>'+
+    '<span class="cf-muted">Kalıcı kayıt için ayrıca Planı Kaydet butonuna bas.</span></div>'+
     (currentPayments.length?'<details class="cf-details-panel"><summary>Bu ayın ödeme kayıtları ('+currentPayments.length+')</summary>'+
       currentPayments.map(e=>'<div class="cf-archived-row">'+
         '<span>'+cfText(e.date)+' · '+cfText(cfPlan.cards.find(c=>c.id===e.cardId)?.name||"Kart")+
