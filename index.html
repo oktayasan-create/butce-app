@@ -280,6 +280,27 @@ canvas { display:block; width:100%; }
  .cf-plan-save-bar button{flex:0 0 auto}
 }
 
+
+/* Monthly income and regular household bill planner */
+.cf-schedule-row{border:1px solid var(--border);background:var(--bg4);padding:12px 14px;margin-top:11px;border-radius:11px}
+.cf-schedule-row .cf-inputs{grid-template-columns:repeat(3,minmax(150px,1fr));gap:10px}
+.cf-schedule-title{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:8px}
+.cf-regular-table{min-width:1010px;table-layout:auto}
+.cf-regular-table th,.cf-regular-table td{padding:8px 9px;font-size:12px}
+.cf-regular-table td:first-child{min-width:120px;max-width:160px}
+.cf-regular-table input,.cf-regular-table select{padding:8px;width:100%;min-width:0;color:var(--text);background:var(--bg4);border:1px solid var(--border);border-radius:7px;font-size:12px}
+.cf-regular-table input[type=number]{min-width:94px;max-width:130px}
+.cf-regular-table input[type=month]{min-width:130px}
+.cf-regular-table select{min-width:105px}
+.cf-regular-table .btn{white-space:nowrap}
+.cf-faded{opacity:.55}
+.cf-sync-alert{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;margin:12px 0;border:2px solid rgba(245,158,11,.5);border-left:5px solid #f59e0b;background:rgba(245,158,11,.09);padding:12px 14px;border-radius:12px;font-size:13px}
+.cf-sync-alert strong{flex:1 1 240px}
+.cf-sync-alert span{flex:2 1 300px}
+.cf-sync-alert small{flex:1 1 100%;line-height:1.4}
+.cf-compact-forecast{min-width:1270px}
+@media(max-width:800px){.cf-schedule-row .cf-inputs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.cf-schedule-row .cf-inputs{grid-template-columns:1fr}}
 </style>
 <style>
 #auth-gate{position:fixed;inset:0;z-index:99999;background:#0b0c10;color:#e2e8f0;display:flex;align-items:center;justify-content:center;padding:24px;font-family:Inter,sans-serif}
