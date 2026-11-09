@@ -18,6 +18,8 @@ jobs:
         run: |
           node tests/security-smoke.mjs
           node tests/cashflow-model.test.mjs
+          node tests/recurring-budget.test.mjs
+          node tests/statement-batch-sync.test.mjs
           node tests/cashflow-ui.test.mjs
           node tests/cashflow-four-tabs.test.mjs
           node tests/statement-import.test.mjs
