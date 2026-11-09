@@ -15,7 +15,7 @@ const {prepareStatementPlan,statementInstallmentSchedule,calculateInstallmentTim
 
 const p=emptyCashFlowPlan();
 p.startMonth="2026-11";p.openingCash=18000;p.autoExtra=false;
-const st={id:"garanti_20261030_5030",bank:"Garanti BBVA",cardLabel:"Garanti •••• 5030",
+const st={id:"garanti_20261030_6123",bank:"Garanti BBVA",cardLabel:"Garanti •••• 6123",
  statementDate:"2026-10-30",dueDate:"2026-11-09",balance:10000,minimum:4000,
  remainingInstallmentsTotal:null,transactions:[
   {id:"t1",date:"2026-10-15",description:"SHOP A",type:"purchase",amount:300,
@@ -54,7 +54,7 @@ assert.equal(again.plan.statementSnapshots[0].minimum,4000);
 assert.equal(again.replacedInstallments,1);
 
 // An updated statement supersedes the previous automatic schedule.
-const next={...st,id:"garanti_20261129_5030",statementDate:"2026-11-29",
+const next={...st,id:"garanti_20261129_6123",statementDate:"2026-11-29",
   dueDate:"2026-12-09",balance:6800,minimum:2720,
   transactions:[{...st.transactions[0],id:"t1new",installmentCurrent:2,
      installmentTotal:3,remainingInstallments:1}]};
@@ -69,13 +69,13 @@ assert.equal(rr[1].cardSpending,0,"Upcoming installment included in verified sta
 assert.equal(rr[2].installmentTotal,300);
 
 // A separate Enpara card for spouse is not conflated with personal Enpara.
-const enp1={...st,id:"enpara_20261102_0079",bank:"Enpara",
-  cardLabel:"Enpara •••• 0079",statementDate:"2026-11-02",
+const enp1={...st,id:"enpara_20261102_7008",bank:"Enpara",
+  cardLabel:"Enpara •••• 7008",statementDate:"2026-11-02",
   dueDate:"2026-11-12",balance:2300,minimum:460,transactions:[]};
 const enp2={...enp1,id:"enpara_20261102_2222",cardLabel:"Enpara •••• 2222",
   balance:1500,minimum:300};
 const first=prepareStatementPlan(p,enp1,{cardId:"__new",newCardName:"Enpara - Ben"});
-const second=prepareStatementPlan(first.plan,enp2,{cardId:"__new",newCardName:"Enpara - Damla"});
+const second=prepareStatementPlan(first.plan,enp2,{cardId:"__new",newCardName:"Enpara - İkinci Kart"});
 assert.equal(second.plan.cards.length,2);
 assert.notEqual(second.plan.cards[0].id,second.plan.cards[1].id);
 assert.equal(second.plan.statementSnapshots.length,2);
@@ -88,7 +88,7 @@ manual.startMonth="2026-11";manual.cards=[{
 }];
 manual.installments=[{id:"manual_inst",name:"Manual obligation",cardId:"manual_card",
   amount:400,startMonth:"2026-12",count:4,active:true}];
-const ykb={...st,id:"ykb_20261108_9440",bank:"Yapı Kredi",
+const ykb={...st,id:"ykb_20261108_9157",bank:"Yapı Kredi",
  statementDate:"2026-11-08",dueDate:"2026-11-18",balance:13300,minimum:5300,
  remainingInstallmentsTotal:600,transactions:[{
    id:"ykb_t1",date:"2026-10-20",description:"SHOP",amount:300,
@@ -115,7 +115,7 @@ const fixture=[
  row("Son Ödeme Tarihi 09 Kasım 2026"),
  row("Dönem Borcunuz 10.000,00 TL"),
  row("Min. Ödeme Tutarı 4.000,00 TL"),
- row("Kart Numarası ** **** 5030"),
+ row("Kart Numarası ** **** 6123"),
  row("İşlem Tarihi Dönem İçi İşlemler Kalan Borç / Taksit Bonus (TL) Tutar (TL)"),
  row("15 Ekim 2026 SHOP A 300,00x3=900,00 1.Taksit 1,00 300,00",
   [part(105,"15"),part(115,"Ekim"),part(132,"2026"),
@@ -146,7 +146,7 @@ const ykbPdfRows=[
   row("Dönem Borcu : 13.300,00 TL"),
   row("Ödenmesi Gereken Asgari Tutar/Oran : 5.300,00 TL / 40%"),
   row("Kalan Toplam Taksit Tutarı : 600,00 TL"),
-  row("Kart Numarası : ** **** 9440"),
+  row("Kart Numarası : ** **** 9157"),
   row("İşlem Tarihi İşlemler Tutar(TL) Kalan Tutar/Taksit Puan"),
   row("24 Ekim 2026 STORE SHOES TR 300,00 600,00 / 2",
      [part(40,"24"),part(50,"Ekim"),part(67,"2026"),part(105,"STORE SHOES TR"),
@@ -174,7 +174,7 @@ const enparaPdfRows=[
  row("Ekstre borcu 2.300,00 TL"),
  row("Minimum ödeme tutarı 460,00 TL"),
  row("Son ödeme tarihi 12/11/2026"),
- row("Kart numarası ** **** 0079"),
+ row("Kart numarası ** **** 7008"),
  row("İşlem tarihi Açıklama Taksit Tutar"),
  row("07/10/2026 Ödeme - Enpara.com Cep Şubesi - 430,00 TL",
   [part(34,"07/10/2026"),part(118,"Ödeme"),part(150,"-"),
