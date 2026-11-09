@@ -81,6 +81,14 @@ assert.equal(nov.closingCash,1600);
 assert.equal(jan.recurringCashTotal,450,"Jan building fee increases via 2027 budget source");
 assert.equal(jan.budgetIncomeCategories.length,2);
 
+const bookedSalary=structuredClone(plan);
+model.addCashFlowEntry(bookedSalary,{
+ id:"legacy_income",type:"income",date:"2026-11-09",amount:8000,
+ categoryId:"inc_salary",owner:"Ben",note:"Past separately recorded salary"
+});
+assert.equal(model.computeCashFlow(bridge.projectBudgetToCashFlow(bookedSalary,legacyCats,getBudget).plan,1)[0].income,16000,
+ "Budget-linked income must not double count separate salary entry already in plan");
+
 const paid=structuredClone(plan);
 model.addCashFlowEntry(paid,{
  id:"paid_g_min",type:"card_payment",cardId:"g",amount:4000,paymentKind:"minimum",
