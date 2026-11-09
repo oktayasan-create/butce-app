@@ -2840,10 +2840,27 @@ window.addCat=function(){
 
 // ── INDEPENDENT CASH & CREDIT CARD SCENARIO ─────────────────
 let cfPlan = null, cfLoading = null, cfSelectedMonth = null, cfDirty = false, cfEntryType = "card_expense";
+let cfView="summary",cfEditInstallmentId=null;
+const cfOpenInstallmentGroups=new Set(),cfOpenPanels=new Set();
+window.cfSetView=function(value){
+  if(!["summary","statements","installments","plan"].includes(value))return;
+  cfView=value;renderCashflow();
+};
+window.cfSetInstallmentGroup=function(id,opened){
+  if(opened)cfOpenInstallmentGroups.add(id);else cfOpenInstallmentGroups.delete(id);
+};
+window.cfEditInstallment=function(id){
+  cfEditInstallmentId=cfEditInstallmentId===id?null:id;
+  renderCashflow();
+};
+window.cfSetPanel=function(id,opened){
+  if(opened)cfOpenPanels.add(id);else cfOpenPanels.delete(id);
+};
+
 const statementUI=createStatementInboxUI({
   auth,db,doc,getDocFromServer,setDoc,safeHtml,
   getPlan:()=>cfPlan,
-  onPlanChange:plan=>{cfPlan=plan;cfDirty=true;renderCashflow();},
+  onPlanChange:plan=>{cfPlan=plan;cfDirty=true;cfView="plan";renderCashflow();},
   rerender:()=>{if(cfPlan)renderCashflow();},
   notify:message=>showToast(message)
 });
@@ -2858,6 +2875,7 @@ window.statementExcludeMovement=(sid,tid)=>statementUI.excludeMovement(sid,tid);
 window.statementReviewAck=checked=>statementUI.reviewAck(checked);
 window.statementPlanCard=(sid,cardId)=>statementUI.selectPlanCard(sid,cardId);
 window.statementPlanApply=sid=>statementUI.applyToPlan(sid);
+window.statementExpandedSet=(source,id,opened)=>statementUI.selectExpanded(source,id,opened);
 const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
@@ -2913,20 +2931,52 @@ function cfLoanEditor(){
     '<button class="btn btn-ghost btn-sm" onclick="cfAddLoan(\'Diğer Kredi\')">+ Diğer kredi</button></div>';
 }
 function cfInstallmentEditor(){
-  const rows=cfPlan.installments.map((inst,i)=>{
-    return '<div class="cf-edit-row"><div class="cf-inputs">'+
-      cfField("Taksit açıklaması",inst.name,"cfInstallment("+i+",'name',this.value)","text")+
-      '<label>Kart<select onchange="cfInstallment('+i+',\'cardId\',this.value)">'+
-      cfPlan.cards.map(c=>'<option value="'+c.id+'"'+(inst.cardId===c.id?' selected':'')+'>'+cfText(c.name)+'</option>').join('')+
-      '</select></label>'+
-      cfField("Her ay ödenecek taksit (₺)",inst.amount,"cfInstallment("+i+",'amount',this.value)")+
-      cfField("İlk taksit ayı",inst.startMonth,"cfInstallment("+i+",'startMonth',this.value)","month")+
-      cfField("Kaç ay",inst.count,"cfInstallment("+i+",'count',this.value)")+
-      '</div><button class="btn btn-'+(inst.active===false?'ghost':'danger')+' btn-sm" onclick="cfArchiveInstallment('+i+')">'+
-      (inst.active===false?'Taksiti geri al':'Taksiti arşivle')+'</button></div>';
+  const active=cfPlan.installments.filter(x=>x.active!==false);
+  const archived=cfPlan.installments.filter(x=>x.active===false);
+  const total=active.reduce((sum,x)=>sum+x.amount*x.count,0);
+  const groupRows=cfPlan.cards.map(card=>{
+    const rows=cfPlan.installments.map((v,i)=>({v,i}))
+      .filter(x=>x.v.cardId===card.id&&x.v.active!==false);
+    if(!rows.length)return '';
+    const groupTotal=rows.reduce((sum,x)=>sum+x.v.amount*x.v.count,0);
+    const summary=rows.map(({v,i})=>{
+      const editing=cfEditInstallmentId===v.id;
+      return '<tr><td>'+cfText(v.name)+'</td><td class="cf-num">'+cfMoney(v.amount)+'</td>'+
+        '<td>'+cfText(v.startMonth)+'</td><td class="cf-num">'+cfText(v.count)+'</td>'+
+        '<td><button class="btn btn-ghost btn-sm" onclick="cfEditInstallment(\''+v.id+'\')">'+
+          (editing?'Kapat':'Düzenle')+'</button></td></tr>'+
+        (editing?'<tr><td colspan="5"><div class="cf-inline-editor"><div class="cf-inputs">'+
+          cfField("Taksit adı",v.name,"cfInstallment("+i+",'name',this.value)","text")+
+          '<label>Kart<select onchange="cfInstallment('+i+',\'cardId\',this.value)">'+
+          cfPlan.cards.map(c=>'<option value="'+c.id+'"'+(v.cardId===c.id?' selected':'')+'>'+cfText(c.name)+'</option>').join('')+
+          '</select></label>'+
+          cfField("Aylık ödeme (₺)",v.amount,"cfInstallment("+i+",'amount',this.value)")+
+          cfField("İlk ödeme ayı",v.startMonth,"cfInstallment("+i+",'startMonth',this.value)","month")+
+          cfField("Kalan ay sayısı",v.count,"cfInstallment("+i+",'count',this.value)")+
+          '</div><button class="btn btn-danger btn-sm" onclick="cfArchiveInstallment('+i+')">Arşivle</button></div></td></tr>':'');
+    }).join('');
+    return '<details class="cf-group-accordion" '+(cfOpenInstallmentGroups.has(card.id)?'open ':'')+
+      '><summary onclick="cfSetInstallmentGroup(\''+card.id+'\',!this.parentElement.open)">'+
+      '<span><strong>'+cfText(card.name)+'</strong> · '+rows.length+' taksit</span>'+
+      '<span class="cf-num">Kalan '+cfMoney(groupTotal)+'</span></summary>'+
+      '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
+      '<th>Açıklama</th><th>Aylık</th><th>İlk ay</th><th>Kalan ay</th><th></th>'+
+      '</tr></thead><tbody>'+summary+'</tbody></table></div></details>';
   }).join('');
-  return '<p class="cf-muted">Gelecek ayların kart taksitlerini ekle: aylık tutar, ilk ay ve taksit sayısı. Bunlar ilgili ayın kart ekstresi tahminine dahil edilir. Aynı alışverişin tamamını ayrıca yeni kart harcamasına yazma.</p>'+
-    rows+'<button class="btn btn-p btn-sm" style="margin-top:12px" onclick="cfAddInstallment()">+ Kart taksiti ekle</button>';
+  const archiveHtml=archived.length?
+    '<details class="cf-group-accordion"><summary>Arşivlenmiş taksitler ('+archived.length+')</summary>'+
+      archived.map(v=>{const i=cfPlan.installments.indexOf(v);return '<div class="cf-archived-row">'+
+      '<span>'+cfText(v.name)+' · '+cfMoney(v.amount)+'</span>'+
+      '<button class="btn btn-ghost btn-sm" onclick="cfArchiveInstallment('+i+')">Geri al</button></div>';}).join('')+
+    '</details>':'';
+  return '<div class="cf-inline-summary">'+
+      '<span><strong>'+active.length+'</strong> aktif taksit</span>'+
+      '<span>Toplam kalan: <strong>'+cfMoney(total)+'</strong></span>'+
+      '<button class="btn btn-p btn-sm" onclick="cfAddInstallment()">+ Taksit ekle</button></div>'+
+    (groupRows||'<p class="cf-muted">Henüz gelecek aylara ait kart taksiti yok. PDF ekstrelerini yükleyerek otomatik ekleyebilirsin.</p>')+
+    archiveHtml+
+    '<details class="cf-more-info"><summary>Taksit hesabı hakkında</summary>'+
+    '<p class="cf-muted">Bankadan içe aktarılan taksitler ilgili ödeme ayında kart borcuna yansır. Aynı alışverişi ayrıca yeni harcama olarak girme.</p></details>';
 }
 function cfOverdraftEditor(){
   return '<p class="cf-muted">Enpara Ekpara/KMH hesabın eksiye geçerse gerekli kullanımı gösterir. Bakiyen artıya döndüğünde Ekpara borcu önce kapanır. Faiz günlük hesaplandığından burada ay içindeki ortalama borçla tahmin yapılır; hesaplanan maliyet sonraki aya eklenir.</p>'+
