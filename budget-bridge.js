@@ -11,6 +11,8 @@ import {advanceMonth} from "./cashflow-model.js";
 
 const tr=x=>String(x||"").toLocaleLowerCase("tr-TR")
   .normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-z0-9]+/g," ").trim();
+const isSalaryCategory=cat=>cat?.id==="salary"||cat?.id==="inc_salary"||
+  /\b(maas|ucret|salary|wages)\b/.test(tr(cat?.name));
 const isCashName=name=>/\b(aidat|kuafor|berber)\b/.test(tr(name));
 const isCardName=name=>/\b(market|elektrik|dogalgaz|su|suyu|abonelik|uyelik|internet|telefon|yemek|kafe|cafe|icecek)\b/.test(tr(name));
 function matchPlanExpense(name,p){
@@ -49,9 +51,20 @@ export function projectBudgetToCashFlow(plan,legacyCategories,getBudget,periods=
   const months={},missingCards=[],breakdown=[];
   for(let i=0;i<periods;i++){
     const month=advanceMonth(p.startMonth,i),year=Number(month.slice(0,4)),mi=Number(month.slice(5))-1;
-    const incomes=incomeCats.map(cat=>({
-      id:cat.id,name:cat.name,amount:Number(getBudget(cat.id,mi,year))||0
+    const earnedIncomes=incomeCats.map(cat=>({
+      id:cat.id,name:cat.name,amount:Number(getBudget(cat.id,mi,year))||0,
+      salary:isSalaryCategory(cat),earnedMonth:month
     })).filter(x=>Number.isFinite(x.amount)&&x.amount>0);
+    // Salaries are earned in one month and normally received at the start of
+    // the NEXT month. Non-salary income is received in the entered month.
+    const previous=advanceMonth(month,-1);
+    const previousYear=Number(previous.slice(0,4));
+    const previousIndex=Number(previous.slice(5))-1;
+    const previousSalaries=incomeCats.filter(isSalaryCategory).map(cat=>({
+      id:cat.id,name:cat.name,amount:Number(getBudget(cat.id,previousIndex,previousYear))||0,
+      salary:true,earnedMonth:previous
+    })).filter(x=>Number.isFinite(x.amount)&&x.amount>0);
+    const incomes=[...previousSalaries,...earnedIncomes.filter(x=>!x.salary)];
     const expenses=[];
     for(const cat of expenseCats){
       const amount=Number(getBudget(cat.id,mi,year))||0;
@@ -68,8 +81,10 @@ export function projectBudgetToCashFlow(plan,legacyCategories,getBudget,periods=
       expenses.push(expense);
     }
     months[month]={
+      // Cash receipt in this month, not payroll earned in this month.
       income:Math.round(incomes.reduce((sum,x)=>sum+x.amount,0)*100)/100,
-      incomes,expenses
+      earnedIncome:Math.round(earnedIncomes.reduce((sum,x)=>sum+x.amount,0)*100)/100,
+      incomes,earnedIncomes,expenses
     };
     breakdown.push({month,income:months[month].income,
       incomeCategories:incomes,expenseCategories:expenses});
