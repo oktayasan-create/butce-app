@@ -46,7 +46,7 @@ Harcama ve gelir grupları çok sütunlu küçük düzenlenebilir kutularda gös
 ## 2026 Kasım — Banka ekstresinden otomatik nakit planı
 
 - Garanti BBVA PDF, Yapı Kredi World PDF ve Enpara PDF için metin satırları koordinatlarına göre ayrıştırılır. Garanti ekstrelerindeki puanlar/bonus kampanyaları nakit harcaması olarak sayılmaz; Yapı Kredi taksit açıklamasının sonraki satırda olmasına dikkat edilir.
-- Ekstreyi **özel arşive kaydet** adımından sonra ilgili kartın karşısında **Nakit akışına otomatik aktar** yer alır. Daha önce tanımlanmış kartı seçebilir veya yeni bir kart açabilirsin; eşinin Enpara kartı için **Enpara - Damla** gibi ayrı kart adı seçilmelidir.
+- Ekstreyi **özel arşive kaydet** adımından sonra ilgili kartın karşısında **Nakit akışına otomatik aktar** yer alır. Daha önce tanımlanmış kartı seçebilir veya yeni bir kart açabilirsin; eşinin Enpara kartı için **Enpara - İkinci Kart** gibi ayrı kart adı seçilmelidir.
 - Tek tıkla önizlemeye alınan **banka ekstresi dönem borcu ve asgari**, son ödeme tarihinin ait olduğu aya yazılır. Ekstre içindeki halihazırda faturalandırılmış alışverişler tekrar harcama olarak girilmez.
 - **Kalan taksitler** son ödeme tarihinin **bir sonraki ayından** başlayarak eklenir. Örnek: Garanti 30 Ekim hesap kesimi / 9 Kasım son ödeme: sonraki alışveriş taksitleri Kasım değil, **Aralık ödeme planından** başlar.
 - Kartın sonraki ekstresi yüklendiğinde önceki dosyadan otomatik türetilmiş ileri taksitler yenilenir, kullanıcı tarafından elle yazılan taksit ve krediler silinmez. Aynı ekstre yeniden uygulanırsa taksitler iki kez oluşmaz.
