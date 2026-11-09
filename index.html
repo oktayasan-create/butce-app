@@ -3680,6 +3680,78 @@ window.cfSplitRecurringExpense=function(index){
   cfDirty=true;renderCashflow();
   showToast("Yeni dönem eklendi. "+start+" için yeni aylık tutarı gir.");
 };
+window.cfBudgetLinkEnabled=function(enabled){
+  if(!cfPlan)return;
+  if(!cfPlan.budgetLink)cfPlan.budgetLink={enabled:true,categories:{}};
+  cfPlan.budgetLink.enabled=Boolean(enabled);
+  cfDirty=true;renderCashflow();
+};
+window.cfBudgetCategorySetting=function(id,field,value){
+  if(!cfPlan||!cats?.expense?.some(c=>c.id===id))return;
+  if(!cfPlan.budgetLink)cfPlan.budgetLink={enabled:true,categories:{}};
+  if(!cfPlan.budgetLink.categories)cfPlan.budgetLink.categories={};
+  const config=cfPlan.budgetLink.categories[id]||{};
+  if(field==="payment"){
+    if(!["cash","card"].includes(value))return;
+    config.payment=value;
+  }else if(field==="cardId"){
+    if(value!==""&&!cfPlan.cards.some(c=>c.id===value))return;
+    config.cardId=value||null;
+  }else if(field==="excluded")config.excluded=Boolean(value);
+  else return;
+  cfPlan.budgetLink.categories[id]=config;
+  cfDirty=true;renderCashflow();
+};
+window.cfPaymentPreset=function(){
+  const cardId=document.getElementById("cf-paid-card")?.value;
+  const kind=document.getElementById("cf-paid-kind")?.value;
+  const input=document.getElementById("cf-paid-amount");
+  if(!cardId||!input||!cfRenderedRow)return;
+  const card=cfRenderedRow.cards.find(c=>c.id===cardId);
+  if(!card)return;
+  if(kind==="minimum")input.value=String(Math.max(0,Math.round(card.minimumRemaining*100)/100));
+  else if(kind==="full")input.value=String(Math.max(0,Math.round((card.statementDebt-card.actualPaid)*100)/100));
+  else input.value="";
+};
+window.cfSavePaidCard=function(){
+  if(!cfPlan||!auth.currentUser||!cfRenderedRow)return;
+  const cardId=document.getElementById("cf-paid-card")?.value;
+  const kind=document.getElementById("cf-paid-kind")?.value;
+  const date=document.getElementById("cf-paid-date")?.value;
+  const amount=Number(document.getElementById("cf-paid-amount")?.value);
+  const card=cfRenderedRow.cards.find(c=>c.id===cardId);
+  if(!card||!["minimum","partial","full"].includes(kind)||
+    !/^\d{4}-\d{2}-\d{2}$/.test(date||"")||date.slice(0,7)!==cfSelectedMonth||
+    !(amount>0)||!Number.isFinite(amount)){
+    cfShowError("Kart, ödeme tarihi veya pozitif ödeme tutarını kontrol et.");
+    return;
+  }
+  const remaining=Math.max(0,Math.round((card.statementDebt-card.actualPaid)*100)/100);
+  if(amount>remaining+0.01){
+    cfShowError("Ödenen tutar kalan ekstre borcunu aşmamalı. Daha yeni harcamalar varsa ayrı kart harcaması olarak gir.");
+    return;
+  }
+  if(kind==="full"&&Math.abs(amount-remaining)>0.01){
+    cfShowError("Tam ödeme seçeneğinde kalan ekstre borcunun tamamını girmelisin.");
+    return;
+  }
+  if(kind==="minimum"&&amount+0.01<card.minimumRemaining){
+    cfShowError("Asgari ödeme seçildiyse kalan asgariyi tamamla. Daha az tutar için Kısmi ödeme seç.");
+    return;
+  }
+  const id="paid_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,8);
+  try{
+    addCashFlowEntry(cfPlan,{
+      id,type:"card_payment",date,cardId,
+      amount:Math.round(amount*100)/100,paymentKind:kind,
+      note:kind==="full"?"Ekstre borcunun tamamı":
+        kind==="minimum"?"Asgari ödeme":"Kısmi ödeme"
+    });
+    cfDirty=true;
+    renderCashflow();
+    showToast("Ödeme kayda hazır. Kalıcı olması için Planı Kaydet'e bas.");
+  }catch(e){cfShowError("Ödeme eklenemedi: "+String(e.message||e).slice(0,130));}
+};
 window.cfRoot=function(field,value){
   if(!cfPlan || !["startMonth","openingCash","reserve","autoExtra"].includes(field))return;
   if(field==="startMonth") {if(!/^20\d{2}-(0[1-9]|1[0-2])$/.test(value))return; cfPlan.startMonth=value;cfSelectedMonth=value;}
