@@ -3392,13 +3392,16 @@ function cfCompactForecast(rows){
     '<p class="cf-muted">Ay sonu kart borcu = Önceki ekstrelerden ödenmeden kalan + ay içi yeni kart harcamaları + bir sonraki ay ödenecek taksitler. Kesinleşmiş gelecek ay ekstresi varsa bankanın tutarı esas alınır. Kart harcamaları ayrıca nakit giderlerden düşülmez.</p>'+
     '<div class="cf-scroll"><table class="cf-table cf-compact-forecast"><thead><tr>'+
     '<th>Ay</th><th>Gelir (tahsil)</th><th>Krediler (nakit ödeme)</th>'+
-    '<th>Geçmiş aydan devreden kart borcu</th>'+
+    '<th>Bu ay vadesi gelen önceki ekstre borcu</th><th>Bu ay kart ödemeleri</th>'+ 
+    '<th>Ödemeler sonrası devreden kart borcu (+ tahmini faiz)</th>'+
     '<th>Ay içi tahmini kart harcamaları</th><th>Sonraki ekstreye girecek taksitler</th>'+
     '<th>Ay sonu tahmini kart borcu (gelecek ay ödenecek)</th>'+
     '<th>Gelecek ay tahmini asgari</th><th>Tahmini nakit harcama</th>'+
     '<th>Ay sonu tahmini Ek Hesap / Birikim</th></tr></thead><tbody>'+
     rows.map(r=>{
       const card=estimateMonthEndCardStatement(cfPlan,r);
+      const previousStatement=r.cards.reduce((sum,c)=>sum+c.statementDebt,0);
+      const cardPayments=r.cards.reduce((sum,c)=>sum+c.paymentApplied+c.extra,0);
       const isOverdraft=r.closingOverdraft>0;
       const balance=isOverdraft?-r.closingOverdraft:r.savings;
       const adjusted=card.hasVerified&&Math.abs(card.adjustment)>=0.01;
@@ -3406,6 +3409,8 @@ function cfCompactForecast(rows){
         '<td><strong>'+cfText(cfMonthLabel(r.month))+'</strong>'+
           '<small class="cf-muted"> · Ödeme '+cfText(cfMonthLabel(card.dueMonth))+'</small></td>'+
         '<td>'+cfMoney(r.income)+'</td><td>'+cfMoney(r.loanPayments)+'</td>'+
+        '<td>'+cfMoney(previousStatement)+'</td>'+
+        '<td>'+cfMoney(cardPayments)+'</td>'+ 
         '<td>'+cfMoney(card.carryover)+'</td>'+
         '<td>'+cfMoney(card.purchases)+'</td>'+
         '<td>'+cfMoney(card.installments)+'</td>'+
