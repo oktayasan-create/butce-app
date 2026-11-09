@@ -59,6 +59,8 @@ export function prepareStatementPlan(sourcePlan,st,options={}){
     st.minimum>st.balance+0.01||!Array.isArray(st.transactions))throw Error("Ekstre tutarları hatalı.");
   const dueMonth=statementDueMonth(st);
   if(!dueMonth)throw Error("Ekstre son ödeme tarihi gerekiyor. İnceleme ekranına tarih gir.");
+  if(!st.statementDate||!/^20\d{2}-(0[1-9]|1[0-2])-([0-2]\d|3[01])$/.test(st.statementDate))
+    throw Error("Otomatik taksitlerin ayını belirlemek için ekstre kesim tarihini gir.");
   let cardId=options.cardId;
   const creating=cardId==="__new";
   let card=p.cards.find(c=>c.id===cardId);
@@ -94,7 +96,17 @@ export function prepareStatementPlan(sourcePlan,st,options={}){
   p.installments=p.installments.filter(i=>!pruned.includes(i));
   const scheduled=statementInstallmentSchedule(st,cardId);
   if(p.installments.length+scheduled.length>250)throw Error("Taksit sınırına ulaşıldı.");
-  p.installments.push(...scheduled.filter(i=>!p.installments.some(x=>x.id===i.id)));
+  let skippedManual=0;
+  const uniqueScheduled=scheduled.filter(i=>{
+    if(p.installments.some(x=>x.id===i.id))return false;
+    const manualDuplicate=p.installments.some(x=>!x.sourceKind&&x.cardId===i.cardId&&
+      x.startMonth===i.startMonth&&x.count===i.count&&
+      Math.abs(x.amount-i.amount)<0.02&&
+      x.name.toLocaleLowerCase("tr-TR").trim()===i.name.toLocaleLowerCase("tr-TR").trim());
+    if(manualDuplicate)skippedManual++;
+    return !manualDuplicate;
+  });
+  p.installments.push(...uniqueScheduled);
   p.statementSnapshots=p.statementSnapshots.filter(x=>!(x.cardId===cardId&&x.dueMonth===dueMonth));
   p.statementSnapshots.push({
     id:"snapshot_"+fingerprint(st.id+"|"+cardId),
@@ -114,6 +126,9 @@ export function prepareStatementPlan(sourcePlan,st,options={}){
   const reference=nonnegativeNumber(st.remainingInstallmentsTotal)?st.remainingInstallmentsTotal:null;
   const diff=reference===null?null:Math.round((remainingSum-reference)*100)/100;
   const warnings=[];
+  if(skippedManual)warnings.push(skippedManual+" taksit, zaten elle tanımlı olduğu için tekrar eklenmedi.");
+  if(st.transactions.some(t=>t.type==="refund"&&t.remainingInstallments>0))
+    warnings.push("İleriye dönük taksitli iade var; bankadan teyit edilmeden otomatik borç azaltılmadı.");
   if(dueMonth<p.startMonth||dueMonth>advanceMonth(p.startMonth,11))
     warnings.push("Ekstre ödeme ayı mevcut 12 aylık plan penceresinin dışında; plan başlangıcını kontrol et.");
   if(diff!==null&&Math.abs(diff)>1)
@@ -124,7 +139,7 @@ export function prepareStatementPlan(sourcePlan,st,options={}){
   return {plan:p,cardId,cardName:card.name,dueMonth,
     statementBalance:st.balance,statementMinimum:st.minimum,
     existingMinimum:oldMinimum??null,createdCard:creating,
-    installmentsAdded:scheduled.length,
-    replacedInstallments:pruned.length,
+    installmentsAdded:uniqueScheduled.length,
+    replacedInstallments:pruned.length,skippedManual,
     remainingSum,reference,diff,timeline,warnings};
 }
