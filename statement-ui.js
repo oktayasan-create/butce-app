@@ -28,6 +28,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     return "Kayıt doğrulanamadı: "+String(e?.message||code||"Bilinmeyen hata").slice(0,220);
   }
   let selectedPlanCards={};
+  const statementExpanded=new Set();
   const esc=x=>safeHtml(String(x??""));
   const money=n=>new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY"}).format(n||0);
   const types={purchase:"Harcama",refund:"İade",payment:"Kart ödemesi",
@@ -37,6 +38,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     inbox=null;draft=null;loading=false;error="";dirty=false;uid=null;
     importing=false;warnings=[];reviewAcknowledged=false;selectedPlanCards={};
     saving=false;saveStatus={kind:"",message:""};
+    statementExpanded.clear();
   }
   async function ensureLoaded(){
     const who=auth.currentUser?.uid;
@@ -249,9 +251,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     const list=plan.cards.map(c=>'<option value="'+esc(c.id)+'"'+(cardId===c.id?' selected':'')+'>'+esc(c.name)+'</option>').join("");
     return '<div class="cf-statement-plan">'+
       '<div style="font-weight:700">Nakit akışına otomatik aktar</div>'+
-      '<p class="cf-muted">Ekstre son ödeme ayı: '+esc(due||"Tarih eksik")+
-      ' · Gelecek aylara aktarılabilecek taksit: <strong>'+eligible.length+
-      ' işlem / '+money(total)+'</strong>. Taksitler ödeme ayına göre planlanır; mevcut ekstreye tekrar eklenmez.</p>'+
+      '<p class="cf-muted">Ödeme ayı: '+esc(due||'Tarih eksik')+' · Kalan taksitler: '+eligible.length+' / '+money(total)+'</p>'+
       '<div class="cf-statement-actions">'+
       '<label class="cf-muted">Hangi kredi kartına ait?<select onchange="statementPlanCard(\''+st.id+'\',this.value)">'+
       '<option value="">Kart seç...</option>'+list+
@@ -259,7 +259,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       '</select></label>'+
       '<button class="btn btn-p btn-sm" '+(!cardId||!due?'disabled ':'')+
       'onclick="statementPlanApply(\''+st.id+'\')">Ekstre + kalan taksitleri plana ekle</button></div>'+
-      '<p class="cf-muted">Bu işlemde tutarlar önce nakit akışı planında hazırlanır. Kalıcı olması için ayrıca <strong>Planı Kaydet</strong> düğmesine basılır. Eski harcamalar ikinci kez eklenmez.</p>'+
+      '<p class="cf-muted">Plana ekledikten sonra Nakit Planı sekmesinden kaydet.</p>'+
       '</div>';
   }
   function applyToPlan(stId){
@@ -309,6 +309,27 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       (["balance","minimum"].includes(field)?'min="0" step="0.01" ':'')+
       'value="'+esc(value)+'" onchange="statementSummaryEdit(\''+st.id+'\',\''+field+'\',this.value)"></label>';
   }
+  function selectExpanded(source,id,open){
+    const key=source+"|"+id;
+    if(open)statementExpanded.add(key);else statementExpanded.delete(key);
+  }
+  function getOverview(){
+    if(auth.currentUser)void ensureLoaded();
+    const statements=inbox?.statements||[];
+    const total=key=>Math.round(statements.reduce((sum,st)=>sum+(Number(st[key])||0),0)*100)/100;
+    return {count:statements.length,loading:loading||inbox===null,error,
+      debt:total("balance"),minimum:total("minimum"),
+      statements:statements.map(st=>{
+        const planned=(getPlan()?.statementSnapshots||[]).some(sn=>sn.sourceStatementId===st.id);
+        const future=st.transactions.filter(tx=>tx.type==="purchase"&&tx.remainingInstallments>0);
+        const installmentCount=future.length;
+        const installmentTotal=Math.round(future.reduce((v,tx)=>v+tx.amount*tx.remainingInstallments,0)*100)/100;
+        const mismatch=st.remainingInstallmentsTotal!=null&&
+          Math.abs(st.remainingInstallmentsTotal-installmentTotal)>1;
+        return {id:st.id,cardLabel:st.cardLabel,bank:st.bank,balance:st.balance,
+          minimum:st.minimum,dueDate:st.dueDate,planned,installmentCount,installmentTotal,mismatch};
+      })};
+  }
   function card(st,source){
     const r=reconcileStatement(st);
     const counts=Object.entries(r.sums).filter(([k,v])=>v>0).map(([k,v])=>(types[k]||k)+": "+money(v)).join(" · ");
@@ -336,12 +357,26 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
         (source==="draft"?'<td><button class="btn btn-ghost btn-sm" onclick="statementExcludeMovement(\''+st.id+'\',\''+
           tx.id+'\')">Çıkar</button></td>':'')+'</tr>';
     }).join("");
-    return '<div class="cf-statement-card"><strong>'+esc(st.cardLabel)+'</strong>'+
-      '<div class="cf-muted">'+esc(st.bank)+' · '+esc(st.statementDate||st.periodLabel||"Tarih yok")+
-      ' · '+st.transactions.length+' işlem</div>'+
-      '<div>Ekstre borcu <strong>'+money(st.balance)+'</strong> · Asgari <strong>'+money(st.minimum)+'</strong></div>'+
-      '<div class="cf-muted">Son ödeme: '+esc(st.dueDate||"Ekstrede yok")+
-      (r.gap!==null?(r.reconciled?" · ✓ Hareket toplamı tutuyor":" · ⚠️ Tutar farkı: "+money(r.gap)):"")+'</div>'+
+    const future=st.transactions.filter(t=>t.type==="purchase"&&t.remainingInstallments>0);
+    const futureTotal=future.reduce((sum,t)=>sum+t.amount*t.remainingInstallments,0);
+    const mismatch=st.remainingInstallmentsTotal!=null&&Math.abs(futureTotal-st.remainingInstallmentsTotal)>1;
+    const planned=(getPlan()?.statementSnapshots||[]).some(sn=>sn.sourceStatementId===st.id);
+    const opened=source==="draft"||statementExpanded.has(source+"|"+st.id);
+    return '<details class="cf-statement-card cf-statement-accordion" '+(opened?'open ':'')+
+      '><summary class="cf-statement-summary" onclick="statementExpandedSet(\''+source+'\',\''+st.id+'\',!this.parentElement.open)">'+
+      '<span class="cf-statement-title"><strong>'+esc(st.cardLabel)+'</strong><span class="cf-muted">'+
+      esc(st.statementDate||st.periodLabel||'')+' · '+st.transactions.length+' işlem</span></span>'+
+      '<span class="cf-statement-amount">'+money(st.balance)+' <small>Ekstre</small></span>'+
+      '<span class="cf-statement-amount">'+money(st.minimum)+' <small>Asgari</small></span>'+
+      '<span class="cf-statement-status">'+(mismatch?'<span class="cf-tag cf-tag-warning">Taksit farkı</span>':
+         planned?'<span class="cf-tag cf-tag-success">Plana işlendi</span>':
+         future.length?'<span class="cf-tag">Taksit: '+future.length+'</span>':
+         '<span class="cf-tag">Taksit yok</span>')+'</span>'+
+      '</summary><div class="cf-statement-inside">'+
+      '<p class="cf-muted">Son ödeme: '+esc(st.dueDate||"Ekstrede yok")+
+      ' · Banka: '+esc(st.bank)+
+      (r.gap!==null?(r.reconciled?' · İşlem toplamı uyuşuyor':' · İşlem farkı: '+money(r.gap)):'')+
+      '</p>'+
       (source==="draft"?'<details><summary>Ekstre özetini kontrol et / düzelt</summary>'+
         '<div class="cf-statement-meta">'+
         summaryInput(st,"cardLabel","Kart adı")+
@@ -354,13 +389,13 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       '<table class="cf-statement-table"><tr><th>Tarih</th><th>Açıklama</th><th>Tür</th><th>Kategori</th>'+
       '<th>Tutar</th><th>Taksit</th>'+(source==="draft"?'<th>İşlem</th>':'')+'</tr>'+rows+'</table></div>'+
       '<p class="cf-muted"><strong>Kategori dağılımı:</strong> '+categorySummary+'</p>'+
-      '<p class="cf-muted">'+esc(counts)+'</p></details>'+ (source==="saved"?statementPlanControls(st):'')+'</div>';
+      '<p class="cf-muted">'+esc(counts)+'</p></details>'+ (source==="saved"?statementPlanControls(st):'')+'</div></details>';
   }
   function render(){
     const el=document.getElementById("cf-statement-panel");if(!el)return;
     if(auth.currentUser)void ensureLoaded();
-    el.innerHTML='<div class="card cb" style="margin-bottom:16px"><div class="sec-title">📄 PDF / Excel Ekstrelerini İçe Aktar</div>'+
-      '<p class="cf-muted">Garanti Excel (.xlsx/.xls), Yapı Kredi ve Enpara PDF ekstrelerini doğrudan yükle. Dosya tarayıcında okunur; sen onaylamadan Firebase’e aktarılmaz. İstersen önceki JSON dosyalarını da kullanabilirsin.</p>'+
+    el.innerHTML='<div class="cf-section-title">Ekstreleri yönet <span class="cf-muted">'+(inbox?.statements?.length||0)+' kayıt</span></div>'+
+      '<p class="cf-muted">PDF veya Excel yükle, önizlemede kontrol et, ardından özel arşive kaydet.</p>'+
       '<label class="cf-muted">Ekstre dosyaları (birden fazla seçilebilir)'+
       '<input type="file" multiple accept=".pdf,.xlsx,.xls,.json,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/json" onchange="statementSelectFile(this)" style="display:block;margin-top:8px;max-width:100%"></label>'+
       (importing?'<p class="cf-muted">PDF / Excel dosyaları bu cihazda işleniyor...</p>':'')+
@@ -382,12 +417,12 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
         '<button class="btn btn-ghost btn-sm" '+(saving?'disabled ':'')+'onclick="statementCancelDraft()">Önizlemeyi iptal et</button></div>':'')+
       '<div id="statement-save-status" role="status" aria-live="polite" class="cf-statement-save-status'+
       (saveStatus.kind?' cf-save-'+saveStatus.kind:'')+'">'+esc(saveStatus.message)+'</div>'+
-      (inbox?.statements?.length?'<h4>Kaydedilmiş ekstreler ('+inbox.statements.length+')</h4>'+
+      (inbox?.statements?.length?'<h4 class="cf-subheading">Kaydedilmiş ekstreler ('+inbox.statements.length+')</h4>'+
         '<div class="cf-statement-grid">'+inbox.statements.map(st=>card(st,"saved")).join('')+'</div>'+
         '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="statementSaveCategories()">Kategori düzeltmelerini kaydet</button>':'')+
-      '<p class="cf-muted" style="margin-top:12px">Not: Metin seçilemeyen taranmış PDF’ler bu sürümde desteklenmez. Okuma hatası olursa belgeyi eski JSON yöntemiyle aktarabiliriz. Arşive kaydetmek tek başına nakit planını değiştirmez. Kart eşlemesi ve Planı Kaydet sonrasında yalnızca tahmini kart borcu/asgari/taksit planı güncellenir; eski harcamalar yeniden eklenmez.</p></div>';
+      '<details class="cf-more-info"><summary>İçe aktarma hakkında</summary><p class="cf-muted">Taranmış PDF desteklenmez. Ekstreyi arşive kaydetmek nakit planını değiştirmez; kartı seçip plana uyguladıktan sonra Planı Kaydet gerekir. Harcamalar ikinci kez eklenmez.</p></details>';
   }
-  return {reset,render,selectFile,saveDraft,saveCategories,categoryEdit,
+  return {reset,render,getOverview,selectExpanded,selectFile,saveDraft,saveCategories,categoryEdit,
     selectPlanCard,applyToPlan,
     editStatement,editMovement,excludeMovement,reviewAck(value){
       reviewAcknowledged=Boolean(value);

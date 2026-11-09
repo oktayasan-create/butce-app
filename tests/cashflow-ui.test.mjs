@@ -29,19 +29,36 @@ const sandbox={
  document:{getElementById(id){return id==='tab-cashflow'?root:inputs[id]||null}},
  safeHtml(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))},
  showToast(x){messages.push(x)},confirm(){return true},Date,Math,Intl,Number,String,Array,Object,
- structuredClone,createStatementInboxUI:()=>({render(){},reset(){},selectFile(){},saveDraft(){},saveCategories(){},categoryEdit(){},cancelDraft(){}}),...model
+ structuredClone,createStatementInboxUI:()=>({render(){},reset(){},getOverview(){return {count:0,loading:false,error:"",debt:0,minimum:0,statements:[]}},selectFile(){},saveDraft(){},saveCategories(){},categoryEdit(){},cancelDraft(){}}),...model
 };
 vm.createContext(sandbox);
 vm.runInContext(html.slice(start,end),sandbox,{filename:'cashflow-ui.js'});
 vm.runInContext("cfPlan=initial;cfSelectedMonth='2026-11';",sandbox);
 await sandbox.window.renderCashflow();
+assert(root.innerHTML.includes('Özet'));
+assert(root.innerHTML.includes('Ekstreler'));
+assert(root.innerHTML.includes('Taksitler'));
+assert(root.innerHTML.includes('Nakit Planı'));
+assert(root.innerHTML.includes('Tam kredi ödemesi'));
+assert(root.innerHTML.includes('Ev / Araba / Diğer krediler'));
+assert(root.innerHTML.includes('12 ay'));
+assert(!root.innerHTML.includes('undefined TL'));
+
+sandbox.window.cfSetView('plan');
+assert(root.innerHTML.includes('Test Visa'));
+assert(root.innerHTML.includes('Ev, araba ve diğer kredileri düzenle'));
+assert(root.innerHTML.includes('Kartı kaldır (arşivle)'));
+assert(root.innerHTML.includes('cfCategoryActive'));
 assert(root.innerHTML.includes('Kredi kartı harcaması'));
 assert(root.innerHTML.includes('Kategori'));
 assert(root.innerHTML.includes('Maaş'));
-assert(root.innerHTML.includes('Test Visa'));
-assert(root.innerHTML.includes('Kartı kaldır (arşivle)'));
-assert(root.innerHTML.includes('cfCategoryActive'));
-assert(!root.innerHTML.includes('undefined TL'));
+assert(root.innerHTML.includes('Enpara Ekpara'));
+assert(root.innerHTML.includes('Benim belirlediğim ek kart ödemesi')===false,
+  'Use shorter manual extra payment label in compact plan');
+assert(root.innerHTML.includes('Senin seçtiğin ek kart ödemesi'));
+assert(root.innerHTML.includes('TCMB azami oranları'));
+assert(root.innerHTML.includes('Kalan Ekpara'));
+assert(root.innerHTML.includes('Kart faiz + vergi'));
 sandbox.window.cfAddCategory('expense');
 const p=vm.runInContext('cfPlan',sandbox);
 assert(p.categories.expense.some(c=>c.name==='Yeni Harcama'));
@@ -60,14 +77,16 @@ sandbox.window.cfDeleteEntry(p.entries[0].id);
 assert.equal(p.entries.length,0,'User should be able to remove a movement before saving');
 assert.equal(model.computeCashFlow(p,1)[0].closingDebt,600);
 
-assert(root.innerHTML.includes('Gelecek Aylara Ait Kart Taksitleri'));
-assert(root.innerHTML.includes('Enpara Ekpara'));
-assert(root.innerHTML.includes('Benim belirlediğim ek kart ödemesi'));
-assert(root.innerHTML.includes('TCMB azami oranları'));
-assert(root.innerHTML.includes('Kalan Ekpara'));
-assert(root.innerHTML.includes('Kart faiz + vergi'));
+sandbox.window.cfSetView('installments');
+assert(root.innerHTML.includes('Gelecek kart taksitleri'));
+assert(root.innerHTML.includes('Aylık taksit yükü'));
+assert(root.innerHTML.includes('Ev / Araba kredisi (tam)'));
+sandbox.window.cfSetView('statements');
+assert(root.innerHTML.includes('id="cf-statement-panel"'));
+sandbox.window.cfSetView('plan');
 sandbox.window.cfAddLoan('Ev Kredisi');
 sandbox.window.cfLoan(0,'amount','500');
+assert(root.innerHTML.includes('Tam aylık taksit (₺)'));
 assert.equal(p.loans[0].amount,500);
 assert.equal(model.computeCashFlow(p,1)[0].loanPayments,500);
 sandbox.window.cfAddInstallment();
