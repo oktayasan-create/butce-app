@@ -680,7 +680,7 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, normalizeCashFlowPlan, addCashFlowCategory, setCategoryActive, setCardActive, addCashFlowEntry, summarizeCashFlowEntries } from "./cashflow-model.js";
+import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, normalizeCashFlowPlan, addCashFlowCategory, setCategoryActive, setCardActive, addCashFlowEntry, summarizeCashFlowEntries, estimateMonthEndCardStatement } from "./cashflow-model.js";
 import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, statementPlanMonth, suggestStatementInstallments } from "./statement-import.js";
 import { createStatementInboxUI } from "./statement-ui.js";
 import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
@@ -3128,7 +3128,7 @@ function cfBudgetMirrorEditor(){
   return '<div class="cf-budget-link-box">'+
     '<label class="cf-budget-link-toggle"><input type="checkbox" '+(enabled?'checked ':'')+
     'onchange="cfBudgetLinkEnabled(this.checked)"> <strong>Genel Bakış (Bütçe) kategorilerinden otomatik çek</strong></label>'+
-    '<p class="cf-muted">Her ayın ve yılın bütçe tutarını doğrudan mevcut Bütçe tablosundan alır. 2027 Ocak maaşını veya aidatını Bütçe ekranında değiştirince burada da güncellenir. Eski elle girilmiş gelir/gider tahminlerini ve gelir hareketlerini silmez; bütçedeki tutarlarla ikinci kez toplamaz. Tek seferlik ek gelirlerini de Bütçe gelir kategorisine yaz.</p>'+
+    '<p class="cf-muted">Her ayın ve yılın bütçe tutarını doğrudan mevcut Bütçe tablosundan alır. 2027 Ocak maaşını veya aidatını Bütçe ekranında değiştirince burada da güncellenir. Maaş bütçesi kazanıldığı aya yazılır; nakit akışına bir sonraki ay aktarılır (Kasım maaşı Aralık başında). Diğer gelirler kendi aylarına yansır. Eski elle girilmiş gelir/gider tahminlerini ve gelir hareketlerini silmez; bütçedeki tutarlarla ikinci kez toplamaz. Tek seferlik ek gelirlerini de Bütçe gelir kategorisine yaz.</p>'+
     '<div class="cf-budget-sample"><strong>'+cfText(ym)+' bütçe gelirleri</strong>'+
     '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
     '<th>Gelir kategorisi</th><th>Bu ayın bütçesi</th></tr></thead><tbody>'+
@@ -3388,29 +3388,42 @@ function cfActivityLog(current){
   }).join(''):'<div class="cf-muted">Henüz bu ay işlem kaydı yok.</div>';
 }
 function cfCompactForecast(rows){
-  const monthCardDebt=r=>r.cards.reduce((sum,card)=>sum+card.statementDebt,0);
-  return '<p class="cf-muted">Ödeme ayı esas alınır: Ekim harcamalarının Kasım vadeli ekstresi Kasım borcudur. Kart taksitleri toplam kart borcuna dahildir; ay içi yeni kart harcamaları sonraki ekstreye geçer. Tutarlar tahmindir.</p>'+
+  return '<p class="cf-muted">Her satır ay sonunu gösterir. <strong>Gelir</strong> nakde giren tutardır: Ekim maaşı Kasım başında, Kasım maaşı Aralık başında kullanılır. Kart borcu ise o ayın sonunda oluşur ve <strong>ertesi ayın ekstresinde</strong> ödenir.</p>'+
+    '<p class="cf-muted">Ay sonu kart borcu = Önceki ekstrelerden ödenmeden kalan + ay içi yeni kart harcamaları + bir sonraki ay ödenecek taksitler. Kesinleşmiş gelecek ay ekstresi varsa bankanın tutarı esas alınır. Kart harcamaları ayrıca nakit giderlerden düşülmez.</p>'+
     '<div class="cf-scroll"><table class="cf-table cf-compact-forecast"><thead><tr>'+
-    '<th>Ay</th><th>Gelir</th><th>Krediler</th><th>Kart taksitleri</th>'+
-    '<th>Ay içi tahmini kart harcamaları</th><th>Toplam tahmini kart borcu</th>'+
-    '<th>Toplam tahmini asgari ödeme</th><th>Tahmini nakit harcama</th>'+
-    '<th>Tahmini Ek Hesap / Birikim</th></tr></thead><tbody>'+
+    '<th>Ay</th><th>Gelir (tahsil)</th><th>Krediler (nakit ödeme)</th>'+
+    '<th>Bu ay vadesi gelen önceki ekstre borcu</th><th>Bu ay kart ödemeleri</th>'+ 
+    '<th>Ödemeler sonrası devreden kart borcu (+ tahmini faiz)</th>'+
+    '<th>Ay içi tahmini kart harcamaları</th><th>Sonraki ekstreye girecek taksitler</th>'+
+    '<th>Ay sonu tahmini kart borcu (gelecek ay ödenecek)</th>'+
+    '<th>Gelecek ay tahmini asgari</th><th>Tahmini nakit harcama</th>'+
+    '<th>Ay sonu tahmini Ek Hesap / Birikim</th></tr></thead><tbody>'+
     rows.map(r=>{
+      const card=estimateMonthEndCardStatement(cfPlan,r);
+      const previousStatement=r.cards.reduce((sum,c)=>sum+c.statementDebt,0);
+      const cardPayments=r.cards.reduce((sum,c)=>sum+c.paymentApplied+c.extra,0);
       const isOverdraft=r.closingOverdraft>0;
       const balance=isOverdraft?-r.closingOverdraft:r.savings;
+      const adjusted=card.hasVerified&&Math.abs(card.adjustment)>=0.01;
       return '<tr class="'+(isOverdraft?'cf-overdraft-month':r.savings>0?'cf-savings-month':'')+'">'+
-        '<td><strong>'+cfText(r.month)+'</strong></td>'+
-        '<td>'+cfMoney(r.income)+'</td>'+
-        '<td>'+cfMoney(r.loanPayments)+'</td>'+
-        '<td>'+cfMoney(r.installmentTotal)+'</td>'+
-        '<td>'+cfMoney(r.cardPurchases)+'</td>'+
-        '<td><strong>'+cfMoney(monthCardDebt(r))+'</strong></td>'+
-        '<td>'+cfMoney(r.minimumTotal)+'</td>'+
+        '<td><strong>'+cfText(cfMonthLabel(r.month))+'</strong>'+
+          '<small class="cf-muted"> · Ödeme '+cfText(cfMonthLabel(card.dueMonth))+'</small></td>'+
+        '<td>'+cfMoney(r.income)+'</td><td>'+cfMoney(r.loanPayments)+'</td>'+
+        '<td>'+cfMoney(previousStatement)+'</td>'+
+        '<td>'+cfMoney(cardPayments)+'</td>'+ 
+        '<td>'+cfMoney(card.carryover)+'</td>'+
+        '<td>'+cfMoney(card.purchases)+'</td>'+
+        '<td>'+cfMoney(card.installments)+'</td>'+
+        '<td><strong>'+cfMoney(card.statementTotal)+'</strong>'+
+          (card.hasVerified?'<small class="cf-muted"> · Kesinleşmiş ekstre öncelikli</small>':'')+
+          (adjusted?'<small class="cf-muted"> · Banka ekstre farkı: '+cfMoney(card.adjustment)+'</small>':'')+
+        '</td><td>'+cfMoney(card.minimum)+'</td>'+
         '<td>'+cfMoney(r.fixedCash+r.otherCash)+'</td>'+
         '<td class="'+(isOverdraft?'cf-bad':'cf-good')+'">'+
           (isOverdraft?'Ek Hesap: ':'Birikim: ')+cfMoney(balance)+'</td></tr>';
     }).join('')+'</tbody></table></div>';
 }
+
 function cfKpi(label,value,info){
   return '<div class="cf-kpi"><span class="cf-kpi-label">'+cfText(label)+'</span>'+
     '<strong>'+cfMoney(value)+'</strong>'+
@@ -3576,9 +3589,9 @@ async function renderCashflow(){
       cfNavButton("installments","Taksitler")+cfNavButton("plan","Nakit Planı")+'</nav>';
   const summaryView=
     '<div class="cf-kpi-grid">'+
-      cfKpi("Nakit gelir",current.income,cfSelectedMonth)+
+      cfKpi("Bu ay tahsil edilen gelir",current.income,"Maaşlar bir sonraki ay gelir")+
       cfKpi("Ev + araba + diğer kredi",current.loanPayments,"TAM tutar · zorunlu")+
-      cfKpi("Kart asgarileri",current.minimumTotal,"Bankaya göre")+
+      cfKpi("Bu ay ödenecek kart asgarileri",current.minimumTotal,"Önceki ayın ekstresi")+
       cfKpi("Asgari sonrası nakit",current.afterMandatoryCash,"Ek ödeme öncesi")+
     '</div>'+
     '<div class="cf-overview-box">'+cfLoanSummary(current)+'</div>'+
@@ -3592,7 +3605,7 @@ async function renderCashflow(){
       cfStatementOverview(overview)+'</div>'+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Önümüzdeki 12 ay</h3>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'plan\')">Nakit planını düzenle</button></div>'+
-      '<p class="cf-muted">Gelir ve giderler Genel Bütçe alanındaki aylık kategorilerden alınır. Ödenen kart tutarları bir kez nakitten düşer; ev/araba kredileri tam ödenir.</p>'+
+      '<p class="cf-muted">Gelirler tahsil ayına kaydırılır (Kasım maaşı Aralık başında alınır). Kredi kartı borcu ise alışveriş yapılan ay sonunda oluşup sonraki ayın ekstresi olarak ödenir. Önceki ekstre ödemeleri tekrar harcama sayılmaz.</p>'+
       cfCompactForecast(rows)+'</div>'+
     '<div class="cf-compact-callout">Ay sonu birikim: <strong>'+cfMoney(current.savings)+
       '</strong> · Gereken Enpara Ekpara: <strong>'+cfMoney(current.overdraftDraw)+
@@ -3624,7 +3637,7 @@ async function renderCashflow(){
         cfText(r.month)+'</option>').join('')+'</select>'+
       '<div class="cf-kpi-grid cf-kpi-grid-3">'+
         cfKpi("Kredi taksitleri – TAM",current.loanPayments,"Ev + araba + diğer")+
-        cfKpi("Kart asgarileri",current.minimumTotal,"Zorunlu")+
+        cfKpi("Bu ay ödenecek kart asgarileri",current.minimumTotal,"Zorunlu")+
         cfKpi("Gereken Ekpara",current.overdraftDraw,"Nakit açığı")+
       '</div>'+
       cfLoanSummary(current)+

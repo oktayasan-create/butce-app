@@ -317,7 +317,10 @@ export function computeCashFlow(p,periods=12){
     const live=summarizeCashFlowEntries(p,key);
     const openingCash=cash,openingOverdraft=overdraftDebt;
     const openingDebt=r2(Object.values(cardDebt).reduce((sum,value)=>sum+value,0));
-    const overlappingIncomeRules=p.recurringIncome.filter(rule=>appliesRecurring(rule,key));
+    // The "salary" schedule is tagged by earning month, but cash arrives
+    // in the following month. Other recurring income follows its own month.
+    const overlappingIncomeRules=p.recurringIncome.filter(rule=>
+      appliesRecurring(rule,rule.kind==="salary"?advanceMonth(key,-1):key));
     // New-year salary revision supersedes an older overlapping salary interval
     // for the same owner; other/additional income types are additive.
     const latestSalaryByOwner=new Map();
@@ -499,4 +502,44 @@ export function computeCashFlow(p,periods=12){
     });
   }
   return rows;
+}
+
+/**
+ * What a card holder is expected to owe for purchases made THROUGH month end.
+ * The statement is payable in the FOLLOWING month. A finalized bank snapshot
+ * for that following due month, if available, replaces the estimate.
+ *
+ * Components before any bank adjustment:
+ * carried unpaid balance (including interest/taxes already in the forecast)
+ * + this month's new purchases + installments due next month.
+ * Current-month bank statement snapshots are NOT themselves "new purchases".
+ */
+export function estimateMonthEndCardStatement(plan,row){
+  if(!validCashFlowPlan(plan)||!row||!monthPattern.test(row.month)||
+     !Array.isArray(row.cards))throw Error("Invalid month-end statement request");
+  const dueMonth=advanceMonth(row.month,1);
+  const active=plan.installments.filter(inst=>inst.active!==false);
+  const cards=row.cards.map(c=>{
+    const cfg=plan.cards.find(card=>card.id===c.id);
+    if(!cfg)throw Error("Unknown card");
+    const nextInstallments=r2(active.filter(inst=>inst.cardId===c.id)
+      .reduce((sum,inst)=>sum+activeInstallment(inst,dueMonth),0));
+    const carryover=Math.max(0,r2(c.closing-c.newSpending));
+    const purchases=positive(c.newSpending);
+    const estimated=r2(carryover+purchases+nextInstallments);
+    const verified=plan.statementSnapshots.find(snapshot=>
+      snapshot.cardId===c.id&&snapshot.dueMonth===dueMonth);
+    const statementTotal=verified?positive(verified.balance):estimated;
+    const adjustment=r2(statementTotal-estimated);
+    const minimum=verified?positive(verified.minimum):
+      r2(Math.min(statementTotal,statementTotal*cfg.minPct/100));
+    return {id:c.id,name:c.name,carryover,purchases,nextInstallments,
+      estimated,statementTotal,minimum,adjustment,verified:!!verified};
+  });
+  const total=field=>r2(cards.reduce((sum,c)=>sum+c[field],0));
+  return {month:row.month,dueMonth,cards,
+    carryover:total("carryover"),purchases:total("purchases"),
+    installments:total("nextInstallments"),adjustment:total("adjustment"),
+    statementTotal:total("statementTotal"),minimum:total("minimum"),
+    hasVerified:cards.some(c=>c.verified)};
 }
