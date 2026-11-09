@@ -19,6 +19,7 @@ jobs:
           node tests/security-smoke.mjs
           node tests/cashflow-model.test.mjs
           node tests/budget-bridge.test.mjs
+          node tests/budget-payment-ui.test.mjs
           node tests/recurring-budget.test.mjs
           node tests/statement-batch-sync.test.mjs
           node tests/cashflow-ui.test.mjs
