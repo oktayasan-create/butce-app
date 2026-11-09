@@ -3282,10 +3282,16 @@ function cfForecastTable(rows){
 }
 function cfSelectedCardDetails(current){
   if(!current.cards.length)return '<p class="cf-muted">Henüz kredi kartı eklenmedi.</p>';
-  return '<div class="cf-scroll"><table class="cf-table"><thead><tr><th>Kart</th><th>Önceki borç</th><th>Bu ay taksit</th><th>Asgari</th><th>Ek ödeme</th><th>Faiz %</th><th>Faiz</th><th>KKDF+BSMV</th><th>Ay sonu borç</th></tr></thead><tbody>'+
-  current.cards.map(c=>'<tr'+(c.paidOff?' class="cf-paidoff-month"':'')+'><td>'+cfText(c.name)+(c.paidOff?' · ✅ Kapandı':'')+
-  '</td><td>'+cfMoney(c.opening)+'</td><td>'+cfMoney(c.dueInstallments)+'</td><td>'+cfMoney(c.minimum)+'</td>'+
-  '<td>'+cfMoney(c.extra)+'</td><td>%'+cfText(c.interestPct)+'</td><td>'+cfMoney(c.interest)+'</td>'+
+  return '<div class="cf-scroll"><table class="cf-table"><thead><tr>'+
+  '<th>Kart</th><th>Ekstre borcu</th><th>Bu ay taksit</th><th>Asgari</th>'+
+  '<th>Gerçekten ödenen</th><th>Kalan asgari</th><th>Ek ödeme</th>'+
+  '<th>Faiz %</th><th>Faiz</th><th>KKDF+BSMV</th><th>Ay sonu borç</th></tr></thead><tbody>'+
+  current.cards.map(c=>'<tr'+(c.paidOff?' class="cf-paidoff-month"':'')+'><td>'+
+  cfText(c.name)+(c.paidOff?' · ✅ Kapandı':'')+'</td>'+
+  '<td>'+cfMoney(c.statementDebt)+'</td><td>'+cfMoney(c.dueInstallments)+'</td>'+
+  '<td>'+cfMoney(c.minimum)+'</td><td class="cf-good">'+cfMoney(c.actualPaid)+'</td>'+
+  '<td>'+cfMoney(c.minimumRemaining)+'</td><td>'+cfMoney(c.extra)+'</td>'+
+  '<td>%'+cfText(c.interestPct)+'</td><td>'+cfMoney(c.interest)+'</td>'+
   '<td>'+cfMoney(c.interestTax)+'</td><td>'+cfMoney(c.closing)+'</td></tr>').join('')+
   '</tbody></table></div>';
 }
