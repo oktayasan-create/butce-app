@@ -70,6 +70,23 @@ broken.splice(broken.length-1,0,mk("04 Ekim 2026 STORE WITHOUT AMOUNT",
 assert(parseStatementPDFRows(broken,"garanti.pdf","local03").warnings
  .some(w=>w.includes("1 işlem satırında tutar okunamadı")));
 
+// YKB bank legal invoice/footer may carry a transaction-like date but is not a purchase.
+const ykbLegal=[
+ ...ykb.slice(0,-1),
+ mk("08 Kasım 2026 — YAPI ve KREDI BANKASI A.Ş. Büyük Mükellefler V.D. / 123456789 Sıra No: 9999999 55,99 TRY USD Karşılığı 1,13 USD",
+   [part(40,"08"),part(58,"Kasım"),part(85,"2026"),
+    part(105,"YAPI ve KREDI BANKASI A.Ş."),
+    part(290,"Büyük Mükellefler V.D. / 123456789 Sıra No: 9999999"),
+    part(610,"55,99 TRY USD Karşılığı 1,13 USD")]),
+ mk("TOPLAM 133.298,45")
+];
+const legalResult=parseStatementPDFRows(ykbLegal,"ykb.pdf","local04");
+assert.equal(legalResult.statement.bank,"Yapı Kredi");
+assert.equal(legalResult.statement.transactions.length,1,
+  "Legal footer must not be counted as card movement");
+assert(!legalResult.warnings.some(w=>w.includes("tutar okunamadı")),
+  "Legal footer must not cause false missing-amount warning");
+
 const html=fs.readFileSync("index.html","utf8");
 const ui=fs.readFileSync("statement-ui.js","utf8");
 assert(html.includes("grid-template-columns:minmax(0,1fr)"),"Statement preview must fill the row");
