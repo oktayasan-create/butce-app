@@ -21,6 +21,7 @@ jobs:
           node tests/cashflow-ui.test.mjs
           node tests/cashflow-four-tabs.test.mjs
           node tests/statement-import.test.mjs
+          node tests/statement-accordion.test.mjs
           node tests/statement-file-reader.test.mjs
           node tests/statement-ux-regressions.test.mjs
           node tests/statement-save-feedback.test.mjs
