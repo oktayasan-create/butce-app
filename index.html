@@ -3372,9 +3372,9 @@ async function renderCashflow(){
       '<span class="cf-tag cf-tag-success">Plan görüntüleniyor</span>')+'</div></div>'+
     nav+body+
     '<div id="cf-error" role="alert" style="color:#fca5a5;font-size:13px;margin-bottom:10px"></div>'+
-    '<div class="cf-plan-save-bar"><div><strong>Nakit planı</strong><span class="cf-muted">'+
+    ((cfDirty||cfView==="plan")?'<div class="cf-plan-save-bar"><div><strong>Nakit planı</strong><span class="cf-muted">'+
       (cfDirty?' Değişiklikleri kaydetmelisin.':' Ekstre arşivinden ayrı saklanır.')+
-      '</span></div><button class="btn btn-p" onclick="cfSavePlan()">💾 Planı Kaydet</button></div>'+
+      '</span></div><button class="btn btn-p" onclick="cfSavePlan()">💾 Planı Kaydet</button></div>':'')+
     '</div>';
   if(cfView==="statements")statementUI.render();
 
