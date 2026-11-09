@@ -262,6 +262,9 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 .cf-statement-save-status{margin-top:12px;padding:12px 15px;border-radius:10px;font-weight:650;
  line-height:1.55;border:1px solid transparent;white-space:pre-wrap}
 .cf-statement-save-status:empty{display:none}
+.cf-save-ready{border-color:rgba(96,165,250,.45);background:rgba(96,165,250,.10);color:var(--text)}
+#statement-save-draft:disabled{opacity:.48;cursor:not-allowed;filter:grayscale(.55)}
+#statement-save-draft:not(:disabled){opacity:1;cursor:pointer;filter:none}
 .cf-save-busy{border-color:rgba(96,165,250,.45);background:rgba(96,165,250,.12);color:var(--text)}
 .cf-save-success{border-color:rgba(52,211,153,.6);background:rgba(52,211,153,.12);color:var(--text)}
 .cf-save-error{border:2px solid rgba(239,68,68,.7);border-left:6px solid #ef4444;

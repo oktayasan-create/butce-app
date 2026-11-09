@@ -1,4 +1,4 @@
-const CACHE = 'butceapp-shell-v6';
+const CACHE = 'butceapp-shell-v7';
 const SHELL = ['./', './index.html', './manifest.json', './icon.svg', './cashflow-model.js', './statement-import.js', './statement-ui.js', './statement-file-reader.js', './statement-plan.js'];
 self.addEventListener('install', event => { event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', event => { event.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(key => key.startsWith('butceapp-shell-') && key !== CACHE).map(key => caches.delete(key))))); self.clients.claim(); });
