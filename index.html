@@ -2993,6 +2993,70 @@ function cfCategoryList(kind){
     ')</summary><div class="cf-category-grid">'+archived.map(chip).join('')+'</div></details>':'')+
     '</div>';
 }
+function cfRecurringIncomeEditor(){
+  const kinds=[["salary","Maaş"],["extra","Ek gelir"],["other","Diğer"]];
+  const content=cfPlan.recurringIncome.map((r,i)=>
+    '<div class="cf-schedule-row">'+
+    '<div class="cf-schedule-title"><strong>'+cfText(r.name)+'</strong>'+
+    '<button class="btn btn-ghost btn-sm" onclick="cfRemoveScheduledIncome('+i+')">Kaldır</button></div>'+
+    '<div class="cf-inputs">'+
+      cfField("Gelir adı",r.name,"cfScheduledIncome("+i+",'name',this.value)","text")+
+      '<label>Gelir sahibi<select onchange="cfScheduledIncome('+i+',\'owner\',this.value)">'+
+        [["Ben","Ben"],["Eşim","Eşim"],["Diğer","Diğer"]].map(([id,name])=>
+          '<option value="'+id+'"'+(r.owner===id?' selected':'')+'>'+name+'</option>').join('')+
+      '</select></label>'+
+      '<label>Gelir türü<select onchange="cfScheduledIncome('+i+',\'kind\',this.value)">'+
+        kinds.map(([id,name])=>'<option value="'+id+'"'+(r.kind===id?' selected':'')+'>'+name+'</option>').join('')+
+      '</select></label>'+
+      cfField("Aylık tutar (₺)",r.amount,"cfScheduledIncome("+i+",'amount',this.value)")+
+      cfField("Başlangıç",r.startMonth,"cfScheduledIncome("+i+",'startMonth',this.value)","month")+
+      cfField("Bitiş",r.endMonth,"cfScheduledIncome("+i+",'endMonth',this.value)","month")+
+    '</div></div>').join('');
+  return '<div class="cf-inline-actions">'+
+    '<button class="btn btn-p btn-sm" onclick="cfAddScheduledIncome(\'Ben\',\'salary\')">+ Benim maaşım</button>'+
+    '<button class="btn btn-p btn-sm" onclick="cfAddScheduledIncome(\'Eşim\',\'salary\')">+ Eşimin maaşı</button>'+
+    '<button class="btn btn-ghost btn-sm" onclick="cfAddScheduledIncome(\'Diğer\',\'extra\')">+ Ek gelir</button></div>'+
+    '<p class="cf-muted">Her gelir için geçerli ay aralığını seçebilirsin. Ocakta maaş değişirse eski dönemin bitişini Aralık, yeni dönemin başlangıcını Ocak yap. Ayrı bir tek seferlik gelir kaydı eklediğinde plan tutarına eklenir.</p>'+
+    (content||'<p class="cf-muted">Tarih aralıklı gelir bulunmuyor; aşağıdaki eski aylık gelir tahmini kullanılacak.</p>');
+}
+function cfRegularExpenseEditor(){
+  const cardOptions=cfPlan.cards.filter(c=>c.active!==false);
+  const items=cfPlan.recurringExpenses;
+  return '<p class="cf-muted">Tutarları ve ödeme türünü belirle. Apartman aidatı ile kuaför varsayılan olarak nakit; diğerleri kart harcamasıdır. Kart alışverişi nakitten aynı gün düşmez, sonraki kart borcunu artırır.</p>'+
+    '<div class="cf-scroll"><table class="cf-table cf-regular-table"><thead><tr>'+
+    '<th>Gider</th><th>Aylık tutar</th><th>Ödeme</th><th>Kart</th><th>Başlangıç</th><th>Bitiş</th><th>Yeni dönem</th>'+
+    '</tr></thead><tbody>'+items.map((r,i)=>
+      '<tr'+(r.active===false?' class="cf-faded"':'')+'><td><strong>'+cfText(r.name)+'</strong></td>'+
+      '<td><input aria-label="'+cfText(r.name)+' aylık tutar" type="number" step="0.01" min="0" value="'+cfText(r.amount)+
+        '" onchange="cfRecurringExpense('+i+',\'amount\',this.value)"></td>'+
+      '<td><select aria-label="'+cfText(r.name)+' ödeme türü" onchange="cfRecurringExpense('+i+',\'payment\',this.value)">'+
+        '<option value="card"'+(r.payment==="card"?' selected':'')+'>Kart</option>'+
+        '<option value="cash"'+(r.payment==="cash"?' selected':'')+'>Nakit</option></select></td>'+
+      '<td><select aria-label="'+cfText(r.name)+' kartı" '+(r.payment==="cash"?'disabled ':'')+
+        'onchange="cfRecurringExpense('+i+',\'cardId\',this.value)">'+
+        '<option value="">Kart seç</option>'+
+        cardOptions.map(c=>'<option value="'+c.id+'"'+(r.cardId===c.id?' selected':'')+'>'+cfText(c.name)+'</option>').join('')+
+      '</select></td>'+
+      '<td><input aria-label="'+cfText(r.name)+' başlangıç" type="month" value="'+cfText(r.startMonth)+
+        '" onchange="cfRecurringExpense('+i+',\'startMonth\',this.value)"></td>'+
+      '<td><input aria-label="'+cfText(r.name)+' bitiş" type="month" value="'+cfText(r.endMonth)+
+        '" onchange="cfRecurringExpense('+i+',\'endMonth\',this.value)"></td>'+
+      '<td><button class="btn btn-ghost btn-sm" onclick="cfSplitRecurringExpense('+i+')">Yeni tutar</button></td></tr>'
+    ).join('')+'</tbody></table></div>'+
+    '<p class="cf-muted">Örneğin aidat Aralıkta 1.500 TL, ocakta 2.000 TL olacaksa “Yeni tutar” ile 2027-01' +
+    ' ayından yeni dönem oluştur. Mevcut ek nakit gideri veya kart tahmini içine bunları tekrar yazma.</p>'+
+    '<div class="cf-inline-actions"><button class="btn btn-ghost btn-sm" onclick="cfAddRecurringExpense()">+ Özel gider ekle</button></div>';
+}
+function cfRegularMonthSummary(row){
+  if(!row.recurringExpenses?.length)return '<p class="cf-muted">Bu ay için tutarı girilmiş düzenli gider bulunmuyor.</p>';
+  return '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
+    '<th>Düzenli gider</th><th>Ödeme türü</th><th>Bu ay</th></tr></thead><tbody>'+
+    row.recurringExpenses.map(r=>'<tr><td>'+cfText(r.name)+'</td><td>'+
+      (r.payment==="card"?"Kredi kartı":"Nakit")+'</td><td>'+cfMoney(r.amount)+
+      '</td></tr>').join('')+'</tbody></table></div>'+
+    '<div class="cf-inline-summary"><span>Kart harcaması: <strong>'+cfMoney(row.recurringCardTotal)+'</strong></span>'+
+    '<span>Nakit çıkışı: <strong>'+cfMoney(row.recurringCashTotal)+'</strong></span></div>';
+}
 function cfLoanEditor(){
   const rows=cfPlan.loans.map((loan,i)=>'<div class="cf-edit-row">'+
     '<div class="cf-inputs">'+
