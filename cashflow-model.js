@@ -317,10 +317,9 @@ export function computeCashFlow(p,periods=12){
     const live=summarizeCashFlowEntries(p,key);
     const openingCash=cash,openingOverdraft=overdraftDebt;
     const openingDebt=r2(Object.values(cardDebt).reduce((sum,value)=>sum+value,0));
-    // The "salary" schedule is tagged by earning month, but cash arrives
-    // in the following month. Other recurring income follows its own month.
-    const overlappingIncomeRules=p.recurringIncome.filter(rule=>
-      appliesRecurring(rule,rule.kind==="salary"?advanceMonth(key,-1):key));
+    // Each recurring income rule contributes to its own configured month.
+    // Budget-linked income instead follows the Budget screen's monthly amount.
+    const overlappingIncomeRules=p.recurringIncome.filter(rule=>appliesRecurring(rule,key));
     // New-year salary revision supersedes an older overlapping salary interval
     // for the same owner; other/additional income types are additive.
     const latestSalaryByOwner=new Map();
