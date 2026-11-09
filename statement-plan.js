@@ -80,6 +80,8 @@ export function prepareStatementPlan(sourcePlan,st,options={}){
   }
   if(!card)throw Error("Ekstreyi bağlayacağın kartı seç.");
   if(!card.active)card.active=true;
+  if(p.statementSnapshots.some(x=>x.cardId===cardId&&x.bank&&x.bank!==st.bank))
+    throw Error("Seçilen karta farklı bankanın ekstresi daha önce bağlanmış. Doğru kartı seç.");
   if(p.statementSnapshots.some(x=>x.id===st.id&&x.cardId!==cardId))
     throw Error("Bu ekstre başka bir karta bağlanmış.");
   const newer=p.statementSnapshots.filter(x=>x.cardId===cardId && x.dueMonth>dueMonth);
@@ -96,7 +98,7 @@ export function prepareStatementPlan(sourcePlan,st,options={}){
   p.statementSnapshots=p.statementSnapshots.filter(x=>!(x.cardId===cardId&&x.dueMonth===dueMonth));
   p.statementSnapshots.push({
     id:"snapshot_"+fingerprint(st.id+"|"+cardId),
-    cardId,dueMonth,statementDate:st.statementDate||null,
+    cardId,bank:st.bank,dueMonth,statementDate:st.statementDate||null,
     balance:Math.round(st.balance*100)/100,minimum:Math.round(st.minimum*100)/100,
     sourceStatementId:st.id
   });
