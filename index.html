@@ -3128,7 +3128,7 @@ function cfBudgetMirrorEditor(){
   return '<div class="cf-budget-link-box">'+
     '<label class="cf-budget-link-toggle"><input type="checkbox" '+(enabled?'checked ':'')+
     'onchange="cfBudgetLinkEnabled(this.checked)"> <strong>Genel Bakış (Bütçe) kategorilerinden otomatik çek</strong></label>'+
-    '<p class="cf-muted">Her ayın ve yılın bütçe tutarını doğrudan mevcut Bütçe tablosundan alır. 2027 Ocak maaşını veya aidatını Bütçe ekranında değiştirince burada da güncellenir. Eski elle girilmiş gelir/gider tahminlerini ve gelir hareketlerini silmez; bütçedeki tutarlarla ikinci kez toplamaz. Tek seferlik ek gelirlerini de Bütçe gelir kategorisine yaz.</p>'+
+    '<p class="cf-muted">Her ayın ve yılın bütçe tutarını doğrudan mevcut Bütçe tablosundan alır. 2027 Ocak maaşını veya aidatını Bütçe ekranında değiştirince burada da güncellenir. Maaş bütçesi kazanıldığı aya yazılır; nakit akışına bir sonraki ay aktarılır (Kasım maaşı Aralık başında). Diğer gelirler kendi aylarına yansır. Eski elle girilmiş gelir/gider tahminlerini ve gelir hareketlerini silmez; bütçedeki tutarlarla ikinci kez toplamaz. Tek seferlik ek gelirlerini de Bütçe gelir kategorisine yaz.</p>'+
     '<div class="cf-budget-sample"><strong>'+cfText(ym)+' bütçe gelirleri</strong>'+
     '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
     '<th>Gelir kategorisi</th><th>Bu ayın bütçesi</th></tr></thead><tbody>'+
