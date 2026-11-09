@@ -4,7 +4,8 @@ import {prepareStatementPlan,statementDueMonth,statementInstallmentSchedule,calc
 
 /**
  * Private, browser-only PDF/Excel/JSON statement review.
- * Never modifies original transactions or cashflow projections.
+ * Does not alter legacy transactions. Only a separate, confirmed user action
+ * prepares changes to the cashflow plan; final save remains explicit.
  * Explicit owner sign-in, review and confirmation are required before Firestore save.
  */
 export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safeHtml,getPlan,onPlanChange,rerender,notify}){
@@ -218,6 +219,8 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
         "\nAsgari ödeme: "+money(prepared.statementMinimum)+
         "\nÖdeme ayı: "+prepared.dueMonth+
         "\nGelecek taksit: "+prepared.installmentsAdded+" işlem / "+money(prepared.remainingSum)+
+        (prepared.reference!==null?"\nBankanın kalan taksit toplamı: "+money(prepared.reference)+
+          " (fark "+money(prepared.diff)+")":"")+
         (upcoming?"\n\nGelecek aylık taksitler:\n"+upcoming:"")+
         (prepared.replacedInstallments?"\nÖnceki ekstrelerden oluşan "+prepared.replacedInstallments+" planlanan taksit güncellenecek.":"")+
         issues+"\n\nDevam edersen planın önizlemesi değişir; kaydetmek için ayrıca Planı Kaydet'e basmalısın.";
@@ -314,7 +317,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       (inbox?.statements?.length?'<h4>Kaydedilmiş ekstreler ('+inbox.statements.length+')</h4>'+
         '<div class="cf-statement-grid">'+inbox.statements.map(st=>card(st,"saved")).join('')+'</div>'+
         '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="statementSaveCategories()">Kategori düzeltmelerini kaydet</button>':'')+
-      '<p class="cf-muted" style="margin-top:12px">Not: Metin seçilemeyen taranmış PDF’ler bu sürümde desteklenmez. Okuma hatası olursa belgeyi eski JSON yöntemiyle aktarabiliriz. Ekstre arşivi, mevcut kart borçlarını veya gelir-gider kayıtlarını otomatik değiştirmez; böylece çift sayım oluşmaz.</p></div>';
+      '<p class="cf-muted" style="margin-top:12px">Not: Metin seçilemeyen taranmış PDF’ler bu sürümde desteklenmez. Okuma hatası olursa belgeyi eski JSON yöntemiyle aktarabiliriz. Arşive kaydetmek tek başına nakit planını değiştirmez. Kart eşlemesi ve Planı Kaydet sonrasında yalnızca tahmini kart borcu/asgari/taksit planı güncellenir; eski harcamalar yeniden eklenmez.</p></div>';
   }
   return {reset,render,selectFile,saveDraft,saveCategories,categoryEdit,
     selectPlanCard,applyToPlan,
