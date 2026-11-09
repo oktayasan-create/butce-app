@@ -3206,6 +3206,9 @@ function cfActivityForm(){
     '</select></label>'+
     (wantsCard?'<label>Kredi kartı<select id="cf-entry-card">'+cards.map(c=>
       '<option value="'+c.id+'">'+cfText(c.name)+(c.active===false?' (Arşiv)':'')+'</option>').join('')+'</select></label>':'')+
+    (type==="income"?'<label>Gelir sahibi<select id="cf-entry-owner">'+
+      '<option value="Ben">Ben</option><option value="Eşim">Eşim</option>'+
+      '<option value="Diğer">Diğer</option></select></label>':'')+
     (wantsCat?'<label>Kategori<select id="cf-entry-cat">'+cats.map(c=>
       '<option value="'+c.id+'">'+cfText(c.name)+'</option>').join('')+'</select></label>':'')+
     '<label>Tarih<input id="cf-entry-date" type="date" value="'+entryDate+'"></label>'+
@@ -3213,7 +3216,7 @@ function cfActivityForm(){
     '<label>Açıklama<input id="cf-entry-note" maxlength="240" placeholder="İsteğe bağlı not"></label>'+
     '</div>'+
     '<p class="cf-muted" style="margin:10px 0">'+
-    (type==="income"?'Bu ay gerçekleşen gelir kaydı varsa aynı ayın planlanan toplam geliri yerine gerçek gelir toplamı kullanılır.':
+    (type==="income"?'Gelir takvimin varsa buraya yalnızca takvimde olmayan ek gelirleri gir; aynı maaşı iki kez yazma.':
      type==="card_payment"?'Bu ödeme banka nakdini ve kart borcunu azaltır; harcama kategorilerine eklenmez.':
      type==="card_expense"?'Kart harcaması ilgili kategoride görünür ve kart borcunu artırır; banka nakdini hemen azaltmaz.':
      'Nakit gider, banka bakiyesini azaltır ve harcama kategorisinde görünür.')+'</p>'+
@@ -3242,7 +3245,7 @@ function cfActivityLog(current){
     const card=cfPlan.cards.find(c=>c.id===e.cardId);
     return '<div style="display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)">'+
       '<div style="min-width:0"><div style="font-weight:600">'+cfText(types[e.type])+' · '+cfText(cat?.name||'Transfer')+
-      (card?' · '+cfText(card.name):'')+'</div><div class="cf-muted">'+cfText(e.date)+' · '+cfText(e.note||'Açıklama yok')+'</div></div>'+
+      (card?' · '+cfText(card.name):'')+(e.owner?' · '+cfText(e.owner):'')+'</div><div class="cf-muted">'+cfText(e.date)+' · '+cfText(e.note||'Açıklama yok')+'</div></div>'+
       '<div style="text-align:right;white-space:nowrap"><strong>'+cfMoney(e.amount)+'</strong>'+
       '<button class="btn btn-danger btn-sm" style="margin-left:8px" onclick="cfDeleteEntry(\''+e.id+'\')">Sil</button></div></div>';
   }).join(''):'<div class="cf-muted">Henüz bu ay işlem kaydı yok.</div>';
@@ -3741,6 +3744,7 @@ window.cfAddEntry=function(){
   const note=document.getElementById("cf-entry-note")?.value||"";
   const categoryId=document.getElementById("cf-entry-cat")?.value;
   const cardId=document.getElementById("cf-entry-card")?.value;
+  const owner=type==="income"?(document.getElementById("cf-entry-owner")?.value||"Ben"):undefined;
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date||"")||!(amt>0)||!Number.isFinite(amt)){showToast("Geçerli tarih ve pozitif tutar gir.");return;}
   const month=date.slice(0,7);
   if(month<cfPlan.startMonth||month>advanceMonth(cfPlan.startMonth,11)){
@@ -3748,7 +3752,7 @@ window.cfAddEntry=function(){
   }
   const id="entry_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2,7);
   try{
-    addCashFlowEntry(cfPlan,{id,type,date,amount:Math.round(amt*100)/100,note,categoryId,cardId});
+    addCashFlowEntry(cfPlan,{id,type,date,amount:Math.round(amt*100)/100,note,categoryId,cardId,owner});
     cfSelectedMonth=month;cfDirty=true;renderCashflow();showToast("✓ Hareket taslağa eklendi. Kaydet butonuna bas.");
   }catch(e){showToast("Hareket eklenemedi. Kartı ve kategoriyi kontrol et.");}
 };
