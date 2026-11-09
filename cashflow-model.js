@@ -214,6 +214,8 @@ export function validCashFlowPlan(p) {
        !datePattern.test(e.date) || !Number.isFinite(e.amount)||e.amount<=0 ||
        typeof e.note!=="string" || e.note.length>240)return false;
     entryIds.add(e.id);
+    if(e.owner!==undefined&&(e.type!=="income"||
+       !["Ben","Eşim","Diğer"].includes(e.owner)))return false;
     if(e.type==="income" && !categoryIds.income.has(e.categoryId))return false;
     if(["card_expense","cash_expense"].includes(e.type) && !categoryIds.expense.has(e.categoryId))return false;
     if(["card_expense","card_payment"].includes(e.type)&&!cardIds.has(e.cardId))return false;
@@ -250,6 +252,7 @@ export function setCardActive(p,id,active){
 export function addCashFlowEntry(p,e) {
   const candidate={id:e.id,type:e.type,date:e.date,amount:r2(Number(e.amount)),note:String(e.note||"").slice(0,240)};
   if(e.type==="income"||e.type==="card_expense"||e.type==="cash_expense") candidate.categoryId=e.categoryId;
+  if(e.type==="income"&&e.owner!==undefined)candidate.owner=e.owner;
   if(e.type==="card_expense"||e.type==="card_payment") candidate.cardId=e.cardId;
   if(!identifierPattern.test(candidate.id)||p.entries.some(t=>t.id===candidate.id))throw new Error("Invalid movement ID");
   p.entries.push(candidate);
