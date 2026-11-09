@@ -104,7 +104,7 @@ sandbox.window.cfSetView("plan");
 assert(root.innerHTML.includes("Gelir takvimi"));
 assert(root.innerHTML.includes("Ay içi düzenli giderler"));
 assert(root.innerHTML.includes("Apartman aidatı"));
-assert(root.innerHTML.includes("Yemek & Kafe"));
+assert(root.innerHTML.includes("Yemek &amp; Kafe"));
 assert(root.innerHTML.includes("İçme suyu"));
 assert(root.innerHTML.includes("Ekstreleri nakit planına aktar")===false,
  "When no archived statements are pending do not show sync action");
