@@ -332,9 +332,9 @@ export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"
   // Identify the issuer from distinctive statement HEADERS, not from wording
   // in long explanatory footnotes (e.g. "Dönem borcunuzun" in YKB).
   // Require two bank-specific signatures; do not guess from a card brand alone.
-  const isYkb=/HESAP BİLGİLERİ/i.test(text)&&
-    /Ödenmesi Gereken Asgari Tutar\/Oran/i.test(text)&&
-    /Kalan Toplam Taksit Tutarı/i.test(text);
+  const isYkb=/Ödenmesi Gereken Asgari Tutar\/Oran/i.test(text)&&
+    /Kalan Toplam Taksit Tutarı/i.test(text)&&
+    /HESAP BİLGİLERİ|YAPI KREDİ|YAPI KREDI|\bWORLD\b/i.test(text);
   const isEnpara=/Ekstre tarihi/i.test(text)&&
     /Minimum ödeme tutarı/i.test(text)&&/Enpara/i.test(text);
   const isGaranti=/Dönem Borcunuz\s+[\d.,]+\s*TL/i.test(text)&&
