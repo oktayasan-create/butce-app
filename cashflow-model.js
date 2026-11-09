@@ -331,12 +331,11 @@ export function computeCashFlow(p,periods=12){
     ];
     const linkedBudget=p.budgetProjection?.months?.[key]||null;
     const scheduledIncome=r2(scheduledIncomeRules.reduce((sum,rule)=>sum+rule.amount,0));
-    // The Budget tab is the source of monthly forecasts when linked. The
-    // user's dated salaries, historical generic income and regular expense
-    // estimates remain saved but are not added again to the Budget figures.
-    // One-time cashflow income entries remain additive.
+    // The Budget tab is authoritative for ALL income categories when linked.
+    // Manual cashflow income entries remain in history but are NOT added to
+    // the same salary/category a second time. Enter one-off income in Budget.
     const income=linkedBudget?
-      r2(positive(linkedBudget.income)+live.income):
+      positive(linkedBudget.income):
       (scheduledIncomeRules.length?r2(scheduledIncome+live.income):
        (live.income>0?live.income:positive(m.income)));
     const recurringCash=[],recurringCard=[],recurringCardById={};
