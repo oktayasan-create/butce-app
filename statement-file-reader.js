@@ -366,6 +366,15 @@ export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"
     if(bank==="Garanti BBVA"&&/İşlem Tarihi\s+Dönem İçi İşlemler/i.test(row.text)){inSection=true;continue;}
     if(bank!=="Enpara" && /^\s*(TOPLAM|Toplam|EKSTRE ÖZETİ|PUAN ÖZETİ)\b/i.test(row.text)){inSection=false;continue;}
     if(!inSection)continue;
+    // YKB prints a dated bank invoice/legal footer inside the PDF's table.
+    // It has a tax office/sequence number and exchange-rate annotation,
+    // but is not an actual card purchase. Do not flag it as missing amount.
+    if(bank==="Yapı Kredi"&&
+      (/YAPI\s+ve\s+KRED[Iİ]\s+BANKASI\s+A\.?\s*[ŞS]\.?.*?(?:V\.?\s*D\.?|Sıra\s*No|TRY\s+USD)/i.test(row.text)||
+       /Büyük\s+Mükellefler\s+V\.?\s*D\.?/i.test(row.text))){
+      inSection=false;
+      continue;
+    }
     if(bank==="Yapı Kredi"&&/TL'lik (?:işlemin|iadenin)\s+\d{1,2}\s*\/\s*\d{1,2}\s*taksidi/i.test(row.text)){
       const m=row.text.match(/(\d{1,2})\s*\/\s*(\d{1,2})\s*taksidi/i);
       if(m&&tx.length){
