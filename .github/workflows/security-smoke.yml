@@ -23,6 +23,7 @@ jobs:
           node tests/statement-file-reader.test.mjs
           node tests/statement-ux-regressions.test.mjs
           node tests/statement-save-feedback.test.mjs
+          node tests/statement-checkbox-save.test.mjs
           node tests/statement-cashflow.test.mjs
           node --check statement-plan.js
           node --check statement-ui.js
