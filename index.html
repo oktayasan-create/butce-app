@@ -2955,6 +2955,7 @@ window.statementReviewAck=checked=>statementUI.reviewAck(checked);
 window.statementPlanCard=(sid,cardId)=>statementUI.selectPlanCard(sid,cardId);
 window.statementPlanApply=sid=>statementUI.applyToPlan(sid);
 window.statementExpandedSet=(source,id,opened)=>statementUI.selectExpanded(source,id,opened);
+window.cfImportArchivedStatements=()=>statementUI.applyAllToPlan();
 const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
@@ -3359,7 +3360,9 @@ async function renderCashflow(){
       cfKpi("Kart asgarileri",current.minimumTotal,"Bankaya göre")+
       cfKpi("Asgari sonrası nakit",current.afterMandatoryCash,"Ek ödeme öncesi")+
     '</div>'+
-    '<div class="cf-overview-box">'+cfLoanSummary(current)+'</div>'+
+    '<div class="cf-overview-box">'+cfLoanSummary(current)+'</div>'+    '<div class="card cb cf-section"><div class="cf-section-head"><h3>Bu ayın düzenli harcamaları</h3>'+
+      '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'plan\')">Tutarları düzenle</button></div>'+
+      cfRegularMonthSummary(current)+'</div>'+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Ekstrelerin</h3>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'statements\')">Tüm ekstreler</button></div>'+
       cfStatementOverview(overview)+'</div>'+
@@ -3374,6 +3377,9 @@ async function renderCashflow(){
   const statementView='<div id="cf-statement-panel"></div>';
 
   const installmentView=
+    (statementUI.getOverview()?.pendingCount?'<div class="cf-sync-alert"><strong>Arşivdeki taksitler henüz nakit planında değil.</strong>'+
+      '<span>Ekstre tutarlarını nakit tahminine yansıtmak için aktarım yap.</span>'+
+      '<button class="btn btn-p btn-sm" onclick="cfImportArchivedStatements()">Ekstreleri nakit planına aktar</button></div>':'')+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Gelecek kart taksitleri</h3>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'statements\')">Ekstre yükle</button></div>'+
       '<p class="cf-muted">Kartı açarak taksitleri gör. Düzenlemek için yalnızca ilgili satırdaki düğmeyi kullan.</p>'+
@@ -3398,9 +3404,13 @@ async function renderCashflow(){
         cfKpi("Gereken Ekpara",current.overdraftDraw,"Nakit açığı")+
       '</div>'+
       cfLoanSummary(current)+
-      '<div class="cf-section-head" style="margin-top:20px"><h3>Aylık gelir ve ödemeler</h3></div>'+
+      '<div class="cf-section-head" style="margin-top:22px"><h3>Gelir takvimi</h3></div>'+
+      cfRecurringIncomeEditor()+
+      '<div class="cf-section-head" style="margin-top:22px"><h3>Ay içi düzenli giderler</h3></div>'+
+      cfRegularExpenseEditor()+
+      '<div class="cf-section-head" style="margin-top:20px"><h3>Diğer aylık nakit giriş / çıkışları</h3></div>'+
       '<div class="cf-inputs">'+
-        cfField("Aylık nakit gelir",currentData.income||0,"cfMonthField('income',this.value)")+
+        cfField("Eski aylık gelir tahmini (gelir takvimi boşsa)",currentData.income||0,"cfMonthField('income',this.value)")+
         cfField("Kredi dışındaki sabit gider",currentData.fixedCash||0,"cfMonthField('fixedCash',this.value)")+
         cfField("Ek nakit gideri",currentData.otherCash||0,"cfMonthField('otherCash',this.value)")+
         (!cfPlan.autoExtra?cfField("Senin seçtiğin ek kart ödemesi",currentData.extraPayment||0,
@@ -3410,6 +3420,8 @@ async function renderCashflow(){
         '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'income\')">Geliri diğer aylara uygula</button>'+
         '<button class="btn btn-ghost btn-sm" onclick="cfRepeatNext(\'fixedCash\')">Sabit giderleri uygula</button>'+
       '</div>'+
+      '<div class="cf-section-head" style="margin-top:20px"><h3>Seçilen ayın düzenli gider özeti</h3></div>'+
+      cfRegularMonthSummary(current)+
       cfDetailPanel("loans","Ev, araba ve diğer kredileri düzenle (tam ödeme)",cfLoanEditor())+
       cfDetailPanel("card-month","Kart bazında asgari ve ek harcamaları düzenle",rowEditor)+
     '</div>'+
