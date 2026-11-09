@@ -251,7 +251,7 @@ export function parseStatementExcelRows(sheets,fileName="statement.xlsx",hash="l
     previousBalance:summary.summary.previousBalance??null,periodSpending:summary.summary.periodSpending??null,
     remainingInstallmentsTotal:null,transactions},warnings};
 }
-function pdfPageRows(items){
+function pdfPageRows(items,pageNumber=1){
   const buckets=[];
   for(const item of items){
     const str=String(item.str||"");if(!str.trim())continue;
@@ -263,7 +263,7 @@ function pdfPageRows(items){
   buckets.sort((a,b)=>b.y-a.y);
   return buckets.map(g=>{
     g.parts.sort((a,b)=>a.x-b.x);
-    return {text:normalizeLine(g.parts.map(p=>p.str).join(" ")),parts:g.parts};
+    return {text:normalizeLine(g.parts.map(p=>p.str).join(" ")),parts:g.parts,page:pageNumber};
   });
 }
 function pdfRowValue(rows,label){
@@ -358,7 +358,7 @@ export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"
   const period=date?.replaceAll("-","")||"unknown";
   const prefix=(bank==="Garanti BBVA"?"garanti":bank==="Enpara"?"enpara":"ykb")+
     "_"+period+"_"+(last4||hash.slice(0,6));
-  const tx=[],warnings=[],stats={dated:0,unreadable:0};
+  const tx=[],warnings=[],unreadableDetails=[],stats={dated:0,unreadable:0};
   let inSection=bank==="Enpara";
   const dateRx=/(\d{1,2}\s+(?:Ocak|Şubat|Subat|Mart|Nisan|Mayıs|Mayis|Haziran|Temmuz|Ağustos|Agustos|Eylül|Eylul|Ekim|Kasım|Kasim|Aralık|Aralik)\s+20\d{2}|\d{1,2}[./-]\d{1,2}[./-]20\d{2})/i;
   for(const row of rows){
@@ -394,7 +394,14 @@ export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"
       /BONUS MARKET KAMPANYASI|AKTİVASYON KAMPANYASI|BONUS BEDAVA ALIŞVERİŞ/i.test(row.text))
       continue;
     stats.dated++;
-    if(!amount){stats.unreadable++;continue;}
+    if(!amount){
+      stats.unreadable++;
+      if(unreadableDetails.length<25)unreadableDetails.push({
+        date:dateStr,page:Number.isInteger(row.page)?row.page:null,
+        text:String(row.text||"").slice(0,190)
+      });
+      continue;
+    }
     const merchantParts=row.parts.filter(p=>
       p.x>=(bank==="Garanti BBVA"?165:bank==="Enpara"?105:100)&&
       p.x<(bank==="Garanti BBVA"?303:bank==="Enpara"?495:385));
@@ -420,7 +427,15 @@ export function parseStatementPDFRows(rows,fileName="statement.pdf",hash="local"
     }
     tx.push(t);
   }
-  if(stats.unreadable)warnings.push(stats.unreadable+" işlem satırında tutar okunamadı; ekstreyi kontrol et.");
+  if(stats.unreadable){
+    warnings.push(stats.unreadable+" işlem satırında tutar okunamadı. Ayrıntılar:");
+    for(const item of unreadableDetails){
+      warnings.push("Okunamayan satır"+(item.page?" (sayfa "+item.page+")":"")+
+        " — "+item.date+" — "+item.text);
+    }
+    if(stats.unreadable>unreadableDetails.length)
+      warnings.push("Ayrıca "+(stats.unreadable-unreadableDetails.length)+" başka satır okunamadı.");
+  }
   if(!tx.length)warnings.push("Bu PDF'den hiç işlem okunamadı; bankanın farklı PDF düzeni olabilir.");
   if(!date)warnings.push("Ekstre kesim tarihi okunamadı.");
   if(balance==null)warnings.push("Dönem borcu okunamadı.");
@@ -461,7 +476,7 @@ export async function parseStatementFile(file,{pdfJs=null,xlsx=null}={}){
       for(let i=1;i<=pdf.numPages;i++){
         const page=await pdf.getPage(i);
         const content=await page.getTextContent();
-        text.push(...pdfPageRows(content.items));
+        text.push(...pdfPageRows(content.items,i));
       }
     }finally{await pdf.destroy();}
     return parseStatementPDFRows(text,name,hash);
