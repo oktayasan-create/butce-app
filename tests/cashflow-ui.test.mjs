@@ -41,11 +41,11 @@ assert(root.innerHTML.includes('Taksitler'));
 assert(root.innerHTML.includes('Nakit Planı'));
 assert(root.innerHTML.includes('Tam kredi ödemesi'));
 assert(root.innerHTML.includes('Ev / Araba / Diğer krediler'));
-assert(root.innerHTML.includes('Test Visa'));
 assert(root.innerHTML.includes('12 ay'));
 assert(!root.innerHTML.includes('undefined TL'));
 
 sandbox.window.cfSetView('plan');
+assert(root.innerHTML.includes('Test Visa'));
 assert(root.innerHTML.includes('Ev, araba ve diğer kredileri düzenle'));
 assert(root.innerHTML.includes('Tam aylık taksit (₺)'));
 assert(root.innerHTML.includes('Kartı kaldır (arşivle)'));
