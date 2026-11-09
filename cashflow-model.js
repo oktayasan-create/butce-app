@@ -60,6 +60,7 @@ export function emptyCashFlowPlan() {
     cards:[],categories:structuredClone(defaultCategories),entries:[],months:{},
     loans:[],installments:[],statementSnapshots:[],
     recurringIncome:[],recurringExpenses:defaultRecurringExpenses(isoMonth()),
+    budgetLink:{enabled:true,categories:{}},
     overdraft:{name:"Enpara Ekpara",openingDebt:0,limit:0,interestPct:4.25},
     tax:{kkdfPct:15,bsmvPct:15}};
 }
@@ -82,6 +83,11 @@ export function normalizeCashFlowPlan(raw) {
     p.cards=p.cards.map(c=>({...c,interestMode:"manual",active:c.active!==false}));
   }
   if(!Array.isArray(p.statementSnapshots))p.statementSnapshots=[];
+  if(!p.budgetLink||typeof p.budgetLink!=="object")
+    p.budgetLink={enabled:true,categories:{}};
+  if(!p.budgetLink.categories||typeof p.budgetLink.categories!=="object")
+    p.budgetLink.categories={};
+  if(typeof p.budgetLink.enabled!=="boolean")p.budgetLink.enabled=true;
   if(!Array.isArray(p.recurringIncome))p.recurringIncome=[];
   if(!Array.isArray(p.recurringExpenses))p.recurringExpenses=defaultRecurringExpenses(p.startMonth);
   // Upgrade previously saved plans without mutating their historical entries.
@@ -123,6 +129,19 @@ export function validCashFlowPlan(p) {
       !Array.isArray(p.recurringIncome)||p.recurringIncome.length>100||
       !Array.isArray(p.recurringExpenses)||p.recurringExpenses.length>100||
       !p.overdraft||!p.tax)return false;
+  if(p.budgetLink!==undefined){
+    if(typeof p.budgetLink!=="object"||typeof p.budgetLink.enabled!=="boolean"||
+      !p.budgetLink.categories||typeof p.budgetLink.categories!=="object"||
+      Array.isArray(p.budgetLink.categories)||
+      Object.keys(p.budgetLink.categories).length>120)return false;
+    for(const [id,config] of Object.entries(p.budgetLink.categories)){
+      if(!identifierPattern.test(id)||!config||typeof config!=="object"||
+         (config.payment!==undefined&&!["cash","card"].includes(config.payment))||
+         (config.excluded!==undefined&&typeof config.excluded!=="boolean")||
+         (config.cardId!==undefined&&config.cardId!==null&&
+          !p.cards.some(card=>card.id===config.cardId)))return false;
+    }
+  }
   const cardIds=new Set();
   for(const c of p.cards){
     if(!c||!identifierPattern.test(c.id)||cardIds.has(c.id)||
@@ -216,6 +235,8 @@ export function validCashFlowPlan(p) {
     entryIds.add(e.id);
     if(e.owner!==undefined&&(e.type!=="income"||
        !["Ben","Eşim","Diğer"].includes(e.owner)))return false;
+    if(e.paymentKind!==undefined&&(e.type!=="card_payment"||
+       !["minimum","partial","full"].includes(e.paymentKind)))return false;
     if(e.type==="income" && !categoryIds.income.has(e.categoryId))return false;
     if(["card_expense","cash_expense"].includes(e.type) && !categoryIds.expense.has(e.categoryId))return false;
     if(["card_expense","card_payment"].includes(e.type)&&!cardIds.has(e.cardId))return false;
@@ -253,6 +274,7 @@ export function addCashFlowEntry(p,e) {
   const candidate={id:e.id,type:e.type,date:e.date,amount:r2(Number(e.amount)),note:String(e.note||"").slice(0,240)};
   if(e.type==="income"||e.type==="card_expense"||e.type==="cash_expense") candidate.categoryId=e.categoryId;
   if(e.type==="income"&&e.owner!==undefined)candidate.owner=e.owner;
+  if(e.type==="card_payment"&&e.paymentKind!==undefined)candidate.paymentKind=e.paymentKind;
   if(e.type==="card_expense"||e.type==="card_payment") candidate.cardId=e.cardId;
   if(!identifierPattern.test(candidate.id)||p.entries.some(t=>t.id===candidate.id))throw new Error("Invalid movement ID");
   p.entries.push(candidate);
@@ -307,19 +329,24 @@ export function computeCashFlow(p,periods=12){
       ...overlappingIncomeRules.filter(rule=>rule.kind!=="salary"),
       ...latestSalaryByOwner.values()
     ];
+    const linkedBudget=p.budgetProjection?.months?.[key]||null;
     const scheduledIncome=r2(scheduledIncomeRules.reduce((sum,rule)=>sum+rule.amount,0));
-    // A dated income schedule replaces the old undifferentiated monthly income.
-    // Separate one-off income movements are additive and still visible.
-    const income=scheduledIncomeRules.length?
-      r2(scheduledIncome+live.income):
-      (live.income>0?live.income:positive(m.income));
+    // The Budget tab is authoritative for ALL income categories when linked.
+    // Manual cashflow income entries remain in history but are NOT added to
+    // the same salary/category a second time. Enter one-off income in Budget.
+    const income=linkedBudget?
+      positive(linkedBudget.income):
+      (scheduledIncomeRules.length?r2(scheduledIncome+live.income):
+       (live.income>0?live.income:positive(m.income)));
     const recurringCash=[],recurringCard=[],recurringCardById={};
-    for(const rule of p.recurringExpenses){
-      if(!appliesRecurring(rule,key))continue;
+    const sources=linkedBudget?linkedBudget.expenses:p.recurringExpenses.filter(rule=>appliesRecurring(rule,key));
+    for(const rule of sources){
+      if(!linkedBudget&&!appliesRecurring(rule,key))continue;
       const actualType=rule.payment==="card"?"card_expense":"cash_expense";
       // A real entry in the same category and payment channel replaces its
       // forecast estimate; otherwise the same bill would be counted twice.
-      const hasActual=live.items.some(e=>e.type===actualType&&e.categoryId===rule.categoryId&&
+      const hasActual=rule.categoryId!=="exp_other"&&live.items.some(e=>
+        e.type===actualType&&e.categoryId===rule.categoryId&&
         (actualType!=="card_expense"||e.cardId===rule.cardId));
       if(hasActual)continue;
       if(rule.payment==="cash")recurringCash.push(rule);
@@ -333,8 +360,8 @@ export function computeCashFlow(p,periods=12){
     const loanDetails=p.loans.filter(l=>l.active!==false)
       .map(l=>({id:l.id,name:l.name,amount:activeLoanPayment(l,key)})).filter(l=>l.amount>0);
     const loanPayments=r2(loanDetails.reduce((sum,l)=>sum+l.amount,0));
-    const fixedCash=positive(m.fixedCash);
-    const otherCash=r2(positive(m.otherCash)+live.cashExpenses+recurringCashTotal);
+    const fixedCash=linkedBudget?0:positive(m.fixedCash);
+    const otherCash=r2((linkedBudget?0:positive(m.otherCash))+live.cashExpenses+recurringCashTotal);
     const chargedOverdraftCost=dueOverdraftCost;
     dueOverdraftCost=0;
     const monthlyInstallments=p.installments.filter(v=>v.active!==false)
@@ -354,21 +381,35 @@ export function computeCashFlow(p,periods=12){
       const statementDebt=r2(opening+(statementSnapshot?0:dueInstallments));
       const estimatedMinimum=r2(statementSnapshot?statementSnapshot.minimum:statementDebt*c.minPct/100);
       const override=m.minOverrides?.[c.id];
-      const actualPayment=positive(live.payments[c.id]);
-      const hasActualPayment=actualPayment>0;
-      const minimum=r2(Math.min(statementDebt,hasActualPayment?actualPayment:
-        (override===null||override===""||override===undefined?estimatedMinimum:positive(override))));
-      const missedMinimum=hasActualPayment?Math.max(0,r2(estimatedMinimum-minimum)):0;
+      const minimum=r2(Math.min(statementDebt,
+        override===null||override===""||override===undefined?estimatedMinimum:positive(override)));
+      const actualPaid=positive(live.payments[c.id]);
+      // A payment already made consumes cash and reduces the debt, never
+      // becomes a second "minimum" on top of the same paid amount.
+      const minimumRemaining=r2(Math.min(Math.max(0,statementDebt-actualPaid),
+        Math.max(0,minimum-actualPaid)));
+      const paymentApplied=r2(Math.min(statementDebt,actualPaid+minimumRemaining));
+      const paidExtra=Math.max(0,r2(actualPaid-minimum));
+      const paymentStatus=actualPaid<=0?"Ödenmedi":
+        actualPaid+0.01>=statementDebt?"Tamamı ödendi":
+        actualPaid+0.01>=minimum?"Asgari ödendi":"Kısmi ödendi";
       const interestPct=monthlyCardRate(statementDebt,c);
       return {id:c.id,name:c.name,active:c.active!==false,opening,statementDebt,
-        dueInstallments,statementVerified:!!statementSnapshot,estimatedMinimum,minimum,missedMinimum,actualPayment:hasActualPayment,
-        extra:0,newSpending:r2(positive(m.cardSpends?.[c.id])+positive(live.byCard[c.id])+positive(recurringCardById[c.id])),
+        dueInstallments,statementVerified:!!statementSnapshot,estimatedMinimum,minimum,
+        actualPaid,minimumRemaining,paymentApplied,paidExtra,paymentStatus,
+        missedMinimum:0,actualPayment:actualPaid>0,
+        extra:0,newSpending:r2((linkedBudget?0:positive(m.cardSpends?.[c.id]))+
+          positive(live.byCard[c.id])+positive(recurringCardById[c.id])),
         interestPct,interest:0,interestBase:0,interestTax:0,closing:0,paidOff:false,
         lateInterest:0};
     });
     const minimumTotal=r2(state.reduce((sum,c)=>sum+c.minimum,0));
-    // Mandatory outflows are settled before discretionary credit card repayments.
-    const mandatoryTotal=r2(fixedCash+otherCash+loanPayments+minimumTotal+chargedOverdraftCost);
+    const actualCardPayments=r2(state.reduce((sum,c)=>sum+c.actualPaid,0));
+    const minimumRemainingTotal=r2(state.reduce((sum,c)=>sum+c.minimumRemaining,0));
+    const cardCashOutflow=r2(actualCardPayments+minimumRemainingTotal);
+    // Cash includes BOTH already paid card amounts and the remainder of
+    // required minimums; no amount is deducted twice.
+    const mandatoryTotal=r2(fixedCash+otherCash+loanPayments+cardCashOutflow+chargedOverdraftCost);
     cash=r2(cash+income-mandatoryTotal);
     let overdraftDraw=0,overdraftRepaid=0;
     if(cash<0){
@@ -382,24 +423,29 @@ export function computeCashFlow(p,periods=12){
     }
     const afterMandatoryCash=r2(cash);
     const availableForExtra=Math.max(0,r2(cash-positive(p.reserve)));
-    const desiredExtra=p.autoExtra?availableForExtra:positive(m.extraPayment);
+    // Manual extra is an intended TOTAL extra for this month. If a past
+    // payment already exceeded the minimum, count that first.
+    const paidExtra=state.reduce((sum,c)=>sum+c.paidExtra,0);
+    const desiredExtra=p.autoExtra?availableForExtra:
+      Math.max(0,r2(positive(m.extraPayment)-paidExtra));
     let capacity=Math.min(availableForExtra,desiredExtra);
     const unmetExtra=Math.max(0,r2(desiredExtra-capacity));
     // Any voluntarily planned extra payment is separate from a real payment entry.
     // If an actual payment already includes the extra, leave the manual extra input at zero.
-    const priority=state.filter(c=>c.statementDebt>c.minimum)
+    const priority=state.filter(c=>c.statementDebt>c.paymentApplied)
       .sort((a,b)=>b.interestPct-a.interestPct||b.statementDebt-a.statementDebt);
     for(const c of priority){
-      const extra=r2(Math.min(capacity,Math.max(0,c.statementDebt-c.minimum)));
+      const extra=r2(Math.min(capacity,Math.max(0,c.statementDebt-c.paymentApplied)));
       c.extra=extra;capacity=r2(capacity-extra);cash=r2(cash-extra);
     }
     for(const c of state){
-      const unpaid=Math.max(0,r2(c.statementDebt-c.minimum-c.extra));
+      const unpaid=Math.max(0,r2(c.statementDebt-c.paymentApplied-c.extra));
       c.interestBase=unpaid;
       const basicInterest=r2(unpaid*c.interestPct/100);
       // If an actual entered payment is below the minimum, estimate extra late-rate delta.
-      c.lateInterest=c.missedMinimum>0?r2(c.missedMinimum*
-        Math.max(0,monthlyCardLateRate(c.statementDebt)-c.interestPct)/100):0;
+      // Remaining minimum is planned before month-end, so do not assume
+      // statutory late interest just because the user hasn't paid it YET.
+      c.lateInterest=0;
       c.interest=r2(basicInterest+c.lateInterest);
       c.interestTax=r2(c.interest*(taxMultiplier-1));
       c.closing=r2(unpaid+c.interest+c.interestTax+c.newSpending);
@@ -422,6 +468,8 @@ export function computeCashFlow(p,periods=12){
     rows.push({
       month:key,openingCash,openingOverdraft,
       income,fixedCash,otherCash,loanPayments,loanDetails,mandatoryTotal,chargedOverdraftCost,
+      budgetLinked:!!linkedBudget,budgetIncomeCategories:linkedBudget?.incomes||[],
+      actualCardPayments,minimumRemainingTotal,cardCashOutflow,
       scheduledIncome,scheduledIncomeRules:scheduledIncomeRules.map(rule=>({
         id:rule.id,name:rule.name,owner:rule.owner,kind:rule.kind,amount:rule.amount})),
       recurringCashTotal,recurringCardTotal,

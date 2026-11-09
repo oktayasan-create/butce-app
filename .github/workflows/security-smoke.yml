@@ -18,6 +18,8 @@ jobs:
         run: |
           node tests/security-smoke.mjs
           node tests/cashflow-model.test.mjs
+          node tests/budget-bridge.test.mjs
+          node tests/budget-payment-ui.test.mjs
           node tests/recurring-budget.test.mjs
           node tests/statement-batch-sync.test.mjs
           node tests/cashflow-ui.test.mjs
@@ -29,6 +31,7 @@ jobs:
           node tests/statement-save-feedback.test.mjs
           node tests/statement-checkbox-save.test.mjs
           node tests/statement-cashflow.test.mjs
+          node --check budget-bridge.js
           node --check statement-plan.js
           node --check statement-ui.js
           node --check statement-file-reader.js
