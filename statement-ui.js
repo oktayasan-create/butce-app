@@ -10,7 +10,23 @@ import {prepareStatementPlan,statementDueMonth,statementInstallmentSchedule,calc
  */
 export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safeHtml,getPlan,onPlanChange,rerender,notify}){
   let inbox=null,draft=null,loading=false,error="",dirty=false,uid=null;
-  let importing=false,warnings=[],reviewAcknowledged=false;
+  let importing=false,warnings=[],reviewAcknowledged=false,saving=false;
+  let saveStatus={kind:"",message:""};
+  function setSaveStatus(kind,message){
+    saveStatus={kind,message};
+    const el=typeof document!=="undefined"?document.getElementById("statement-save-status"):null;
+    if(el){
+      el.className="cf-statement-save-status"+(kind?" cf-save-"+kind:"");
+      el.textContent=message;
+    }
+  }
+  function friendlySaveError(e){
+    const code=String(e?.code||"");
+    if(code==="permission-denied")return "Firebase erişimi reddedildi (permission-denied). Veritabanı güvenlik kurallarında yalnızca kendi hesabının ekstre arşivini yazabildiğini kontrol et.";
+    if(code==="unavailable"||code==="deadline-exceeded")return "Firebase sunucusuna ulaşılamadı. İnternet bağlantısını kontrol edip tekrar dene.";
+    if(code==="resource-exhausted")return "Firebase kullanım veya belge sınırına ulaşıldı. Ekstreleri daha küçük gruplara ayır.";
+    return "Kayıt doğrulanamadı: "+String(e?.message||code||"Bilinmeyen hata").slice(0,220);
+  }
   let selectedPlanCards={};
   const esc=x=>safeHtml(String(x??""));
   const money=n=>new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY"}).format(n||0);
@@ -20,6 +36,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
   function reset(){
     inbox=null;draft=null;loading=false;error="";dirty=false;uid=null;
     importing=false;warnings=[];reviewAcknowledged=false;selectedPlanCards={};
+    saving=false;saveStatus={kind:"",message:""};
   }
   async function ensureLoaded(){
     const who=auth.currentUser?.uid;
@@ -43,7 +60,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     if(files.length>12){notify("Bir seferde en fazla 12 ekstre seçebilirsin.");return;}
     const who=auth.currentUser?.uid;
     if(!who){notify("Önce hesabınla giriş yap.");return;}
-    importing=true;error="";reviewAcknowledged=false;rerender();
+    importing=true;error="";reviewAcknowledged=false;setSaveStatus("","");rerender();
     const parsed=[],nextWarnings=[],failed=[];
     try{
       for(const file of files){
@@ -149,22 +166,67 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
     if(auth.currentUser?.uid!==who)throw Error("Oturum değişti");
   }
   async function saveDraft(){
-    if(!draft||!inbox){notify("Önizleme veya bağlantı henüz hazır değil.");return;}
-    if(!reviewAcknowledged){notify("Lütfen ekstreleri kontrol ettiğini onayla.");return;}
-    if(draft.statements.some(st=>!st.cardLabel.trim()||!st.balance||!st.minimum||st.minimum>st.balance)){
-      notify("Dönem borcu ve asgari ödeme değerlerini kontrol et. Sıfır veya tutarsız tutar var.");return;
+    if(saving)return;
+    if(!draft){
+      setSaveStatus("error","Kaydedilecek ekstre önizlemesi bulunamadı. PDF'yi yeniden seç.");
+      return;
     }
-    let merged;
+    if(!inbox){
+      setSaveStatus("error","Ekstre arşivi henüz yüklenmedi veya Firebase erişimi başarısız: "+
+        (error||"Bağlantıyı kontrol et ve sayfayı yenile."));
+      return;
+    }
+    if(!reviewAcknowledged){
+      setSaveStatus("error","Kaydetmek için ekstreleri kontrol ettiğini onaylamalısın.");
+      return;
+    }
+    if(draft.statements.some(st=>!st.cardLabel.trim()||!Number.isFinite(st.balance)||
+        !Number.isFinite(st.minimum)||st.balance<=0||st.minimum<0||st.minimum>st.balance)){
+      setSaveStatus("error","Ekstre borcu ve asgari tutarı tutarsız. Önizlemede düzeltmeden kaydedilemez.");
+      return;
+    }
+    saving=true;
+    setSaveStatus("busy","Ekstreler özel Firebase arşivine kaydediliyor...");
     try{
-      // Validate once more after edits, before touching Firestore.
-      draft=normalizeStatementBundle({format:"butceapp-statement-review-v1",statements:draft.statements});
-      merged=mergeStatementInbox(inbox,draft);
-      if(!merged.added.length){notify("Bu ekstreler daha önce eklenmiş.");return;}
-      if(!confirm(merged.added.length+" ekstreyi özel Firebase arşivine kaydetmek istiyor musun? Mevcut kart borçları değişmez."))return;
+      // The review checkbox and this button are the explicit two-step user
+      // confirmation. Do not rely on another browser popup (blocked on some PWAs).
+      const clean=normalizeStatementBundle({
+        format:"butceapp-statement-review-v1",statements:draft.statements
+      });
+      // Read current server contents before updating, so an old browser tab
+      // cannot silently overwrite statements saved in a newer session.
+      const latestSnap=await getDocFromServer(doc(db,"data","statementInbox"));
+      const latestRaw=latestSnap.exists()?latestSnap.data().inbox:null;
+      const latest=latestRaw?.statements?
+        normalizeStatementBundle({format:"butceapp-statement-review-v1",statements:latestRaw.statements}):
+        {version:1,statements:[]};
+      const merged=mergeStatementInbox(latest,clean);
+      if(!merged.added.length){
+        inbox=latest;
+        setSaveStatus("success","Bu ekstre daha önce kaydedilmiş. İkinci kez eklenmedi.");
+        return;
+      }
       await saveInbox(merged.inbox);
-      inbox=merged.inbox;draft=null;warnings=[];reviewAcknowledged=false;
-      notify("Ekstreler özel arşive kaydedildi.");rerender();
-    }catch(e){notify("Kaydetme başarısız: "+String(e.message||"Bağlantıyı kontrol et").slice(0,145));}
+      // The green success message is shown only after a fresh server read
+      // confirms that every new statement ID is present.
+      const check=await getDocFromServer(doc(db,"data","statementInbox"));
+      const remote=check.exists()?check.data().inbox:null;
+      if(!remote?.statements||
+         merged.added.some(id=>!remote.statements.some(st=>st.id===id))){
+        throw new Error("Yazma denemesi yapıldı ancak arşiv sunucuda doğrulanamadı.");
+      }
+      inbox=mergeStatementInbox({version:1,statements:[]},{
+        version:1,statements:remote.statements
+      }).inbox;
+      draft=null;warnings=[];reviewAcknowledged=false;
+      setSaveStatus("success",merged.added.length+" ekstre Firebase arşivinde doğrulandı ve kaydedildi. Nakit planına geçirmek için kayıtlı ekstrede kart eşlemesini yap.");
+      notify("✓ Ekstreler arşive kaydedildi");
+    }catch(e){
+      setSaveStatus("error",friendlySaveError(e));
+    }finally{
+      saving=false;
+      rerender();
+    }
   }
   async function saveCategories(){
     if(!dirty||!inbox)return;
@@ -314,9 +376,11 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
         '<label class="cf-review-check"><input id="statement-review-ack" type="checkbox" '+(reviewAcknowledged?'checked ':'')+
         'onchange="statementReviewAck(this.checked)">Ekstre borçlarını, asgari tutarları, işlem türlerini ve kategorileri kontrol ettim.</label>'+
         '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">'+
-        '<button id="statement-save-draft" class="btn btn-p" '+(!reviewAcknowledged?'disabled ':'')+
-          'onclick="statementSaveDraft()">Kontrol ettim, özel arşive kaydet</button>'+
-        '<button class="btn btn-ghost btn-sm" onclick="statementCancelDraft()">Önizlemeyi iptal et</button></div>':'')+
+        '<button id="statement-save-draft" class="btn btn-p" '+(!reviewAcknowledged||saving?'disabled ':'')+
+          'onclick="statementSaveDraft()">'+(saving?'Kaydediliyor...':'Kontrol ettim, özel arşive kaydet')+'</button>'+
+        '<button class="btn btn-ghost btn-sm" '+(saving?'disabled ':'')+'onclick="statementCancelDraft()">Önizlemeyi iptal et</button></div>':'')+
+      '<div id="statement-save-status" role="status" aria-live="polite" class="cf-statement-save-status'+
+      (saveStatus.kind?' cf-save-'+saveStatus.kind:'')+'">'+esc(saveStatus.message)+'</div>'+
       (inbox?.statements?.length?'<h4>Kaydedilmiş ekstreler ('+inbox.statements.length+')</h4>'+
         '<div class="cf-statement-grid">'+inbox.statements.map(st=>card(st,"saved")).join('')+'</div>'+
         '<button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="statementSaveCategories()">Kategori düzeltmelerini kaydet</button>':'')+
