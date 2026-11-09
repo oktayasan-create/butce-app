@@ -100,7 +100,7 @@ assert.equal(rowsPaid.cards[1].paymentStatus,"Kısmi ödendi");
 assert.equal(rowsPaid.cards[0].minimumRemaining,0);
 assert.equal(rowsPaid.cards[1].minimumRemaining,5000);
 assert.equal(rowsPaid.cards[0].closing,7200,"Unpaid 6000 plus this-month g purchases 1200");
-assert.equal(rowsPaid.cards[1].closing,17250,"Remaining 17000 plus 250 y purchase");
+assert.equal(rowsPaid.cards[1].closing,12250,"Paid 3000 and planned 5000 minimum leave 12000 plus 250 new purchase");
 const paidFull=structuredClone(paid);
 model.addCashFlowEntry(paidFull,{
  id:"paid_y_full",type:"card_payment",cardId:"y",amount:17000,paymentKind:"full",
