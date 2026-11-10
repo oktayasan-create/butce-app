@@ -584,7 +584,7 @@ export function computeCashPositionTable(plan,rows){
       income,loans,cashExpenses,minimum,
       netOpening,openingOverdraft:Math.max(0,r2(-netOpening)),
       openingSavings:Math.max(0,netOpening),
-      totalExpenses,netClosing:net,
+      totalExpenses,monthlyNet:r2(income-totalExpenses),netClosing:net,
       closingOverdraft:Math.max(0,r2(-net)),
       closingSavings:Math.max(0,net),
       snapshotUsed:rebased,
