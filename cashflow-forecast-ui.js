@@ -2,7 +2,7 @@
  * Read-only finance forecast presentation. Does not write to Firestore.
  * The month-end cash model is the sole source of financial numbers.
  */
-import {computeCashPositionTable} from "./cashflow-model.js";
+import {computeCashPositionTable} from "./cashflow-model.js?v=17";
 
 export function createCashflowForecastUI({money,monthLabel}){
   const metricDefs=[
@@ -153,11 +153,12 @@ export function createCashflowForecastUI({money,monthLabel}){
       '<div class="cf-trend-title">12 aylık finansal görünüm</div>'+
       '<p class="cf-muted">Çizgilerin üzerine gelerek tutarları görebilirsin. Sıfırın altı, o gösterge için eksi değeri ifade eder.</p>'+
       '<div class="cf-trend-chart" id="'+chartId+'">'+chartSvg()+'</div>'+
+      '<div class="cf-chart-quick-actions" role="group" aria-label="Grafik veri seçimleri">'+
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'all\')">✓ Hepsini seç</button>'+
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'none\')">✕ Tümünü kaldır</button>'+
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'default\')">Temel 4 gösterge</button>'+
+      '<span class="cf-muted cf-chart-selection-count" role="status" aria-live="polite">'+visible.size+' / '+metricDefs.length+' gösterge</span></div>'+
       '<fieldset class="cf-chart-controls"><legend>Grafikte görünmesini istediğin verileri seç</legend>'+filters+'</fieldset>'+
-      '<div class="cf-inline-actions">'+
-      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'default\')">Temel göstergeler</button>'+
-      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'all\')">Hepsini seç</button>'+
-      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'none\')">Tümünü kaldır</button></div>'+
       '</section>';
   }
 
@@ -166,6 +167,9 @@ export function createCashflowForecastUI({money,monthLabel}){
     document.querySelectorAll('[id^="cf-trend-graph-"]').forEach(el=>{el.innerHTML=chartSvg();});
     document.querySelectorAll("input[data-cf-chart-key]").forEach(el=>{
       el.checked=visible.has(el.dataset.cfChartKey);
+    });
+    document.querySelectorAll(".cf-chart-selection-count").forEach(el=>{
+      el.textContent=visible.size+" / "+metricDefs.length+" gösterge";
     });
   }
 
