@@ -3484,7 +3484,7 @@ function cfPriorityDiagnostics(rows){
   return '<p class="cf-muted">Bu rapor, zorunlu ödemeleri karşılar; asgarileri öder, varsa KMH borcunu kapatır, tüm kalan nakdi en yüksek faizli karta yönlendirir. Hiçbir kart borcu veya KMH kalmadıysa birikim oluşur. KMH faiz maliyeti bir sonraki ayın nakit gideridir.</p>'+
     '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
     '<th>Ay</th><th>Ödeme hedefi</th><th>Zorunlu asgari</th>'+
-    '<th>Kart ödemesi</th><th>KMH geri ödeme</th><th>Devreden kart borcu</th>'+
+    '<th>Planlanan kart ödemesi</th><th>KMH geri ödeme</th><th>Devreden kart borcu</th>'+
     '<th>Son KMH borcu</th><th>Birikim</th><th>KMH faiz/vergi (sonraki ay)</th>'+
     '<th>Karşılanamayan zorunlu tutar</th></tr></thead><tbody>'+
     values.map(r=>'<tr><td>'+cfText(cfMonthLabel(r.month))+'</td>'+
@@ -3684,7 +3684,7 @@ async function renderCashflow(){
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'plan\')">Nakit planını düzenle</button></div>'+
       '<p class="cf-muted">Öncelik sırası: krediler ve nakit giderleri → kart asgarileri → Ek Hesap geri ödemesi → mümkün olan tüm ek kart ödemeleri → yalnız tüm borçlar kapandıysa birikim. Ödenmeyen kart borcu faiz tahminiyle devreder. Kart ödeme hedefi banka ekstre vadeleriyle farklılaşabilir.</p>'+
       cfCompactForecast(rows)+'</div>'+
-    '<div class="cf-compact-callout">Borçlara ödenen kart tutarı: <strong>'+cfMoney(selectedBalance.cardPayments)+
+    '<div class="cf-compact-callout">Planlanan kart ödemesi: <strong>'+cfMoney(selectedBalance.cardPayments)+
       '</strong> · Ödenmemiş kart borcu: <strong>'+cfMoney(selectedBalance.closingCardDebt)+
       '</strong> · Ek Hesap: <strong>'+cfMoney(selectedBalance.closingOverdraft)+
       '</strong> · Gerçek tahmini birikim: <strong>'+cfMoney(selectedBalance.closingSavings)+'</strong></div>';
