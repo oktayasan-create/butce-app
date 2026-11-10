@@ -29,7 +29,7 @@ test("monthly net equals income minus expenses and cumulative savings carries op
   assert.equal(r[0].monthlyNet,52036);
   assert.equal(r[0].netClosing,52036);
   assert.equal(r[0].closingSavings,52036);
-  assert.equal(r[1].netOpening,58036);
+  assert.equal(r[1].netOpening,52036);
   assert.equal(r[1].monthlyNet,r[1].income-r[1].totalExpenses);
   assert.equal(r[1].closingSavings,r[0].closingSavings+r[1].monthlyNet);
   assert.equal(p.overdraft.actualSnapshot.debt,28528);
