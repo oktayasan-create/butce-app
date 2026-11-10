@@ -11,6 +11,9 @@ export function createCashflowForecastUI({money,monthLabel}){
     {key:"monthlyNet",label:"Aylık net fark",color:"#12a681"},
     {key:"closingSavings",label:"Toplam birikim",color:"#9a70e9"},
     {key:"closingOverdraft",label:"Ek Hesap borcu",color:"#e59b41"},
+    {key:"closingCardDebt",label:"Ödenmemiş kart borcu",color:"#e35f78"},
+    {key:"cardPayments",label:"Kartlara yapılan ödeme",color:"#248de4"},
+    {key:"overdraftRepaid",label:"Ek Hesap geri ödemesi",color:"#db9137"},
     {key:"statementTotal",label:"Kart borcu",color:"#17aab3"},
     {key:"minimum",label:"Kart asgarisi",color:"#8b99af"},
     {key:"cashExpenses",label:"Nakit gider",color:"#cd6fa8"},
@@ -42,23 +45,26 @@ export function createCashflowForecastUI({money,monthLabel}){
       '<table class="cf-table cf-compact-forecast"><thead><tr>'+
       '<th>Ay</th><th>Gelir</th><th>Krediler</th>'+
       '<th>Faizli devreden kart borcu</th><th>Ay içi kart harcaması</th>'+
-      '<th>Gelecek taksitler</th><th>Ay sonu kart borcu</th>'+
+      '<th>Gelecek taksitler</th><th>Kart ödeme hedefi</th><th>Kartlara ödenen</th><th>Ödenmeden kalan kart</th>'+
       '<th>Gelecek ay asgari</th><th>Nakit gider</th>'+
-      '<th>Devreden Ek Hesap</th><th>Toplam harcama</th>'+
+      '<th>Devreden Ek Hesap</th><th>Ek Hesap geri ödemesi</th><th>Toplam nakit çıkışı</th>'+
       '<th>Sonraki aya Ek Hesap</th><th>Aylık net (Gelir − Harcama)</th>'+
       '<th>Toplam birikim</th></tr></thead><tbody>'+
       data.map(r=>{
         const paidMonth=period(r.dueMonth);
         const verified=r.card.hasVerified?" · Banka ekstresi":"";
         return '<tr class="'+(r.closingOverdraft>0?"cf-overdraft-month":r.closingSavings>0?"cf-savings-month":"")+'">'+
-          '<td><strong>'+period(r.month)+'</strong><small>Ödeme: '+paidMonth+'</small></td>'+
+          '<td><strong>'+period(r.month)+'</strong><small>Kart ödeme hedefi</small></td>'+
           '<td>'+money(r.income)+'</td><td>'+money(r.loans)+'</td>'+
           '<td>'+money(r.card.carryover)+'</td>'+
           '<td>'+money(r.card.purchases)+'</td>'+
           '<td>'+money(r.card.installments)+'</td>'+
           '<td><strong>'+money(r.card.statementTotal)+'</strong><small>'+verified+'</small></td>'+
+          '<td>'+money(r.cardPayments)+'</td>'+
+          '<td class="'+(r.closingCardDebt>0?"cf-bad":"") +'"><strong>'+money(r.closingCardDebt)+'</strong></td>'+
           '<td>'+money(r.minimum)+'</td><td>'+money(r.cashExpenses)+'</td>'+
           '<td>'+(r.netOpening<0?signed(r.netOpening):money(0))+'</td>'+
+          '<td>'+money(r.overdraftRepaid)+'</td>'+
           '<td><strong>'+money(r.totalExpenses)+'</strong></td>'+
           '<td class="'+(r.closingOverdraft>0?"cf-bad":"")+'">'+
             (r.closingOverdraft>0?signed(-r.closingOverdraft):money(0))+'</td>'+
@@ -77,18 +83,21 @@ export function createCashflowForecastUI({money,monthLabel}){
           ["Faizli devreden kart borcu",money(card.carryover)],
           ["Ay içi kart harcaması",money(card.purchases)],
           ["Gelecek taksitler",money(card.installments)],
-          ["Gelecek ay ödenecek kart borcu",money(card.statementTotal)],
+          ["Bu ay kart ödeme hedefi",money(card.statementTotal)],
+          ["Kartlara ödenen",money(r.cardPayments)],
+          ["Ödenmeden kalan kart",money(r.closingCardDebt)],
           ["Gelecek ay asgari",money(r.minimum)],
           ["Nakit gider",money(r.cashExpenses)],
           ["Devreden Ek Hesap",r.netOpening<0?signed(r.netOpening):money(0)],
-          ["Toplam harcama",money(r.totalExpenses)],
+          ["Ek Hesap geri ödemesi",money(r.overdraftRepaid)],
+          ["Toplam nakit çıkışı",money(r.totalExpenses)],
           ["Sonraki aya Ek Hesap",r.closingOverdraft>0?signed(-r.closingOverdraft):money(0)],
           ["Aylık net fark",signed(r.monthlyNet)],
           ["Toplam birikim",money(r.closingSavings)]
         ];
         return '<details class="cf-mobile-month"><summary>'+
           '<span class="cf-month-headline"><strong>'+period(r.month)+'</strong>'+
-          '<span class="cf-muted">Kart ödeme: '+period(r.dueMonth)+'</span></span>'+
+          '<span class="cf-muted">Kart borç planı · Asgari + ek ödeme</span></span>'+
           '<span class="cf-month-delta-card"><span>Aylık net</span>'+
           '<strong class="'+colorClass(r.monthlyNet)+'">'+signed(r.monthlyNet)+'</strong>'+
           '<span>Toplam birikim: '+money(r.closingSavings)+'</span></span>'+
@@ -147,7 +156,8 @@ export function createCashflowForecastUI({money,monthLabel}){
       '<fieldset class="cf-chart-controls"><legend>Grafikte görünmesini istediğin verileri seç</legend>'+filters+'</fieldset>'+
       '<div class="cf-inline-actions">'+
       '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'default\')">Temel göstergeler</button>'+
-      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'all\')">Tümünü göster</button></div>'+
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'all\')">Hepsini seç</button>'+
+      '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'none\')">Tümünü kaldır</button></div>'+
       '</section>';
   }
 
@@ -166,8 +176,8 @@ export function createCashflowForecastUI({money,monthLabel}){
   }
   function preset(kind){
     visible.clear();
-    const keys=kind==="all"?metricDefs.map(m=>m.key):
-      ["income","totalExpenses","monthlyNet","closingSavings"];
+    const keys=kind==="all"?metricDefs.map(m=>m.key):kind==="none"?[]:
+      ["income","totalExpenses","closingCardDebt","closingSavings"];
     keys.forEach(key=>visible.add(key));
     syncCharts();
   }
@@ -181,12 +191,14 @@ export function createCashflowForecastUI({money,monthLabel}){
       '<div class="cf-sync-alert"><strong>⚠️ Fiili Ek Hesap bakiyesi henüz girilmemiş.</strong>'+
       '<span>Eski tahmin gerçek bakiye olmayabilir.</span>'+
       '<button class="btn btn-p btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap bakiyesi gir / Excel yükle</button></div>';
-    const helper='<p class="cf-muted">Aylık net = <strong>Gelir − Toplam harcama</strong>. '+
-      'Toplam birikim, önceki aylardan devreden net bakiyeyi de dikkate alır. '+
-      'Ek Hesap borcu varsa aylık net pozitif olsa bile toplam birikim sıfır olabilir. '+
-      'Kart asgarileri bir sonraki ekstre için tahminidir; KMH günlük faizi bu Excel tipi nakit planına ayrıca eklenmez.</p>';
+    const helper='<p class="cf-muted"><strong>Ödeme sırası:</strong> Krediler ve nakit giderler → kart asgarileri → varsa Ek Hesap borcunu kapatma → kartlara tüm fazla nakdi aktarma → ancak tüm borçlar ödendiyse birikim. '+
+      '<strong>Aylık net = gelir − gerçekleşebilir nakit çıkışı</strong> (kartlara ödenen tutar ve Ek Hesap geri ödemesi dahil). '+
+      'Kart tamamen kapanmadan birikim yazılmaz. Ödenemeyen kart borcu, faiz ve vergi tahminiyle sonraki aya devredilir.</p>'+
+      (data.some(r=>r.unfundedMandatory>0)?
+        '<div class="cf-sync-alert"><strong>⚠️ Ek Hesap limiti yetersiz</strong><span>Zorunlu ödemelerin tamamı karşılanamıyor. Lütfen kırmızı satırları kontrol et.</span></div>':'')+
+      '<p class="cf-muted">Kart ödeme hedefi ayın yeni harcamaları ve ilgili taksit tahminini de içerir; bankanın kesinleşmiş son ödeme tarihleri farklı olabilir. KMH faizi yaklaşık hesaplanıp sonraki aya eklenir.</p>';
     const toolbar='<div class="cf-forecast-actions">'+
-      '<span class="cf-muted">12 ay · TL · Aylık net ve toplam birikim ayrı gösterilir</span>'+
+      '<span class="cf-muted">12 ay · TL · Önce tüm borçlar, sonra birikim</span>'+
       '<button type="button" class="btn btn-p btn-sm" onclick="cfForecastFullscreen()">⛶ Geniş ekranda aç</button></div>';
     return note+helper+toolbar+table()+mobileCards()+chart("dash");
   }
