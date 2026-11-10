@@ -3277,7 +3277,7 @@ function cfInstallmentEditor(){
 function cfOverdraftEditor(){
   const snapshot=cfPlan.overdraft.actualSnapshot;
   const month=snapshot?.month||cfForecastStartMonth||cfSelectedMonth||cfPlan.startMonth;
-  return '<p class="cf-muted">Fiili Ek Hesap bakiyesi ile eski tahmini plan başlangıcını birbirinden ayır. Mevcut borç bakiyesi, gelir ve kart ödemeleri tekrar düşülmeden referans alınır. Excel’den içe aktarma yalnızca bu cihazda okunur; kaydetmeden veritabanına gönderilmez.</p>'+
+  return '<p class="cf-muted">Fiili Ek Hesap bakiyesini eski plan başlangıcından ayrı kaydet. Bu tutar Excel tipi dönem planının açılış bakiyesidir; daha önce alınmış maaşı veya ödenmiş faturaları aynı dönem için yeniden planlarsan tahmin hatalı olur. Excel dosyası cihazında okunur ve sadece onaylanan bakiye Planı Kaydet ile saklanır.</p>'+
     '<div class="cf-inputs">'+
       cfField("Fiili Ek Hesap borcu (₺) — borç pozitif girilir",snapshot?.debt??"","cfSnapshot('debt',this.value)")+
       cfField("Fiili bakiyenin baz alınacağı ay",month,"cfSnapshot('month',this.value)","month")+
@@ -3413,7 +3413,7 @@ function cfCompactForecast(rows){
       '<button class="btn btn-p btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap bakiyesini gir / Excel yükle</button></div>';
   return intro+
     '<p class="cf-muted">Excel modelindeki sütunlar: <strong>K (Toplam Harcama) = C (Kredi) + H (Gelecek ayın kart asgarisi) + I (Nakit gider)</strong>. Sonraki aya devreden tutar ise <strong>J (devreden net bakiye) + B (gelir) - K</strong> ile hesaplanır. Eksi bakiye Ek Hesap borcudur; artı bakiye birikime devreder.</p>'+
-    '<p class="cf-muted">Faiz ve vergiler karttan devreden tutarın içindedir. KMH günlük faizi bu Excel formülünde ayrıca düşülmediği için ay sonu tahmini, gerçek banka bakiyesinden farklı olabilir. Başlangıç bakiyesi zaten ayın gelir ve ödemelerini içeriyorsa aynı kalemleri yeniden tahmine ekleme.</p>'+
+    '<p class="cf-muted">Faiz ve vergiler karttan devreden tutarın içindedir. KMH günlük faizi bu Excel formülünde ayrıca düşülmediği için ay sonu tahmini, gerçek banka bakiyesinden farklı olabilir. Fiili bakiye, seçilen ayın maaşı ve ödemeleri sonrası ölçüldüyse ilgili ayın tüm gelir ve giderlerini tekrar düşme; o durumda sonraki dönemden planlama yap veya kalan tutarları kullan.</p>'+
     '<div class="cf-scroll"><table class="cf-table cf-compact-forecast"><thead><tr>'+
     '<th>Ay</th><th>Gelir</th><th>Krediler (nakit ödeme)</th>'+
     '<th>Geçmiş aydan devreden kart borcu (faiz dahil)</th>'+
@@ -3946,6 +3946,9 @@ window.cfOpenSnapshotSettings=function(){
   renderCashflow();
   const panel=Array.from(document.querySelectorAll(".cf-details-panel")).find(el=>
     el.querySelector("summary")?.textContent?.includes("Enpara Ekpara / KMH ayarları"));
+  const outer=panel?.closest(".cf-fold-card");
+  if(outer)outer.open=true;
+  if(panel)panel.open=true;
   panel?.scrollIntoView?.({behavior:"smooth",block:"center"});
 };
 window.cfSnapshot=function(field,value){
