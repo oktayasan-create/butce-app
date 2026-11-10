@@ -3474,6 +3474,26 @@ function cfActivityLog(current){
 function cfCompactForecast(rows){
   return cfForecastUI.render(rows,cfPlan);
 }
+function cfPriorityDiagnostics(rows){
+  const values=computeCashPositionTable(cfPlan,rows);
+  return '<p class="cf-muted">Bu rapor, zorunlu ödemeleri karşılar; asgarileri öder, varsa KMH borcunu kapatır, tüm kalan nakdi en yüksek faizli karta yönlendirir. Hiçbir kart borcu veya KMH kalmadıysa birikim oluşur. KMH faiz maliyeti bir sonraki ayın nakit gideridir.</p>'+
+    '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
+    '<th>Ay</th><th>Ödeme hedefi</th><th>Zorunlu asgari</th>'+
+    '<th>Kart ödemesi</th><th>KMH geri ödeme</th><th>Devreden kart borcu</th>'+
+    '<th>Son KMH borcu</th><th>Birikim</th><th>KMH faiz/vergi (sonraki ay)</th>'+
+    '<th>Karşılanamayan zorunlu tutar</th></tr></thead><tbody>'+
+    values.map(r=>'<tr><td>'+cfText(cfMonthLabel(r.month))+'</td>'+
+      '<td>'+cfMoney(r.card.statementTotal)+'</td>'+
+      '<td>'+cfMoney(r.minimum)+'</td>'+
+      '<td>'+cfMoney(r.cardPayments)+'</td>'+
+      '<td>'+cfMoney(r.overdraftRepaid)+'</td>'+
+      '<td>'+cfMoney(r.closingCardDebt)+'</td>'+
+      '<td>'+cfMoney(r.closingOverdraft)+'</td>'+
+      '<td>'+cfMoney(r.closingSavings)+'</td>'+
+      '<td>'+cfMoney(r.overdraftInterest+r.overdraftInterestTax)+'</td>'+
+      '<td>'+(r.unfundedMandatory>0?'<strong class="cf-bad">'+cfMoney(r.unfundedMandatory)+'</strong>':cfMoney(0))+'</td></tr>').join('')+
+    '</tbody></table></div>';
+}
 function cfKpi(label,value,info){
   return '<div class="cf-kpi"><span class="cf-kpi-label">'+cfText(label)+'</span>'+
     '<strong>'+cfMoney(value)+'</strong>'+
@@ -3643,8 +3663,8 @@ async function renderCashflow(){
     '<div class="cf-kpi-grid">'+
       cfKpi("Bu ayın bütçe geliri",current.income,"Maaş ve ek gelirler aynı ayda")+
       cfKpi("Ev + araba + diğer kredi",current.loanPayments,"TAM tutar · zorunlu")+
-      cfKpi("Bu ay ödenecek kart asgarileri",current.minimumTotal,"Önceki ayın ekstresi")+
-      cfKpi("Ay sonu tahmini Ek Hesap borcu",selectedBalance.closingOverdraft,"Fiili değil, Excel senaryosu")+
+      cfKpi("Bu ayki kart asgari hedefi",selectedBalance.minimum,"Ödeme modeline göre")+
+      cfKpi("Ödenmeden devreden kart borcu",selectedBalance.closingCardDebt,"Birikimden önce kapanır")+
     '</div>'+
     '<div class="cf-overview-box">'+cfLoanSummary(current)+'</div>'+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Ödenen kredi kartları</h3>'+
@@ -3657,11 +3677,12 @@ async function renderCashflow(){
       cfStatementOverview(overview)+'</div>'+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Önümüzdeki 12 ay</h3>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'plan\')">Nakit planını düzenle</button></div>'+
-      '<p class="cf-muted">Gelirler ilgili ayın Genel Bütçe kayıtlarından alınır. Kart borcu ay sonunda oluşur ve bir sonraki ayın ekstresinde ödenir. Devreden borca tahmini faiz ve vergiler dahildir; mevcut ödemeler tekrar harcama sayılmaz.</p>'+
+      '<p class="cf-muted">Öncelik sırası: krediler ve nakit giderleri → kart asgarileri → Ek Hesap geri ödemesi → mümkün olan tüm ek kart ödemeleri → yalnız tüm borçlar kapandıysa birikim. Ödenmeyen kart borcu faiz tahminiyle devreder. Kart ödeme hedefi banka ekstre vadeleriyle farklılaşabilir.</p>'+
       cfCompactForecast(rows)+'</div>'+
-    '<div class="cf-compact-callout">Ay sonu tahmini birikim: <strong>'+cfMoney(selectedBalance.closingSavings)+
-      '</strong> · Ay sonu tahmini Ek Hesap borcu: <strong>'+cfMoney(selectedBalance.closingOverdraft)+
-      '</strong> · Gelecek ay ödenecek tahmini kart borcu: <strong>'+cfMoney(selectedBalance.card.statementTotal)+'</strong></div>';
+    '<div class="cf-compact-callout">Borçlara ödenen kart tutarı: <strong>'+cfMoney(selectedBalance.cardPayments)+
+      '</strong> · Ödenmemiş kart borcu: <strong>'+cfMoney(selectedBalance.closingCardDebt)+
+      '</strong> · Ek Hesap: <strong>'+cfMoney(selectedBalance.closingOverdraft)+
+      '</strong> · Gerçek tahmini birikim: <strong>'+cfMoney(selectedBalance.closingSavings)+'</strong></div>';
 
   const statementView='<div id="cf-statement-panel"></div>';
 
@@ -3689,8 +3710,8 @@ async function renderCashflow(){
         cfText(r.month)+'</option>').join('')+'</select>'+
       '<div class="cf-kpi-grid cf-kpi-grid-3">'+
         cfKpi("Kredi taksitleri – TAM",current.loanPayments,"Ev + araba + diğer")+
-        cfKpi("Bu ay ödenecek kart asgarileri",current.minimumTotal,"Zorunlu")+
-        cfKpi("Ay sonu tahmini Ek Hesap",selectedBalance.closingOverdraft,"Excel senaryosuna göre")+
+        cfKpi("Bu ayki kart asgarisi",selectedBalance.minimum,"Önce zorunlu")+
+        cfKpi("Ay sonu tahmini Ek Hesap",selectedBalance.closingOverdraft,"Zorunlu açık için kullanılır")+
       '</div>'+
       cfLoanSummary(current)+
       '<div class="cf-section-head" style="margin-top:20px"><h3>Kart ödemelerini kaydet</h3></div>'+
@@ -3718,8 +3739,8 @@ async function renderCashflow(){
     '</div>'+
     '<div class="card cb cf-section"><h3>12 aylık nakit durumu</h3>'+
       cfCompactForecast(rows)+
-      cfDetailPanel("detailed-forecast","Faiz, Ekpara, vergi ve diğer ayrıntıları göster",
-        cfForecastTable(rows)+cfSelectedCardDetails(current))+
+      cfDetailPanel("detailed-forecast","Ödeme önceliği, faiz ve borç devir ayrıntıları",
+        cfPriorityDiagnostics(rows))+
     '</div>'+
     '<div class="card cb cf-section"><h3>Diğer ayarlar ve kayıtlar</h3>'+
       '<p class="cf-muted">Yalnızca değiştirmek istediğin bölümü açabilirsin.</p>'+
