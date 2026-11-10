@@ -562,33 +562,159 @@ export function estimateMonthEndCardStatement(plan,row){
  * This is a scenario projection. A snapshot taken AFTER this month's salary
  * and debt payments should not be confused with that month's opening balance.
  */
-export function computeCashPositionTable(plan,rows){
-  if(!validCashFlowPlan(plan)||!Array.isArray(rows)||rows.length>36)throw Error("Invalid cash forecast");
-  if(!rows.length)return [];
-  const snapshot=plan.overdraft.actualSnapshot||null;
-  let net=r2(positive(rows[0].openingCash)-positive(rows[0].openingOverdraft));
-  return rows.map((row,index)=>{
-    if(!monthPattern.test(String(row.month))||!Number.isFinite(row.income))throw Error("Invalid forecast row");
-    const rebased=!!snapshot&&snapshot.month===row.month;
-    if(rebased)net=-r2(snapshot.debt);
-    const netOpening=r2(net);
-    const card=estimateMonthEndCardStatement(plan,row);
-    const income=positive(row.income);
-    const loans=positive(row.loanPayments);
-    const cashExpenses=r2(positive(row.fixedCash)+positive(row.otherCash));
-    const minimum=positive(card.minimum);
-    const totalExpenses=r2(loans+minimum+cashExpenses);
-    net=r2(netOpening+income-totalExpenses);
-    return {
-      month:row.month,dueMonth:card.dueMonth,card,
-      income,loans,cashExpenses,minimum,
-      netOpening,openingOverdraft:Math.max(0,r2(-netOpening)),
-      openingSavings:Math.max(0,netOpening),
-      totalExpenses,monthlyNet:r2(income-totalExpenses),netClosing:net,
-      closingOverdraft:Math.max(0,r2(-net)),
-      closingSavings:Math.max(0,net),
-      snapshotUsed:rebased,
-      snapshotMissing:!snapshot&&index===0
-    };
-  });
+export function computeCashPositionTable(plan, rows) {
+  if (!validCashFlowPlan(plan) || !Array.isArray(rows) || rows.length > 36)
+    throw Error("Invalid debt-first cash forecast");
+  if (!rows.length) return [];
+  const snapshot = plan.overdraft.actualSnapshot || null;
+  const taxMultiplier = 1 + (plan.tax.kkdfPct + plan.tax.bsmvPct) / 100;
+  const overdraftLimit = positive(plan.overdraft.limit);
+  const knownLimit = overdraftLimit > 0;
+  const cardConfigs = new Map(plan.cards.map(c => [c.id, c]));
+  const previousUnpaid = new Map(plan.cards.map(c => [c.id, 0]));
+  const output = [];
+  let cashSavings = positive(rows[0].openingCash);
+  let overdraft = positive(rows[0].openingOverdraft);
+  let dueOverdraftCost = 0;
+
+  function total(items, key) {
+    return r2(items.reduce((sum, item) => sum + positive(item[key]), 0));
+  }
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    if (!monthPattern.test(String(row.month)) || !Number.isFinite(row.income))
+      throw Error("Invalid monthly forecast row");
+    const rebased = Boolean(snapshot && snapshot.month === row.month);
+    if (rebased) {
+      overdraft = positive(snapshot.debt);
+      cashSavings = 0;
+      // Snapshot already represents the real bank position; historic KMH
+      // charges must not be imported from the old minimum-only scenario.
+      dueOverdraftCost = 0;
+    }
+    const openingOverdraft = overdraft;
+    const openingSavings = cashSavings;
+    const netOpening = r2(cashSavings - overdraft);
+    const source = estimateMonthEndCardStatement(plan, row);
+    const cards = source.cards.map(item => {
+      const config = cardConfigs.get(item.id);
+      if (!config) throw Error("Unknown credit card");
+      const prior = positive(previousUnpaid.get(item.id));
+      const carryInterest = index === 0 ? 0 : r2(
+        prior * monthlyCardRate(prior, config) / 100 * taxMultiplier);
+      const carryover = index === 0 ? positive(item.carryover) : r2(prior + carryInterest);
+      const purchases = positive(item.purchases);
+      const nextInstallments = positive(item.nextInstallments);
+      let statementTotal = r2(carryover + purchases + nextInstallments);
+      // Real, bank-confirmed bills take precedence. They are statements,
+      // not another expense to add on top of existing purchases.
+      const verified = item.verified && (index === 0 || statementTotal > 0);
+      if (verified) statementTotal = positive(item.statementTotal);
+      const adjustment = r2(statementTotal - carryover - purchases - nextInstallments);
+      const dueOverride = plan.months?.[source.dueMonth]?.minOverrides?.[item.id];
+      const minimum = r2(Math.min(statementTotal,
+        verified ? positive(item.minimum) :
+        dueOverride != null ? positive(dueOverride) :
+        statementTotal * positive(config.minPct) / 100));
+      return {
+        id: item.id, name: item.name, interestPct: monthlyCardRate(statementTotal, config),
+        carryover, purchases, nextInstallments, carryInterest,
+        statementTotal, estimated: r2(carryover + purchases + nextInstallments),
+        minimum, verified, adjustment, paidMinimum: 0, paidExtra: 0,
+        cardPayment: 0, unpaid: 0
+      };
+    });
+    const income = positive(row.income);
+    const loans = positive(row.loanPayments);
+    const cashExpenses = r2(positive(row.fixedCash) + positive(row.otherCash));
+    const chargedOverdraftCost = dueOverdraftCost;
+    const essentials = r2(loans + cashExpenses + chargedOverdraftCost);
+    const minimum = total(cards, "minimum");
+    const debtTarget = total(cards, "statementTotal");
+    const totalRequired = r2(essentials + debtTarget + openingOverdraft);
+    let cash = r2(openingSavings + income);
+    let overdraftDraw = 0;
+    let unfundedMandatory = 0;
+
+    // Borrow from KMH ONLY to fund essential payments or card minimums.
+    // Never draw from KMH to pay additional card principal.
+    function fundRequired(amount) {
+      const fromCash = Math.min(cash, amount);
+      cash = r2(cash - fromCash);
+      const short = r2(amount - fromCash);
+      if (short <= 0) return 0;
+      const capacity = knownLimit ? Math.max(0, r2(overdraftLimit - overdraft)) : short;
+      const draw = Math.min(short, capacity);
+      overdraft = r2(overdraft + draw);
+      overdraftDraw = r2(overdraftDraw + draw);
+      const unfunded = r2(short - draw);
+      unfundedMandatory = r2(unfundedMandatory + unfunded);
+      return unfunded;
+    }
+
+    // 1. Loan instalments, cash necessities and accrued KMH cost.
+    fundRequired(essentials);
+    // 2. Each bank card's required minimum (if KMH limit allows).
+    for (const card of cards) {
+      const missing = fundRequired(card.minimum);
+      card.paidMinimum = r2(card.minimum - missing);
+    }
+    // 3. Existing KMH debt is repaid before any optional card payment.
+    const overdraftRepaid = Math.min(cash, overdraft);
+    overdraft = r2(overdraft - overdraftRepaid);
+    cash = r2(cash - overdraftRepaid);
+    // 4. All remaining cash repays card principal, highest interest first.
+    const priority = cards.slice().sort((a, b) =>
+      b.interestPct - a.interestPct || b.statementTotal - a.statementTotal);
+    for (const card of priority) {
+      const stillDue = Math.max(0, r2(card.statementTotal - card.paidMinimum));
+      card.paidExtra = Math.min(cash, stillDue);
+      cash = r2(cash - card.paidExtra);
+    }
+    for (const card of cards) {
+      card.cardPayment = r2(card.paidMinimum + card.paidExtra);
+      card.unpaid = Math.max(0, r2(card.statementTotal - card.cardPayment));
+      previousUnpaid.set(card.id, card.unpaid);
+    }
+    const cardPayments = total(cards, "cardPayment");
+    const cardExtraPayments = total(cards, "paidExtra");
+    const minimumPaid = total(cards, "paidMinimum");
+    const closingCardDebt = total(cards, "unpaid");
+    // Savings are only money left after KMH AND every card is cleared.
+    cashSavings = overdraft === 0 && closingCardDebt === 0 && unfundedMandatory === 0
+      ? Math.max(0, r2(cash)) : 0;
+    const closingOverdraft = positive(overdraft);
+    const totalExpenses = r2(essentials + cardPayments + overdraftRepaid);
+    const monthlyNet = r2(income - totalExpenses);
+    const netClosing = r2(cashSavings - closingOverdraft);
+    // Daily KMH accrual is an approximation posted next month.
+    const averageKMH = (openingOverdraft + closingOverdraft) / 2;
+    const overdraftInterest = r2(averageKMH * positive(plan.overdraft.interestPct) / 100);
+    const overdraftInterestTax = r2(overdraftInterest * (taxMultiplier - 1));
+    dueOverdraftCost = r2(overdraftInterest + overdraftInterestTax);
+    output.push({
+      month: row.month, dueMonth: source.dueMonth,
+      card: {
+        month: row.month, dueMonth: source.dueMonth,
+        cards, carryover: total(cards, "carryover"),
+        purchases: total(cards, "purchases"),
+        installments: total(cards, "nextInstallments"),
+        adjustment: r2(cards.reduce((sum, c) => sum + c.adjustment, 0)),
+        statementTotal: debtTarget, minimum, hasVerified: cards.some(c => c.verified)
+      },
+      income, loans, cashExpenses, minimum, minimumPaid,
+      cardPayments, cardExtraPayments, closingCardDebt,
+      openingSavings, openingOverdraft, netOpening,
+      chargedOverdraftCost, overdraftInterest, overdraftInterestTax,
+      overdraftDraw, overdraftRepaid,
+      essentials, totalRequired,
+      totalExpenses, monthlyNet, netClosing,
+      closingOverdraft, closingSavings: cashSavings,
+      unfundedMandatory, fundingGap: unfundedMandatory,
+      overdraftLimitExceeded: knownLimit && unfundedMandatory > 0,
+      savingsLocked: closingCardDebt > 0 || closingOverdraft > 0 || unfundedMandatory > 0,
+      snapshotUsed: rebased, snapshotMissing: !snapshot && index === 0
+    });
+  }
+  return output;
 }
