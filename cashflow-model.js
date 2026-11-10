@@ -61,7 +61,7 @@ export function emptyCashFlowPlan() {
     loans:[],installments:[],statementSnapshots:[],
     recurringIncome:[],recurringExpenses:defaultRecurringExpenses(isoMonth()),
     budgetLink:{enabled:true,categories:{}},
-    overdraft:{name:"Enpara Ekpara",openingDebt:0,limit:0,interestPct:4.25},
+    overdraft:{name:"Enpara Ekpara",openingDebt:0,limit:0,interestPct:4.25,actualSnapshot:null},
     tax:{kkdfPct:15,bsmvPct:15}};
 }
 export function normalizeCashFlowPlan(raw) {
@@ -172,6 +172,15 @@ export function validCashFlowPlan(p) {
     instIds.add(inst.id);
   }
   const od=p.overdraft,tax=p.tax;
+  // A confirmed current balance is separate from the historical model opening.
+  if(od.actualSnapshot!=null && (
+     typeof od.actualSnapshot!=="object" ||
+     !monthPattern.test(String(od.actualSnapshot.month)) ||
+     typeof od.actualSnapshot.debt!=="number" ||
+     !Number.isFinite(od.actualSnapshot.debt) ||
+     od.actualSnapshot.debt<0 ||
+     od.actualSnapshot.debt>1e12
+  ))return false;
   if(typeof od.name!=="string"||od.name.length>90||
      !Number.isFinite(od.openingDebt)||od.openingDebt<0||
      !Number.isFinite(od.limit)||od.limit<0||
@@ -541,4 +550,45 @@ export function estimateMonthEndCardStatement(plan,row){
     installments:total("nextInstallments"),adjustment:total("adjustment"),
     statementTotal:total("statementTotal"),minimum:total("minimum"),
     hasVerified:cards.some(c=>c.verified)};
+}
+
+
+/**
+ * Excel-style month-based cash planning.
+ * K = C loans + H next-due card minimum + I cash expenses.
+ * J = prior net balance, or a user-confirmed actual snapshot.
+ * L = MIN(0, J + B - K), M = MAX(0, J + B - K).
+ *
+ * This is a scenario projection. A snapshot taken AFTER this month's salary
+ * and debt payments should not be confused with that month's opening balance.
+ */
+export function computeCashPositionTable(plan,rows){
+  if(!validCashFlowPlan(plan)||!Array.isArray(rows)||rows.length>36)throw Error("Invalid cash forecast");
+  if(!rows.length)return [];
+  const snapshot=plan.overdraft.actualSnapshot||null;
+  let net=r2(positive(rows[0].openingCash)-positive(rows[0].openingOverdraft));
+  return rows.map((row,index)=>{
+    if(!monthPattern.test(String(row.month))||!Number.isFinite(row.income))throw Error("Invalid forecast row");
+    const rebased=!!snapshot&&snapshot.month===row.month;
+    if(rebased)net=-r2(snapshot.debt);
+    const netOpening=r2(net);
+    const card=estimateMonthEndCardStatement(plan,row);
+    const income=positive(row.income);
+    const loans=positive(row.loanPayments);
+    const cashExpenses=r2(positive(row.fixedCash)+positive(row.otherCash));
+    const minimum=positive(card.minimum);
+    const totalExpenses=r2(loans+minimum+cashExpenses);
+    net=r2(netOpening+income-totalExpenses);
+    return {
+      month:row.month,dueMonth:card.dueMonth,card,
+      income,loans,cashExpenses,minimum,
+      netOpening,openingOverdraft:Math.max(0,r2(-netOpening)),
+      openingSavings:Math.max(0,netOpening),
+      totalExpenses,netClosing:net,
+      closingOverdraft:Math.max(0,r2(-net)),
+      closingSavings:Math.max(0,net),
+      snapshotUsed:rebased,
+      snapshotMissing:!snapshot&&index===0
+    };
+  });
 }
