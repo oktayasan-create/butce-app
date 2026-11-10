@@ -428,6 +428,70 @@ body.auth-locked .app-layout,body.auth-locked .bottom-nav,body.auth-locked .fab-
 .cf-statement-month>summary{align-items:center}
 .cf-statement-month>summary>span:last-child{text-align:right}
 @media(max-width:650px){.cf-fold-card>summary{padding:13px 14px}.cf-statement-month>summary>span:last-child{text-align:left}}
+
+/* Focused 12-month forecast: compact financial grid, portrait cards and full-screen sheet. */
+.cf-forecast-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:12px 0}
+.cf-forecast-actions .btn{white-space:nowrap}
+.cf-forecast-scroll{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;border:1px solid var(--border);border-radius:12px}
+.cf-compact-forecast{width:100%;min-width:1280px;table-layout:fixed;border-collapse:collapse;font-size:10.5px;line-height:1.35}
+.cf-compact-forecast th,.cf-compact-forecast td{padding:8px 5px!important;min-width:0;border-bottom:1px solid var(--border);text-align:right;font-variant-numeric:tabular-nums}
+.cf-compact-forecast th{font-size:10px!important;white-space:normal!important;overflow-wrap:break-word;line-height:1.32;vertical-align:bottom;background:var(--bg3);position:sticky;top:0}
+.cf-compact-forecast td{white-space:nowrap;letter-spacing:-.18px}
+.cf-compact-forecast th:first-child,.cf-compact-forecast td:first-child{text-align:left;width:103px;white-space:normal}
+.cf-compact-forecast td small{display:block;font-size:9px;font-weight:450;line-height:1.2;white-space:normal}
+.cf-compact-forecast th:nth-last-child(-n+2),.cf-compact-forecast td:nth-last-child(-n+2){font-weight:750}
+.cf-month-delta-negative{color:#e35f78;font-weight:800}
+.cf-month-delta-positive{color:#0f9f77;font-weight:800}
+.cf-mobile-forecast{display:none}
+.cf-mobile-month{border:1px solid var(--border2);border-radius:12px;background:var(--bg3);margin:9px 0;overflow:hidden}
+.cf-mobile-month>summary{cursor:pointer;list-style:none;padding:13px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cf-mobile-month>summary::-webkit-details-marker{display:none}
+.cf-mobile-month>summary::after{content:"⌄";font-size:19px;color:var(--text3)}
+.cf-mobile-month[open]>summary::after{content:"⌃"}
+.cf-mobile-month>summary .cf-month-headline{display:flex;flex-direction:column;gap:3px;font-size:12px}
+.cf-mobile-month .cf-month-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:12px;border-top:1px solid var(--border)}
+.cf-mobile-metric{min-width:0;background:var(--bg4);border-radius:9px;padding:10px;display:flex;flex-direction:column;gap:5px}
+.cf-mobile-metric span{font-size:11px;color:var(--text3);line-height:1.3}
+.cf-mobile-metric strong{font-size:13px;word-break:break-word;font-variant-numeric:tabular-nums}
+.cf-month-delta-card{display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:11px;min-width:0}
+.cf-month-delta-card strong{font-size:13px}
+.cf-trend{margin:18px 0 10px;border:1px solid var(--border);border-radius:13px;background:var(--bg3);padding:15px}
+.cf-trend-title{font-size:15px;font-weight:750;margin-bottom:4px}
+.cf-trend-chart{overflow:hidden;max-width:100%}
+.cf-trend-chart svg{width:100%;height:auto;display:block;min-height:180px}
+.cf-chart-controls{display:flex;flex-wrap:wrap;gap:8px 12px;margin-top:10px;border:0;padding:0}
+.cf-chart-controls legend{width:100%;font-size:12px;font-weight:700;color:var(--text2);margin-bottom:8px}
+.cf-chart-controls label{display:flex;align-items:center;gap:6px;padding:7px 10px;border:1px solid var(--border2);border-radius:8px;font-size:12px;cursor:pointer}
+.cf-chart-controls input{accent-color:var(--brand)}
+.cf-chart-dot{width:9px;height:9px;display:inline-block;border-radius:50%;flex:0 0 9px}
+.cf-forecast-modal{position:fixed;inset:0;z-index:100000;background:rgba(3,8,19,.86);display:flex;align-items:center;justify-content:center;padding:10px}
+.cf-forecast-modal-shell{width:min(99vw,1900px);height:min(96dvh,1150px);min-height:0;display:flex;flex-direction:column;overflow:hidden;border-radius:15px;background:var(--bg2);color:var(--text);border:1px solid var(--border2);box-shadow:0 18px 60px rgba(0,0,0,.3)}
+.cf-forecast-modal-head{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--border);flex:0 0 auto}
+.cf-forecast-modal-head strong{font-size:16px}
+.cf-forecast-modal-content{padding:14px;overflow:auto;overscroll-behavior:contain;flex:1;min-height:0}
+.cf-forecast-modal-content .cf-compact-forecast{min-width:1420px}
+.cf-forecast-modal-content .cf-forecast-scroll{max-height:48vh}
+.cf-forecast-modal-content .cf-trend{margin-top:20px}
+body.cf-forecast-overlay-open{overflow:hidden!important}
+@media(max-width:800px){
+  .cf-forecast-desktop{display:none}
+  .cf-mobile-forecast{display:block}
+  .cf-trend{padding:10px}
+  .cf-chart-controls{gap:6px}
+  .cf-chart-controls label{padding:6px 8px;font-size:11px}
+}
+@media(max-width:800px) and (orientation:portrait){
+  /* Rotated landscape canvas when device/browser orientation lock is unsupported. */
+  .cf-forecast-modal{padding:0;display:block}
+  .cf-forecast-modal-shell{position:absolute;top:0;left:100dvw;width:100dvh;height:100dvw;max-width:none;max-height:none;border-radius:0;transform-origin:top left;transform:rotate(90deg)}
+  .cf-forecast-modal-head{padding:6px 12px}
+  .cf-forecast-modal-head strong{font-size:13px}
+  .cf-forecast-modal-content{padding:8px}
+  .cf-forecast-modal-content .cf-compact-forecast{min-width:1280px}
+  .cf-forecast-modal-content .cf-forecast-scroll{max-height:none}
+  .cf-forecast-modal-content .cf-trend svg{min-height:135px}
+}
+
 </style></head>
 <body class="auth-locked">
 <div id="auth-gate"><form class="auth-panel" id="auth-form"><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-status" role="status"></div><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button><button id="auth-switch" class="secondary-action" type="button" hidden>Oturumu kapat / hesap değiştir</button></form></div>
@@ -684,6 +748,7 @@ import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, no
 import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, statementPlanMonth, suggestStatementInstallments } from "./statement-import.js";
 import { createStatementInboxUI } from "./statement-ui.js";
 import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
+import {createCashflowForecastUI} from "./cashflow-forecast-ui.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -3014,6 +3079,11 @@ window.statementPlanApply=sid=>statementUI.applyToPlan(sid);
 window.statementExpandedSet=(source,id,opened)=>statementUI.selectExpanded(source,id,opened);
 window.cfImportArchivedStatements=()=>statementUI.applyAllToPlan();
 const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
+const cfForecastUI=createCashflowForecastUI({money:cfMoney,monthLabel:cfMonthLabel});
+window.cfForecastFullscreen=()=>cfForecastUI.open();
+window.cfForecastClose=()=>cfForecastUI.close();
+window.cfChartToggle=(metric,enabled)=>cfForecastUI.toggle(metric,enabled);
+window.cfChartPreset=(which)=>cfForecastUI.preset(which);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
 const cfText = (v) => safeHtml(v);
@@ -3402,61 +3472,8 @@ function cfActivityLog(current){
   }).join(''):'<div class="cf-muted">Henüz bu ay işlem kaydı yok.</div>';
 }
 function cfCompactForecast(rows){
-  const cashRows=computeCashPositionTable(cfPlan,rows);
-  const snapshot=cfPlan.overdraft.actualSnapshot;
-  const intro=snapshot?
-    '<div class="cf-compact-callout"><strong>Fiili Ek Hesap açılış bakiyesi ('+
-      cfText(cfMonthLabel(snapshot.month))+'):</strong> <strong class="cf-bad">-'+
-      cfMoney(snapshot.debt)+'</strong> <button class="btn btn-ghost btn-sm" onclick="cfOpenSnapshotSettings()">Değiştir</button></div>':
-    '<div class="cf-sync-alert"><strong>⚠️ Fiili Ek Hesap bakiyesi henüz girilmemiş.</strong>'+
-      '<span>Eski plan başlangıcı tahmini gerçek borcunla karıştırılabilir. Excel’deki “Mevcut Durum” verisini içe aktar veya fiili tutarı gir.</span>'+
-      '<button class="btn btn-p btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap bakiyesini gir / Excel yükle</button></div>';
-  return intro+
-    '<p class="cf-muted">Excel modelindeki sütunlar: <strong>K (Toplam Harcama) = C (Kredi) + H (Gelecek ayın kart asgarisi) + I (Nakit gider)</strong>. Sonraki aya devreden tutar ise <strong>J (devreden net bakiye) + B (gelir) - K</strong> ile hesaplanır. Eksi bakiye Ek Hesap borcudur; artı bakiye birikime devreder.</p>'+
-    '<p class="cf-muted">Faiz ve vergiler karttan devreden tutarın içindedir. KMH günlük faizi bu Excel formülünde ayrıca düşülmediği için ay sonu tahmini, gerçek banka bakiyesinden farklı olabilir. Fiili bakiye, seçilen ayın maaşı ve ödemeleri sonrası ölçüldüyse ilgili ayın tüm gelir ve giderlerini tekrar düşme; o durumda sonraki dönemden planlama yap veya kalan tutarları kullan.</p>'+
-    '<div class="cf-scroll"><table class="cf-table cf-compact-forecast"><thead><tr>'+
-    '<th>Ay</th><th>Gelir</th><th>Krediler (nakit ödeme)</th>'+
-    '<th>Geçmiş aydan devreden kart borcu (faiz dahil)</th>'+
-    '<th>Ay içi tahmini kart harcamaları</th>'+
-    '<th>Gelecek ekstreye girecek taksitler</th>'+
-    '<th>Ay sonu tahmini kart borcu (gelecek ay ödenecek)</th>'+
-    '<th>Gelecek ay tahmini asgari</th>'+
-    '<th>Tahmini nakit harcama</th>'+
-    '<th>Ek Hesap / Geçmiş aydan devreden</th>'+
-    '<th>Toplam harcama</th>'+
-    '<th>Ek Hesap / Sonraki aya devreden</th>'+
-    '<th>Ay sonu tahmini birikim</th>'+
-    '</tr></thead><tbody>'+
-    cashRows.map(r=>{
-      const card=r.card;
-      const adjusted=card.hasVerified&&Math.abs(card.adjustment)>=0.01;
-      const klass=r.closingOverdraft>0?'cf-overdraft-month':r.closingSavings>0?'cf-savings-month':'';
-      return '<tr class="'+klass+'">'+
-        '<td><strong>'+cfText(cfMonthLabel(r.month))+'</strong>'+
-          '<small class="cf-muted"> · Kart ödeme '+cfText(cfMonthLabel(r.dueMonth))+'</small></td>'+
-        '<td>'+cfMoney(r.income)+'</td>'+
-        '<td>'+cfMoney(r.loans)+'</td>'+
-        '<td>'+cfMoney(card.carryover)+'</td>'+
-        '<td>'+cfMoney(card.purchases)+'</td>'+
-        '<td>'+cfMoney(card.installments)+'</td>'+
-        '<td><strong>'+cfMoney(card.statementTotal)+'</strong>'+
-          (card.hasVerified?'<small class="cf-muted"> · Banka ekstresi</small>':'')+
-          (adjusted?'<small class="cf-muted"> · Ekstre farkı: '+cfMoney(card.adjustment)+'</small>':'')+
-        '</td>'+
-        '<td>'+cfMoney(r.minimum)+'</td>'+
-        '<td>'+cfMoney(r.cashExpenses)+'</td>'+
-        '<td class="'+(r.netOpening<0?'cf-bad':'')+'">'+
-          (r.netOpening<0?'-'+cfMoney(-r.netOpening):cfMoney(0))+
-          (r.openingSavings>0?'<small class="cf-muted"> · Devreden birikim: '+cfMoney(r.openingSavings)+'</small>':'')+
-          (r.snapshotUsed?'<small class="cf-muted"> · Fiili bakiye</small>':'')+'</td>'+
-        '<td><strong>'+cfMoney(r.totalExpenses)+'</strong></td>'+
-        '<td class="'+(r.closingOverdraft>0?'cf-bad':'')+'">'+
-          (r.closingOverdraft>0?'-'+cfMoney(r.closingOverdraft):cfMoney(0))+'</td>'+
-        '<td class="'+(r.closingSavings>0?'cf-good':'')+'">'+cfMoney(r.closingSavings)+'</td>'+
-        '</tr>';
-    }).join('')+'</tbody></table></div>';
+  return cfForecastUI.render(rows,cfPlan);
 }
-
 function cfKpi(label,value,info){
   return '<div class="cf-kpi"><span class="cf-kpi-label">'+cfText(label)+'</span>'+
     '<strong>'+cfMoney(value)+'</strong>'+
