@@ -576,6 +576,7 @@ export function computeCashPositionTable(plan, rows) {
   let cashSavings = positive(rows[0].openingCash);
   let overdraft = positive(rows[0].openingOverdraft);
   let dueOverdraftCost = 0;
+  let unpaidEssentialCarry = 0;
 
   function total(items, key) {
     return r2(items.reduce((sum, item) => sum + positive(item[key]), 0));
@@ -628,7 +629,10 @@ export function computeCashPositionTable(plan, rows) {
     const loans = positive(row.loanPayments);
     const cashExpenses = r2(positive(row.fixedCash) + positive(row.otherCash));
     const chargedOverdraftCost = dueOverdraftCost;
-    const essentials = r2(loans + cashExpenses + chargedOverdraftCost);
+    // Unpaid essential bills carry into the next month; card arrears remain
+    // in the card balance and must not be duplicated here.
+    const priorUnfundedEssentials = unpaidEssentialCarry;
+    const essentials = r2(loans + cashExpenses + chargedOverdraftCost + priorUnfundedEssentials);
     const minimum = total(cards, "minimum");
     const debtTarget = total(cards, "statementTotal");
     const totalRequired = r2(essentials + debtTarget + openingOverdraft);
@@ -653,7 +657,9 @@ export function computeCashPositionTable(plan, rows) {
     }
 
     // 1. Loan instalments, cash necessities and accrued KMH cost.
-    fundRequired(essentials);
+    const unpaidEssentials = fundRequired(essentials);
+    const essentialsPaid = r2(essentials - unpaidEssentials);
+    unpaidEssentialCarry = unpaidEssentials;
     // 2. Each bank card's required minimum (if KMH limit allows).
     for (const card of cards) {
       const missing = fundRequired(card.minimum);
@@ -684,7 +690,8 @@ export function computeCashPositionTable(plan, rows) {
     cashSavings = overdraft === 0 && closingCardDebt === 0 && unfundedMandatory === 0
       ? Math.max(0, r2(cash)) : 0;
     const closingOverdraft = positive(overdraft);
-    const totalExpenses = r2(essentials + cardPayments + overdraftRepaid);
+    // Unfunded mandatory amounts are arrears, not cash already paid.
+    const totalExpenses = r2(essentialsPaid + cardPayments + overdraftRepaid);
     const monthlyNet = r2(income - totalExpenses);
     const netClosing = r2(cashSavings - closingOverdraft);
     // Daily KMH accrual is an approximation posted next month.
@@ -707,7 +714,7 @@ export function computeCashPositionTable(plan, rows) {
       openingSavings, openingOverdraft, netOpening,
       chargedOverdraftCost, overdraftInterest, overdraftInterestTax,
       overdraftDraw, overdraftRepaid,
-      essentials, totalRequired,
+      essentials, essentialsPaid, unpaidEssentials, priorUnfundedEssentials, totalRequired,
       totalExpenses, monthlyNet, netClosing,
       closingOverdraft, closingSavings: cashSavings,
       unfundedMandatory, fundingGap: unfundedMandatory,
