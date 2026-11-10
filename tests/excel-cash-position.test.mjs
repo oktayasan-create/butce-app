@@ -25,9 +25,9 @@ test("Debt-first plan: KMH supports minimums, then card is paid before savings",
   assert.equal(result[0].closingOverdraft,17000);
   assert.equal(result[0].closingSavings,0);
   assert.equal(result[1].netOpening,-17000);
-  assert.equal(result[1].totalExpenses,82000);
+  assert.equal(result[1].totalExpenses,82801.13); // Includes prior month KMH interest and tax
   assert.equal(result[1].closingOverdraft,0);
-  assert.equal(result[1].closingSavings,18000);
+  assert.equal(result[1].closingSavings,17198.87);
   assert.equal(result[0].closingCardDebt,30000);
   assert.equal(result[1].closingCardDebt,0);
   assert.equal(p.overdraft.openingDebt,0); // historical source untouched
