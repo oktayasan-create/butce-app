@@ -748,6 +748,7 @@ import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, no
 import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, statementPlanMonth, suggestStatementInstallments } from "./statement-import.js";
 import { createStatementInboxUI } from "./statement-ui.js";
 import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
+import {createCashflowForecastUI} from "./cashflow-forecast-ui.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -3078,6 +3079,11 @@ window.statementPlanApply=sid=>statementUI.applyToPlan(sid);
 window.statementExpandedSet=(source,id,opened)=>statementUI.selectExpanded(source,id,opened);
 window.cfImportArchivedStatements=()=>statementUI.applyAllToPlan();
 const cfMoney = v => new Intl.NumberFormat("tr-TR",{style:"currency",currency:"TRY",minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
+const cfForecastUI=createCashflowForecastUI({money:cfMoney,monthLabel:cfMonthLabel});
+window.cfForecastFullscreen=()=>cfForecastUI.open();
+window.cfForecastClose=()=>cfForecastUI.close();
+window.cfChartToggle=(metric,enabled)=>cfForecastUI.toggle(metric,enabled);
+window.cfChartPreset=(which)=>cfForecastUI.preset(which);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
 const cfText = (v) => safeHtml(v);
@@ -3466,61 +3472,8 @@ function cfActivityLog(current){
   }).join(''):'<div class="cf-muted">Henüz bu ay işlem kaydı yok.</div>';
 }
 function cfCompactForecast(rows){
-  const cashRows=computeCashPositionTable(cfPlan,rows);
-  const snapshot=cfPlan.overdraft.actualSnapshot;
-  const intro=snapshot?
-    '<div class="cf-compact-callout"><strong>Fiili Ek Hesap açılış bakiyesi ('+
-      cfText(cfMonthLabel(snapshot.month))+'):</strong> <strong class="cf-bad">-'+
-      cfMoney(snapshot.debt)+'</strong> <button class="btn btn-ghost btn-sm" onclick="cfOpenSnapshotSettings()">Değiştir</button></div>':
-    '<div class="cf-sync-alert"><strong>⚠️ Fiili Ek Hesap bakiyesi henüz girilmemiş.</strong>'+
-      '<span>Eski plan başlangıcı tahmini gerçek borcunla karıştırılabilir. Excel’deki “Mevcut Durum” verisini içe aktar veya fiili tutarı gir.</span>'+
-      '<button class="btn btn-p btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap bakiyesini gir / Excel yükle</button></div>';
-  return intro+
-    '<p class="cf-muted">Excel modelindeki sütunlar: <strong>K (Toplam Harcama) = C (Kredi) + H (Gelecek ayın kart asgarisi) + I (Nakit gider)</strong>. Sonraki aya devreden tutar ise <strong>J (devreden net bakiye) + B (gelir) - K</strong> ile hesaplanır. Eksi bakiye Ek Hesap borcudur; artı bakiye birikime devreder.</p>'+
-    '<p class="cf-muted">Faiz ve vergiler karttan devreden tutarın içindedir. KMH günlük faizi bu Excel formülünde ayrıca düşülmediği için ay sonu tahmini, gerçek banka bakiyesinden farklı olabilir. Fiili bakiye, seçilen ayın maaşı ve ödemeleri sonrası ölçüldüyse ilgili ayın tüm gelir ve giderlerini tekrar düşme; o durumda sonraki dönemden planlama yap veya kalan tutarları kullan.</p>'+
-    '<div class="cf-scroll"><table class="cf-table cf-compact-forecast"><thead><tr>'+
-    '<th>Ay</th><th>Gelir</th><th>Krediler (nakit ödeme)</th>'+
-    '<th>Geçmiş aydan devreden kart borcu (faiz dahil)</th>'+
-    '<th>Ay içi tahmini kart harcamaları</th>'+
-    '<th>Gelecek ekstreye girecek taksitler</th>'+
-    '<th>Ay sonu tahmini kart borcu (gelecek ay ödenecek)</th>'+
-    '<th>Gelecek ay tahmini asgari</th>'+
-    '<th>Tahmini nakit harcama</th>'+
-    '<th>Ek Hesap / Geçmiş aydan devreden</th>'+
-    '<th>Toplam harcama</th>'+
-    '<th>Ek Hesap / Sonraki aya devreden</th>'+
-    '<th>Ay sonu tahmini birikim</th>'+
-    '</tr></thead><tbody>'+
-    cashRows.map(r=>{
-      const card=r.card;
-      const adjusted=card.hasVerified&&Math.abs(card.adjustment)>=0.01;
-      const klass=r.closingOverdraft>0?'cf-overdraft-month':r.closingSavings>0?'cf-savings-month':'';
-      return '<tr class="'+klass+'">'+
-        '<td><strong>'+cfText(cfMonthLabel(r.month))+'</strong>'+
-          '<small class="cf-muted"> · Kart ödeme '+cfText(cfMonthLabel(r.dueMonth))+'</small></td>'+
-        '<td>'+cfMoney(r.income)+'</td>'+
-        '<td>'+cfMoney(r.loans)+'</td>'+
-        '<td>'+cfMoney(card.carryover)+'</td>'+
-        '<td>'+cfMoney(card.purchases)+'</td>'+
-        '<td>'+cfMoney(card.installments)+'</td>'+
-        '<td><strong>'+cfMoney(card.statementTotal)+'</strong>'+
-          (card.hasVerified?'<small class="cf-muted"> · Banka ekstresi</small>':'')+
-          (adjusted?'<small class="cf-muted"> · Ekstre farkı: '+cfMoney(card.adjustment)+'</small>':'')+
-        '</td>'+
-        '<td>'+cfMoney(r.minimum)+'</td>'+
-        '<td>'+cfMoney(r.cashExpenses)+'</td>'+
-        '<td class="'+(r.netOpening<0?'cf-bad':'')+'">'+
-          (r.netOpening<0?'-'+cfMoney(-r.netOpening):cfMoney(0))+
-          (r.openingSavings>0?'<small class="cf-muted"> · Devreden birikim: '+cfMoney(r.openingSavings)+'</small>':'')+
-          (r.snapshotUsed?'<small class="cf-muted"> · Fiili bakiye</small>':'')+'</td>'+
-        '<td><strong>'+cfMoney(r.totalExpenses)+'</strong></td>'+
-        '<td class="'+(r.closingOverdraft>0?'cf-bad':'')+'">'+
-          (r.closingOverdraft>0?'-'+cfMoney(r.closingOverdraft):cfMoney(0))+'</td>'+
-        '<td class="'+(r.closingSavings>0?'cf-good':'')+'">'+cfMoney(r.closingSavings)+'</td>'+
-        '</tr>';
-    }).join('')+'</tbody></table></div>';
+  return cfForecastUI.render(rows,cfPlan);
 }
-
 function cfKpi(label,value,info){
   return '<div class="cf-kpi"><span class="cf-kpi-label">'+cfText(label)+'</span>'+
     '<strong>'+cfMoney(value)+'</strong>'+
