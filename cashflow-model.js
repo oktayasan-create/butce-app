@@ -5,7 +5,7 @@
  * Card purchase is an expense and a liability; card repayment is NOT a second expense.
  * Forecast interest and minimums are illustrative, not credit card statements.
  */
-const r2 = value => Math.round((Number(value)+Number.EPSILON)*100)/100;
+const r2 = value => Number((Math.round((Number(value)+Number.EPSILON)*100)/100).toFixed(2));
 const num = value => Number.isFinite(Number(value)) ? Number(value) : 0;
 const positive = value => Math.max(0,r2(num(value)));
 const monthPattern = /^20\d{2}-(0[1-9]|1[0-2])$/;
