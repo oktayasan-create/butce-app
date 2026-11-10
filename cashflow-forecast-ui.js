@@ -12,7 +12,7 @@ export function createCashflowForecastUI({money,monthLabel}){
     {key:"closingSavings",label:"Toplam birikim",color:"#9a70e9"},
     {key:"closingOverdraft",label:"Ek Hesap borcu",color:"#e59b41"},
     {key:"closingCardDebt",label:"Ödenmemiş kart borcu",color:"#e35f78"},
-    {key:"cardPayments",label:"Kartlara yapılan ödeme",color:"#248de4"},
+    {key:"cardPayments",label:"Kart ödemesi (plan)",color:"#248de4"},
     {key:"overdraftRepaid",label:"Ek Hesap geri ödemesi",color:"#db9137"},
     {key:"statementTotal",label:"Kart borcu",color:"#17aab3"},
     {key:"minimum",label:"Kart asgarisi",color:"#8b99af"},
@@ -45,7 +45,7 @@ export function createCashflowForecastUI({money,monthLabel}){
       '<table class="cf-table cf-compact-forecast"><thead><tr>'+
       '<th>Ay</th><th>Gelir</th><th>Krediler</th>'+
       '<th>Faizli devreden kart borcu</th><th>Ay içi kart harcaması</th>'+
-      '<th>Gelecek taksitler</th><th>Kart ödeme hedefi</th><th>Kartlara ödenen</th><th>Ödenmeden kalan kart</th>'+
+      '<th>Gelecek taksitler</th><th>Kart ödeme hedefi</th><th>Planlanan kart ödemesi</th><th>Ödenmeden kalan kart</th>'+
       '<th>Gelecek ay asgari</th><th>Nakit gider</th>'+
       '<th>Devreden Ek Hesap</th><th>Ek Hesap geri ödemesi</th><th>Toplam nakit çıkışı</th>'+
       '<th>Sonraki aya Ek Hesap</th><th>Aylık net (Gelir − Harcama)</th>'+
@@ -84,7 +84,7 @@ export function createCashflowForecastUI({money,monthLabel}){
           ["Ay içi kart harcaması",money(card.purchases)],
           ["Gelecek taksitler",money(card.installments)],
           ["Bu ay kart ödeme hedefi",money(card.statementTotal)],
-          ["Kartlara ödenen",money(r.cardPayments)],
+          ["Planlanan kart ödemesi",money(r.cardPayments)],
           ["Ödenmeden kalan kart",money(r.closingCardDebt)],
           ["Gelecek ay asgari",money(r.minimum)],
           ["Nakit gider",money(r.cashExpenses)],
