@@ -64,7 +64,8 @@ test("unpaid card debt rolls forward and attracts interest, without phantom savi
   assert.equal(feb.card.purchases,5000);
   assert.equal(feb.openingOverdraft,0);
   assert.equal(feb.closingSavings,0);
-  assert.ok(feb.closingCardDebt>jan.closingCardDebt);
+  // Minimum funded via KMH transfers debt from card to KMH; total debt still increases.
+  assert.ok(feb.closingCardDebt+feb.closingOverdraft>jan.closingCardDebt);
   assert.ok(feb.overdraftDraw>=feb.minimumPaid);
 });
 
