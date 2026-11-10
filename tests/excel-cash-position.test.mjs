@@ -9,7 +9,7 @@ function sample(month,income){
     cards:[{id:"card_demo",name:"Test",closing:50000,newSpending:0}]
   };
 }
-test("Excel K=C+H+I and L/M include prior actual KMH balance",()=>{
+test("Debt-first plan: KMH supports minimums, then card is paid before savings",()=>{
   const p=emptyCashFlowPlan();
   p.startMonth="2026-11";
   p.cards=[{id:"card_demo",name:"Test card",active:true,openingDebt:0,
@@ -25,9 +25,11 @@ test("Excel K=C+H+I and L/M include prior actual KMH balance",()=>{
   assert.equal(result[0].closingOverdraft,17000);
   assert.equal(result[0].closingSavings,0);
   assert.equal(result[1].netOpening,-17000);
-  assert.equal(result[1].totalExpenses,55000);
+  assert.equal(result[1].totalExpenses,82801.13); // Includes prior month KMH interest and tax
   assert.equal(result[1].closingOverdraft,0);
-  assert.equal(result[1].closingSavings,28000);
+  assert.equal(result[1].closingSavings,17198.87);
+  assert.equal(result[0].closingCardDebt,30000);
+  assert.equal(result[1].closingCardDebt,0);
   assert.equal(p.overdraft.openingDebt,0); // historical source untouched
 });
 test("Snapshot is optional for old saved cashflow plans",()=>{

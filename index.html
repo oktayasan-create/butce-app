@@ -3,13 +3,15 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no"/>
-<meta name="theme-color" content="#0b0c10"/>
+<meta name="theme-color" content="#06192b"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BütçeApp"/>
 <title>BütçeApp v2.0</title>
-<link rel="manifest" href="manifest.json"/>
-<link rel="icon" type="image/svg+xml" href="icon.svg"/>
+<link rel="manifest" href="manifest.json?v=16"/>
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=16"/>
+<link rel="icon" type="image/svg+xml" href="icon.svg?v=16"/>
+<link rel="apple-touch-icon" href="icon-192.png?v=16"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,7 +71,10 @@ body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-h
 
 .sidebar { width: 260px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 24px 16px; z-index: 10; }
 .logo { display:flex; align-items:center; gap:10px; font-size:18px; font-weight:700; margin-bottom: 32px; padding: 0 8px; color:var(--text); }
-.logo-icon{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,#a78bfa,#818cf8);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:16px}
+.logo-icon{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;box-shadow:0 2px 14px rgba(16,195,160,.16)}
+.logo-icon img{width:100%;height:100%;object-fit:cover}
+.logo .logo-brand{font-weight:850;letter-spacing:-.5px}
+.logo .logo-brand em{font-style:normal;color:#27d8ad}
 .sync-dot{width:8px;height:8px;border-radius:50%;background:#34d399;margin-left:auto;transition:background .3s}
 .sync-dot.syncing{background:#fbbf24;animation:pulse 1s infinite}
 .sync-dot.error{background:#f87171}
@@ -500,8 +505,8 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   
   <nav class="sidebar">
     <div class="logo">
-      <div class="logo-icon">&#8378;</div>
-      BütçeApp
+      <div class="logo-icon"><img src="icon-192.png?v=16" alt="" width="38" height="38"/></div>
+      <span class="logo-brand">Bütçe<em>App</em></span>
       <div class="sync-dot" id="sync-dot" title="Bağlantı durumu"></div>
     </div>
     
@@ -3474,6 +3479,26 @@ function cfActivityLog(current){
 function cfCompactForecast(rows){
   return cfForecastUI.render(rows,cfPlan);
 }
+function cfPriorityDiagnostics(rows){
+  const values=computeCashPositionTable(cfPlan,rows);
+  return '<p class="cf-muted">Bu rapor, zorunlu ödemeleri karşılar; asgarileri öder, varsa KMH borcunu kapatır, tüm kalan nakdi en yüksek faizli karta yönlendirir. Hiçbir kart borcu veya KMH kalmadıysa birikim oluşur. KMH faiz maliyeti bir sonraki ayın nakit gideridir.</p>'+
+    '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
+    '<th>Ay</th><th>Ödeme hedefi</th><th>Zorunlu asgari</th>'+
+    '<th>Kart ödemesi</th><th>KMH geri ödeme</th><th>Devreden kart borcu</th>'+
+    '<th>Son KMH borcu</th><th>Birikim</th><th>KMH faiz/vergi (sonraki ay)</th>'+
+    '<th>Karşılanamayan zorunlu tutar</th></tr></thead><tbody>'+
+    values.map(r=>'<tr><td>'+cfText(cfMonthLabel(r.month))+'</td>'+
+      '<td>'+cfMoney(r.card.statementTotal)+'</td>'+
+      '<td>'+cfMoney(r.minimum)+'</td>'+
+      '<td>'+cfMoney(r.cardPayments)+'</td>'+
+      '<td>'+cfMoney(r.overdraftRepaid)+'</td>'+
+      '<td>'+cfMoney(r.closingCardDebt)+'</td>'+
+      '<td>'+cfMoney(r.closingOverdraft)+'</td>'+
+      '<td>'+cfMoney(r.closingSavings)+'</td>'+
+      '<td>'+cfMoney(r.overdraftInterest+r.overdraftInterestTax)+'</td>'+
+      '<td>'+(r.unfundedMandatory>0?'<strong class="cf-bad">'+cfMoney(r.unfundedMandatory)+'</strong>':cfMoney(0))+'</td></tr>').join('')+
+    '</tbody></table></div>';
+}
 function cfKpi(label,value,info){
   return '<div class="cf-kpi"><span class="cf-kpi-label">'+cfText(label)+'</span>'+
     '<strong>'+cfMoney(value)+'</strong>'+
@@ -3643,8 +3668,8 @@ async function renderCashflow(){
     '<div class="cf-kpi-grid">'+
       cfKpi("Bu ayın bütçe geliri",current.income,"Maaş ve ek gelirler aynı ayda")+
       cfKpi("Ev + araba + diğer kredi",current.loanPayments,"TAM tutar · zorunlu")+
-      cfKpi("Bu ay ödenecek kart asgarileri",current.minimumTotal,"Önceki ayın ekstresi")+
-      cfKpi("Ay sonu tahmini Ek Hesap borcu",selectedBalance.closingOverdraft,"Fiili değil, Excel senaryosu")+
+      cfKpi("Bu ayki kart asgari hedefi",selectedBalance.minimum,"Ödeme modeline göre")+
+      cfKpi("Ödenmeden devreden kart borcu",selectedBalance.closingCardDebt,"Birikimden önce kapanır")+
     '</div>'+
     '<div class="cf-overview-box">'+cfLoanSummary(current)+'</div>'+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Ödenen kredi kartları</h3>'+
@@ -3657,11 +3682,12 @@ async function renderCashflow(){
       cfStatementOverview(overview)+'</div>'+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Önümüzdeki 12 ay</h3>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'plan\')">Nakit planını düzenle</button></div>'+
-      '<p class="cf-muted">Gelirler ilgili ayın Genel Bütçe kayıtlarından alınır. Kart borcu ay sonunda oluşur ve bir sonraki ayın ekstresinde ödenir. Devreden borca tahmini faiz ve vergiler dahildir; mevcut ödemeler tekrar harcama sayılmaz.</p>'+
+      '<p class="cf-muted">Öncelik sırası: krediler ve nakit giderleri → kart asgarileri → Ek Hesap geri ödemesi → mümkün olan tüm ek kart ödemeleri → yalnız tüm borçlar kapandıysa birikim. Ödenmeyen kart borcu faiz tahminiyle devreder. Kart ödeme hedefi banka ekstre vadeleriyle farklılaşabilir.</p>'+
       cfCompactForecast(rows)+'</div>'+
-    '<div class="cf-compact-callout">Ay sonu tahmini birikim: <strong>'+cfMoney(selectedBalance.closingSavings)+
-      '</strong> · Ay sonu tahmini Ek Hesap borcu: <strong>'+cfMoney(selectedBalance.closingOverdraft)+
-      '</strong> · Gelecek ay ödenecek tahmini kart borcu: <strong>'+cfMoney(selectedBalance.card.statementTotal)+'</strong></div>';
+    '<div class="cf-compact-callout">Borçlara ödenen kart tutarı: <strong>'+cfMoney(selectedBalance.cardPayments)+
+      '</strong> · Ödenmemiş kart borcu: <strong>'+cfMoney(selectedBalance.closingCardDebt)+
+      '</strong> · Ek Hesap: <strong>'+cfMoney(selectedBalance.closingOverdraft)+
+      '</strong> · Gerçek tahmini birikim: <strong>'+cfMoney(selectedBalance.closingSavings)+'</strong></div>';
 
   const statementView='<div id="cf-statement-panel"></div>';
 
@@ -3689,8 +3715,8 @@ async function renderCashflow(){
         cfText(r.month)+'</option>').join('')+'</select>'+
       '<div class="cf-kpi-grid cf-kpi-grid-3">'+
         cfKpi("Kredi taksitleri – TAM",current.loanPayments,"Ev + araba + diğer")+
-        cfKpi("Bu ay ödenecek kart asgarileri",current.minimumTotal,"Zorunlu")+
-        cfKpi("Ay sonu tahmini Ek Hesap",selectedBalance.closingOverdraft,"Excel senaryosuna göre")+
+        cfKpi("Bu ayki kart asgarisi",selectedBalance.minimum,"Önce zorunlu")+
+        cfKpi("Ay sonu tahmini Ek Hesap",selectedBalance.closingOverdraft,"Zorunlu açık için kullanılır")+
       '</div>'+
       cfLoanSummary(current)+
       '<div class="cf-section-head" style="margin-top:20px"><h3>Kart ödemelerini kaydet</h3></div>'+
@@ -3718,8 +3744,8 @@ async function renderCashflow(){
     '</div>'+
     '<div class="card cb cf-section"><h3>12 aylık nakit durumu</h3>'+
       cfCompactForecast(rows)+
-      cfDetailPanel("detailed-forecast","Faiz, Ekpara, vergi ve diğer ayrıntıları göster",
-        cfForecastTable(rows)+cfSelectedCardDetails(current))+
+      cfDetailPanel("detailed-forecast","Ödeme önceliği, faiz ve borç devir ayrıntıları",
+        cfPriorityDiagnostics(rows))+
     '</div>'+
     '<div class="card cb cf-section"><h3>Diğer ayarlar ve kayıtlar</h3>'+
       '<p class="cf-muted">Yalnızca değiştirmek istediğin bölümü açabilirsin.</p>'+
