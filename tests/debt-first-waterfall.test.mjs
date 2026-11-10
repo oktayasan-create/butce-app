@@ -32,7 +32,7 @@ test("January 2027: mandatory payments, KMH payoff then cards; 54,692.18 TL card
   assert.equal(r.closingSavings,0);
   assert.equal(r.monthlyNet,0);
   assert.equal(r.totalExpenses,257000);
-  assert.equal(r.cardPayments+r.closingCardDebt,r.card.statementTotal);
+  assert.equal(money(r.cardPayments+r.closingCardDebt),r.card.statementTotal);
   assert.equal(p.overdraft.actualSnapshot.debt,42917.39);
 });
 
