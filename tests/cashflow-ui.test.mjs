@@ -41,7 +41,7 @@ assert(root.innerHTML.includes('Özet'));
 assert(root.innerHTML.includes('Ekstreler'));
 assert(root.innerHTML.includes('Taksitler'));
 assert(root.innerHTML.includes('Nakit Planı'));
-assert(root.innerHTML.includes('Krediler TAM'));
+assert(root.innerHTML.includes('Ev + araba + diğer kredi'));
 assert(root.innerHTML.includes('Ev / Araba / Diğer krediler'));
 assert(root.innerHTML.includes('12 ay'));
 assert(!root.innerHTML.includes('undefined TL'));
