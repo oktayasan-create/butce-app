@@ -143,7 +143,16 @@ export function renderOverviewDashboard(data){
       ["Kart asgarileri",f.minimum,"Tahmini yük"]
     ].map(([name,value,desc])=>
       '<div><span>'+esc(name)+'</span><strong>'+money(value)+'</strong><small>'+esc(desc)+'</small></div>').join("")+
-    '</div>'+(f.unfundedMandatory>0?'<div class="ov-alert">⚠️ Ek Hesap limiti yetersiz; '+money(f.unfundedMandatory)+' zorunlu ödeme karşılanamıyor.</div>':"");
+    '</div>'+
+    ((Array.isArray(f.card?.cards)&&f.card.cards.length)?
+      '<div class="ov-card-breakdown"><h4>Bankalara göre kart planı</h4>'+
+      f.card.cards.slice(0,8).map(card=>'<div class="ov-card-breakdown-row">'+
+        '<span>'+esc(card.name)+'</span>'+
+        '<span>Ödeme: <strong>'+money(card.cardPayment)+'</strong></span>'+
+        '<span>Devreden: <strong>'+money(card.unpaid)+'</strong></span></div>').join("")+
+      '</div>':"")+
+    (f.unfundedMandatory>0?'<div class="ov-alert">⚠️ Ek Hesap limiti yetersiz; '+
+      money(f.unfundedMandatory)+' zorunlu ödeme karşılanamıyor.</div>':"");
   const chart='<section class="glass-panel ov-panel" id="overview-panel-trend">'+
     '<div class="ov-panel-heading"><div><span class="ov-eyebrow">YILLIK PERFORMANS</span><h3>Gelir – gider trendi</h3></div>'+
     '<button class="ov-icon-btn" title="Grafiği genişlet" aria-label="Grafiği genişlet" onclick="overviewExpand(\'trend\')">⛶</button></div>'+
