@@ -195,3 +195,33 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
 }
 @media(max-width:380px){.ov-kpi-grid{grid-template-columns:1fr 1fr}.ov-kpi strong{font-size:16px}.bnav-btn .bl{font-size:8px}.page-title{font-size:16px}}
 @media(prefers-reduced-motion:reduce){.fade,.nav-btn,.btn{animation:none!important;transition:none!important}}
+
+/* Monthly comparison and last-seven-days chart, desktop and phone */
+.ov-table-scroll{max-width:100%;overflow:auto;overscroll-behavior-x:contain;border:1px solid var(--border);border-radius:15px}
+.ov-monthly-table{width:100%;min-width:620px;border-collapse:separate;border-spacing:0;font-size:11px}
+.ov-monthly-table th,.ov-monthly-table td{padding:11px 9px;text-align:right;border-bottom:1px solid var(--border);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ov-monthly-table th{position:sticky;top:0;background:var(--bg4);color:var(--text3);font-size:10px}
+.ov-monthly-table td:first-child,.ov-monthly-table th:first-child{text-align:left;position:sticky;left:0;background:var(--bg3);font-weight:760;z-index:1}
+.ov-monthly-table th:first-child{z-index:2;background:var(--bg4)}
+.ov-monthly-table tr.selected{background:var(--accent-soft)}
+.ov-monthly-table tr.selected td:first-child{background:color-mix(in srgb,var(--bg3) 80%,var(--accent-soft))}
+.ov-monthly-table tbody tr:last-child td{border-bottom:0}
+.ov-day-legend{display:flex;gap:18px;align-items:center;font-size:11px;color:var(--text3);margin:0 0 15px}
+.ov-day-legend span{display:flex;align-items:center;gap:6px}
+.ov-day-chart{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:10px;height:220px;padding:14px 5px 2px;border-bottom:1px solid var(--border)}
+.ov-day-column{display:flex;flex-direction:column;align-items:center;gap:10px;min-width:0}
+.ov-day-column>span{font-size:9px;color:var(--text3);text-align:center;white-space:nowrap}
+.ov-day-columns{height:100%;width:100%;display:flex;justify-content:center;gap:5px;align-items:end;border-bottom:1px solid var(--border)}
+.ov-day-bar{width:min(24px,33%);min-height:0;border-radius:5px 5px 0 0;transition:height .2s}
+.ov-day-bar.income{background:linear-gradient(180deg,#69e4cc,#21ba9d)}
+.ov-day-bar.expense{background:linear-gradient(180deg,#ffc19c,#fc778b)}
+.ov-modal-wrap .ov-table-scroll{max-height:none}
+.ov-modal-wrap .ov-monthly-table{min-width:940px;font-size:13px}
+.ov-modal-wrap .ov-day-chart{height:320px}
+@media(max-width:768px){
+  .ov-monthly-table{min-width:640px}
+  .ov-day-chart{height:175px;gap:4px}
+  .ov-day-columns{gap:2px}.ov-day-bar{width:38%}
+  .ov-day-column>span{font-size:8px}
+  .ov-modal-wrap .ov-day-chart{height:245px}
+}
