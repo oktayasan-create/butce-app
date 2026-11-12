@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import vm from "node:vm";
 import assert from "node:assert/strict";
+import {createCashflowForecastUI} from "../cashflow-forecast-ui.js";
 const modelUrl="data:text/javascript;charset=utf-8,"+
  encodeURIComponent(fs.readFileSync("cashflow-model.js","utf8"));
 const model=await import(modelUrl);
@@ -42,7 +43,7 @@ const inputs={
  "cf-paid-date":{value:"2026-11-09"},
  "cf-paid-amount":{value:""}
 };
-const root={innerHTML:""};
+const root={innerHTML:"",querySelectorAll(){return []}};
 const messages=[],writes=[];
 const sandbox={
  window:{},auth:{currentUser:{uid:"owner"}},authRevision:0,
@@ -55,6 +56,7 @@ const sandbox={
  showToast:x=>messages.push(x),setSyncStatus:()=>{},confirm:()=>true,
  safeHtml:x=>String(x||"").replace(/[&<>"']/g,k=>({
   "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[k])),
+ createCashflowForecastUI,
  createStatementInboxUI:()=>({render(){},reset(){},getOverview(){
   return {count:0,loading:false,error:"",debt:0,minimum:0,statements:[]};
  }})
