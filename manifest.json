@@ -1,8 +1,8 @@
 {
   "name": "BütçeApp",
   "short_name": "BütçeApp",
-  "description": "Kişisel finans kokpiti: bütçe, gerçekleşen, nakit akışı ve kart borçları",
-  "start_url": "./?app=v18",
+  "description": "Liquid Glass temaları ve kişisel ikon tasarımıyla bütçe ve nakit akışı",
+  "start_url": "./?app=v19",
   "scope": "./",
   "display": "standalone",
   "background_color": "#eef4f8",

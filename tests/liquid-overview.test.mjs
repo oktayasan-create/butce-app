@@ -96,7 +96,7 @@ test("cashflow-first navigation, combined tabs and theme controls are wired",()=
   assert.match(css,/backdrop-filter:blur/);
   assert.match(html,/window\.planningSwitch=function/);
   assert.match(html,/window\.renderOverview=function/);
-  assert.match(html,/liquid-glass\.css\?v=18/);
-  assert.match(file("sw.js"),/butceapp-shell-v18/);
+  assert.match(html,/liquid-glass\.css\?v=19/);
+  assert.match(file("sw.js"),/butceapp-shell-v19/);
   assert.match(file("sw.js"),/overview-dashboard\.js\?v=18/);
 });
