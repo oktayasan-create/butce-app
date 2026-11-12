@@ -60,7 +60,7 @@ assert(root.innerHTML.includes('Benim belirlediğim ek kart ödemesi')===false,
 assert(root.innerHTML.includes('Senin belirlediğin ek kart ödemesi'));
 assert(root.innerHTML.includes('TCMB azami oranları'));
 assert(root.innerHTML.includes('Fiili Ek Hesap borcu'));
-assert(root.innerHTML.includes('Kart faiz + vergi'));
+assert(root.innerHTML.includes('KKDF') && root.innerHTML.includes('BSMV'), 'Interest tax settings stay visible');
 sandbox.window.cfAddCategory('expense');
 const p=vm.runInContext('cfPlan',sandbox);
 assert(p.categories.expense.some(c=>c.name==='Yeni Harcama'));
