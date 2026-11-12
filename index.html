@@ -1044,17 +1044,54 @@ async function deleteInvestment(firebaseId){
   catch(e){setSyncStatus("error");showToast("⚠️ Silinemedi");}
 }
 
-// ── APPEARANCE: independent palette + light/dark/system ──
+// ── APPEARANCE v19: local-only theme + icon studio ──
 const themeModes=["light","dark","system"];
-const palettes=["aurora","ocean","orchid","sunset"];
+const palettes=PALETTES;
+const NAV_LABELS={cashflow:"Nakit Akışı",planning:"Bütçe / Gerçekleşen",
+  overview:"Genel Bakış",invest:"Yatırımlar",history:"İşlem Geçmişi",txadd:"Ayarlar"};
+function readAppearance(key){
+  try{const value=localStorage.getItem(key);return value?JSON.parse(value):null;}
+  catch(_){return null;}
+}
 let _preferredTheme=localStorage.getItem("butce-theme")||"light";
 if(!themeModes.includes(_preferredTheme))_preferredTheme="light";
-let _theme="dark";
+let _theme="light";
 let _palette=localStorage.getItem("butce-palette")||"aurora";
 if(!palettes.includes(_palette))_palette="aurora";
+let _colorConfig=sanitizeCustomColors(readAppearance("butce-custom-colors-v1"));
+let _colorDraft={..._colorConfig};
+let _iconConfig=sanitizeIconConfig(readAppearance("butce-icon-config-v1"));
+let _iconDraft={..._iconConfig.custom};
 function resolvedMode(mode){
   if(mode!=="system")return mode;
   return window.matchMedia?.("(prefers-color-scheme: dark)").matches?"dark":"light";
+}
+function refreshStudioPreview(){
+  const preview=document.getElementById("studio-preview");
+  if(!preview)return;
+  const c=sanitizeCustomColors(_colorDraft),vars=customThemeVars(c,"light");
+  preview.style.setProperty("--studio-bg",c.background);
+  preview.style.setProperty("--studio-surface",c.surface);
+  preview.style.setProperty("--studio-accent",c.accent);
+  preview.style.setProperty("--studio-text",vars["--text"]);
+  Object.keys(DEFAULT_COLORS).forEach(key=>{
+    const input=document.getElementById("studio-"+key);
+    if(input && input.value!==c[key])input.value=c[key];
+    const label=document.getElementById("studio-label-"+key);
+    if(label)label.textContent=c[key].toUpperCase();
+  });
+}
+function refreshStudioIcons(){
+  const panel=document.getElementById("studio-icon-list");
+  if(!panel)return;
+  panel.innerHTML=NAV_KEYS.map(key=>
+    '<label for="studio-nav-'+key+'">'+NAV_LABELS[key]+
+    '<select id="studio-nav-'+key+'" data-studio-icon="'+key+'" '+
+    'onchange="studioIconChanged(\''+key+'\',this.value)">'+
+    Object.keys(GLYPH_LABELS).map(icon=>
+      '<option value="'+icon+'"'+(_iconDraft[key]===icon?' selected':'')+'>'+
+        GLYPH_LABELS[icon]+'</option>').join('')+
+    '</select></label>').join('');
 }
 function refreshAppearanceSheet(){
   document.querySelectorAll("[data-mode-choice]").forEach(btn=>{
@@ -1067,6 +1104,17 @@ function refreshAppearanceSheet(){
     btn.classList.toggle("selected",active);
     btn.setAttribute("aria-pressed",String(active));
   });
+  document.querySelectorAll("[data-icon-pack-choice]").forEach(btn=>{
+    const active=btn.dataset.iconPackChoice===_iconConfig.style;
+    btn.classList.toggle("selected",active);
+    btn.setAttribute("aria-pressed",String(active));
+  });
+  const name=document.getElementById("studio-icon-name");
+  if(name && document.activeElement!==name)name.value=_iconConfig.name;
+  const style=document.getElementById("studio-icon-style");
+  if(style && document.activeElement!==style)style.value=_iconConfig.customStyle;
+  refreshStudioPreview();
+  refreshStudioIcons();
 }
 function applyTheme(mode){
   if(!themeModes.includes(mode))return;
@@ -1075,6 +1123,13 @@ function applyTheme(mode){
   document.body.classList.toggle("light",_theme==="light");
   document.documentElement.style.colorScheme=_theme;
   document.body.dataset.palette=_palette;
+  // Drop custom overrides when returning to a preset, so the preset's
+  // light/dark variables can never be hidden by stale inline styles.
+  CUSTOM_THEME_CSS_VARS.forEach(key=>document.body.style.removeProperty(key));
+  if(_palette==="custom"){
+    const vars=customThemeVars(_colorConfig,_theme);
+    Object.entries(vars).forEach(([name,value])=>document.body.style.setProperty(name,value));
+  }
   localStorage.setItem("butce-theme",mode);
   localStorage.setItem("butce-palette",_palette);
   refreshAppearanceSheet();
@@ -1085,6 +1140,57 @@ window.setAppPalette=palette=>{
   _palette=palette;applyTheme(_preferredTheme);
 };
 window.toggleTheme=()=>window.setAppMode(_theme==="dark"?"light":"dark");
+window.studioColorChanged=(key,value)=>{
+  if(!Object.hasOwn(DEFAULT_COLORS,key))return;
+  _colorDraft[key]=safeHex(value,DEFAULT_COLORS[key]);
+  refreshStudioPreview();
+};
+window.studioSaveColors=()=>{
+  _colorConfig=sanitizeCustomColors(_colorDraft);
+  localStorage.setItem("butce-custom-colors-v1",JSON.stringify(_colorConfig));
+  _palette="custom";applyTheme(_preferredTheme);
+  showToast("✓ Kendi renk teman bu cihazda kaydedildi.");
+};
+window.studioRestoreColors=()=>{
+  _colorConfig={...DEFAULT_COLORS};_colorDraft={...DEFAULT_COLORS};
+  localStorage.setItem("butce-custom-colors-v1",JSON.stringify(_colorConfig));
+  if(_palette==="custom")applyTheme(_preferredTheme);
+  refreshStudioPreview();
+  showToast("✓ Özel tema renkleri başlangıca döndürüldü.");
+};
+function applyIconPack(){
+  _iconConfig=sanitizeIconConfig(_iconConfig);
+  const displayStyle=_iconConfig.style==="custom"?_iconConfig.customStyle:_iconConfig.style;
+  document.body.dataset.iconPack=_iconConfig.style;
+  document.body.dataset.iconStyle=displayStyle;
+  localStorage.setItem("butce-icon-config-v1",JSON.stringify(_iconConfig));
+  // Called after glyph library has initialized by a real user interaction.
+  renderAppGlyphs();
+  refreshAppearanceSheet();
+}
+window.setAppIconPack=style=>{
+  if(!ICON_STYLES.includes(style))return;
+  _iconConfig.style=style;applyIconPack();
+};
+window.studioIconChanged=(key,glyph)=>{
+  if(!NAV_KEYS.includes(key)||!Object.hasOwn(GLYPH_LABELS,glyph))return;
+  _iconDraft[key]=glyph;
+};
+window.studioSaveIcons=()=>{
+  const input=document.getElementById("studio-icon-name");
+  const style=document.getElementById("studio-icon-style");
+  _iconConfig=sanitizeIconConfig({
+    style:"custom",name:input?.value||"İkon Setim",
+    custom:{..._iconDraft},customStyle:style?.value||"soft"
+  });
+  applyIconPack();
+  showToast("✓ "+_iconConfig.name+" bu cihazda kaydedildi.");
+};
+window.studioResetIcons=()=>{
+  _iconConfig=sanitizeIconConfig({style:"outline",custom:NAV_DEFAULT});
+  _iconDraft={..._iconConfig.custom};applyIconPack();
+  showToast("✓ İkon paketi varsayılana döndürüldü.");
+};
 window.openThemePanel=()=>{
   const el=document.getElementById("appearance-sheet");
   if(!el)return;
@@ -1106,6 +1212,8 @@ window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change"
   if(_preferredTheme==="system")applyTheme("system");
 });
 applyTheme(_preferredTheme);
+document.body.dataset.iconPack=_iconConfig.style;
+document.body.dataset.iconStyle=_iconConfig.style==="custom"?_iconConfig.customStyle:_iconConfig.style;
 
 // ── HELPERS ────────────────────────────────────────────────
 function safeHtml(value){
