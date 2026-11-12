@@ -3755,6 +3755,8 @@ async function renderCashflow(){
       cfSelectedMonth=cfPlan.startMonth;
       cfLoading=null;
       renderCashflow();
+      // Refresh read-only dashboard if user opened it while the plan loaded.
+      if(curTab==="overview")renderOverview();
     }).catch(()=>{
       if(revision!==authRevision)return;
       cfLoading=null;
