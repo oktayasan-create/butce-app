@@ -771,6 +771,7 @@ import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, stat
 import { createStatementInboxUI } from "./statement-ui.js";
 import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
 import {createCashflowForecastUI} from "./cashflow-forecast-ui.js?v=17";
+import {buildOverviewData,renderOverviewDashboard} from "./overview-dashboard.js?v=18";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -1324,63 +1325,58 @@ function drawPie(id,segs){
   ctx.beginPath();ctx.fillStyle=(_theme==="dark"?"#161821":"#ffffff");ctx.arc(60,60,34,0,Math.PI*2);ctx.fill();
 }
 
-// ── TABS & NAVIGATION ──────────────────────────────────────
-var tabTitles = {
-  budget: '📊 Genel Bakış (Bütçe)',
-  actual: '✅ Gerçekleşen',
-  variance: '📐 Fark Analizi',
-  invest: '💎 Yatırımlar',
-   cashflow: '💳 Nakit Akışı & Kartlar',
-  analiz: '🧠 Detaylı Analiz',
-  txadd: '⚙️ Yönet & Ekle',
-  history: '📋 İşlem Geçmişi'
+// ── TABS & NAVIGATION (cashflow-first; finance data untouched) ──
+const mainTabs=["cashflow","planning","overview","invest","history","txadd"];
+const tabTitles={
+  cashflow:"Nakit Akışı & Kartlar",
+  planning:"Bütçe / Gerçekleşen",
+  overview:"Genel Bakış",
+  invest:"Yatırımlar",
+  history:"İşlem Geçmişi",
+  txadd:"Ayarlar & Veri"
 };
-
-var curTab="budget";
-window.goTab=function(tab,btn){
-  document.querySelectorAll(".nav-btn").forEach(function(b){b.classList.remove("active");});
-  if(btn && btn.classList) btn.classList.add("active");
-  
-  var pt = document.getElementById("page-title-text");
-  if(pt) pt.textContent = tabTitles[tab] || tab;
-
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var mb=document.getElementById("mnav-"+t);
-    if(mb) mb.className="bnav-btn"+(t===tab?" active":"");
+let curTab="cashflow";
+let planningMode="budget";
+function showMainTab(tab){
+  if(["budget","actual","variance"].includes(tab)){
+    planningMode=tab;tab="planning";
+  }
+  if(!mainTabs.includes(tab))return;
+  mainTabs.forEach(name=>{
+    const desktop=document.getElementById("dnav-"+name);
+    const mobile=document.getElementById("mnav-"+name);
+    const pane=document.getElementById("tab-"+name);
+    desktop?.classList.toggle("active",tab===name);
+    mobile?.classList.toggle("active",tab===name);
+    if(pane)pane.style.display=tab===name?"flex":"none";
   });
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var pane=document.getElementById("tab-"+t);
-    if(pane) pane.style.display=t===tab?"flex":"none"; 
+  const header=document.getElementById("page-title-text");
+  if(header)header.textContent=tabTitles[tab];
+  curTab=tab;
+  render(tab);
+}
+window.goTab=function(tab){showMainTab(tab);};
+window.mGoTab=function(tab){showMainTab(tab);window.scrollTo?.(0,0);};
+window.planningSwitch=function(mode){
+  if(!["budget","actual","variance"].includes(mode))return;
+  planningMode=mode;
+  ["budget","actual","variance"].forEach(name=>{
+    const child=document.getElementById("tab-"+name);
+    const button=document.getElementById("plan-switch-"+name);
+    if(child)child.style.display=mode===name?"flex":"none";
+    button?.classList.toggle("active",mode===name);
+    button?.setAttribute("aria-selected",String(mode===name));
   });
-  curTab=tab;render(tab);
+  if(mode==="budget")renderBudget();
+  else if(mode==="actual")renderActual();
+  else renderVariance();
 };
-window.mGoTab=function(tab,btn){
-  var pt = document.getElementById("page-title-text");
-  if(pt) pt.textContent = tabTitles[tab] || tab;
-
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var b=document.getElementById("mnav-"+t);
-    if(b) b.className="bnav-btn"+(t===tab?" active":"");
-  });
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var b=document.getElementById("dnav-"+t);
-    if(b) b.className="nav-btn"+(t===tab?" active":"");
-  });
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var pane=document.getElementById("tab-"+t);
-    if(pane) pane.style.display=t===tab?"flex":"none";
-  });
-  curTab=tab;render(tab);
-  window.scrollTo(0,0);
-};
-
+function renderPlanning(){window.planningSwitch(planningMode);}
 function render(tab){
-  if(tab==="budget")renderBudget();
-  else if(tab==="actual")renderActual();
-  else if(tab==="variance")renderVariance();
+  if(tab==="cashflow")renderCashflow();
+  else if(tab==="planning")renderPlanning();
+  else if(tab==="overview")renderOverview();
   else if(tab==="invest")renderInvest();
-   else if(tab==="cashflow")renderCashflow();
-  else if(tab==="analiz")renderAnaliz();
   else if(tab==="txadd")renderTxAdd();
   else if(tab==="history")renderHistory();
 }
