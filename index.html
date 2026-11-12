@@ -1000,20 +1000,68 @@ async function deleteInvestment(firebaseId){
   catch(e){setSyncStatus("error");showToast("⚠️ Silinemedi");}
 }
 
-// ── THEME ──────────────────────────────────────────────────
-var _theme=localStorage.getItem("butce-theme")||"dark";
-function applyTheme(t){
-  _theme=t;
-  var isLight=t==="light";
-  if(isLight) document.body.classList.add("light");
-  else document.body.classList.remove("light");
-  var txt=isLight?"☀️ Açık Tema":"🌙 Koyu Tema";
-  var btn=document.getElementById("theme-btn");if(btn)btn.innerHTML=txt;
-  var micon=document.getElementById("mnav-theme-icon");if(micon)micon.textContent=isLight?"☀️":"🌙";
-  localStorage.setItem("butce-theme",t);
+// ── APPEARANCE: independent palette + light/dark/system ──
+const themeModes=["light","dark","system"];
+const palettes=["aurora","ocean","orchid","sunset"];
+let _preferredTheme=localStorage.getItem("butce-theme")||"light";
+if(!themeModes.includes(_preferredTheme))_preferredTheme="light";
+let _theme="dark";
+let _palette=localStorage.getItem("butce-palette")||"aurora";
+if(!palettes.includes(_palette))_palette="aurora";
+function resolvedMode(mode){
+  if(mode!=="system")return mode;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches?"dark":"light";
 }
-window.toggleTheme=function(){applyTheme(_theme==="dark"?"light":"dark");};
-applyTheme(_theme);
+function refreshAppearanceSheet(){
+  document.querySelectorAll("[data-mode-choice]").forEach(btn=>{
+    const active=btn.dataset.modeChoice===_preferredTheme;
+    btn.classList.toggle("selected",active);
+    btn.setAttribute("aria-pressed",String(active));
+  });
+  document.querySelectorAll("[data-palette-choice]").forEach(btn=>{
+    const active=btn.dataset.paletteChoice===_palette;
+    btn.classList.toggle("selected",active);
+    btn.setAttribute("aria-pressed",String(active));
+  });
+}
+function applyTheme(mode){
+  if(!themeModes.includes(mode))return;
+  _preferredTheme=mode;
+  _theme=resolvedMode(mode);
+  document.body.classList.toggle("light",_theme==="light");
+  document.documentElement.style.colorScheme=_theme;
+  document.body.dataset.palette=_palette;
+  localStorage.setItem("butce-theme",mode);
+  localStorage.setItem("butce-palette",_palette);
+  refreshAppearanceSheet();
+}
+window.setAppMode=mode=>{applyTheme(mode);render(curTab);};
+window.setAppPalette=palette=>{
+  if(!palettes.includes(palette))return;
+  _palette=palette;applyTheme(_preferredTheme);
+};
+window.toggleTheme=()=>window.setAppMode(_theme==="dark"?"light":"dark");
+window.openThemePanel=()=>{
+  const el=document.getElementById("appearance-sheet");
+  if(!el)return;
+  refreshAppearanceSheet();
+  el.classList.add("open");el.setAttribute("aria-hidden","false");
+  el.querySelector(".theme-sheet-head button")?.focus();
+};
+window.closeThemePanel=()=>{
+  const el=document.getElementById("appearance-sheet");
+  el?.classList.remove("open");el?.setAttribute("aria-hidden","true");
+};
+document.getElementById("appearance-sheet")?.addEventListener("click",event=>{
+  if(event.target.id==="appearance-sheet")window.closeThemePanel();
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&document.getElementById("appearance-sheet")?.classList.contains("open"))window.closeThemePanel();
+});
+window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change",()=>{
+  if(_preferredTheme==="system")applyTheme("system");
+});
+applyTheme(_preferredTheme);
 
 // ── HELPERS ────────────────────────────────────────────────
 function safeHtml(value){
@@ -4332,7 +4380,9 @@ async function initAppLifecycle(isCurrent){
   if (!isCurrent()) return false;
   listenTransactions();
   listenInvestments();
+  // Preserve old budget grid and load the cashflow landing page on login.
   renderBudget();
+  renderCashflow();
   return true;
 }
 </script>
