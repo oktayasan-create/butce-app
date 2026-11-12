@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
+import vm from "node:vm";
 import {dirname,join} from "node:path";
 import {fileURLToPath} from "node:url";
 import {
@@ -87,4 +88,66 @@ test("financial calculations, balances, Firebase document writes are not changed
  assert.doesNotMatch(appearance,/setDoc|addDoc|updateDoc|deleteDoc|cashflowPlan/);
  assert.match(appearance,/localStorage\.setItem/);
  assert.ok(html.includes('const probe = await getDocFromServer(doc(db, "data", "settings"))'));
+});
+
+
+test("theme studio interactions apply custom colors and icon packs without Firebase calls",()=>{
+ const html=read("index.html");
+ const start=html.indexOf("// ── APPEARANCE v19:");
+ const end=html.indexOf("// ── HELPERS ─",start);
+ assert.ok(start>=0&&end>start);
+ const storage=new Map(),variables=new Map(),cssClasses=new Set();
+ const toasts=[];let iconUpdates=0;
+ const body={
+   dataset:{},
+   classList:{toggle(key,active){if(active)cssClasses.add(key);else cssClasses.delete(key);}},
+   style:{setProperty(k,v){variables.set(k,v)},removeProperty(k){variables.delete(k)}}
+ };
+ const document={
+   body,documentElement:{style:{}},activeElement:null,
+   querySelectorAll(){return[];},
+   addEventListener(){},
+   getElementById(id){
+     if(id==="studio-icon-name")return{value:"Finans ikonlarım"};
+     if(id==="studio-icon-style")return{value:"bold"};
+     return null;
+   }
+ };
+ const ctx={document,window:{matchMedia:()=>({matches:false,addEventListener(){}})},
+   localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},
+   showToast:x=>toasts.push(x),render(){},renderAppGlyphs(){iconUpdates++;},
+   curTab:"overview",PALETTES,ICON_STYLES,NAV_KEYS,GLYPH_LABELS,NAV_DEFAULT,
+   DEFAULT_COLORS,CUSTOM_THEME_CSS_VARS,
+   sanitizeCustomColors,sanitizeIconConfig,resolvedNavIcons,customThemeVars
+ };
+ vm.runInNewContext(
+   "const __studioSafeHex=(v,f)=>/^#[0-9a-fA-F]{6}$/.test(v)?v.toLowerCase():f;"+
+   "const safeHex=__studioSafeHex;"+
+   html.slice(start,end),ctx
+ );
+ assert.equal(body.dataset.palette,"aurora");
+ ctx.window.studioColorChanged("accent","#347d77");
+ ctx.window.studioSaveColors();
+ assert.equal(body.dataset.palette,"custom");
+ assert.equal(variables.get("--accent"),"#347d77");
+ assert.equal(JSON.parse(storage.get("butce-custom-colors-v1")).accent,"#347d77");
+ ctx.window.setAppPalette("sageglass");
+ assert.equal(body.dataset.palette,"sageglass");
+ assert.ok(!variables.has("--accent"));
+ ctx.window.setAppMode("dark");
+ ctx.window.setAppPalette("custom");
+ assert.notEqual(variables.get("--accent"),"#347d77");
+ ctx.window.studioIconChanged("overview","chart");
+ ctx.window.studioIconChanged("cashflow","<script>");
+ ctx.window.studioSaveIcons();
+ const saved=JSON.parse(storage.get("butce-icon-config-v1"));
+ assert.equal(saved.style,"custom");
+ assert.equal(saved.custom.overview,"chart");
+ assert.equal(saved.custom.cashflow,"wallet");
+ assert.equal(saved.customStyle,"bold");
+ assert.equal(body.dataset.iconStyle,"bold");
+ assert.ok(iconUpdates>0);
+ ctx.window.studioResetIcons();
+ assert.equal(JSON.parse(storage.get("butce-icon-config-v1")).style,"outline");
+ assert.ok(toasts.length>=2);
 });
