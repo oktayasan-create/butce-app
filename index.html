@@ -1489,7 +1489,7 @@ window.overviewClose=function(){
   document.body.classList.remove("cf-forecast-overlay-open");
 };
 window.overviewExpand=function(kind){
-  if(!["trend","categories"].includes(kind))return;
+  if(!["trend","categories","table","daily"].includes(kind))return;
   const original=document.getElementById("overview-panel-"+kind);
   if(!original)return;
   window.overviewClose();
@@ -1501,7 +1501,7 @@ window.overviewExpand=function(kind){
   const shell=document.createElement("div");shell.className="cf-forecast-modal-shell";
   const header=document.createElement("div");header.className="cf-forecast-modal-head";
   const title=document.createElement("strong");
-  title.textContent=kind==="trend"?"Yıllık gelir – gider grafiği":"Harcama kategori dağılımı";
+  title.textContent=({trend:"Yıllık gelir – gider grafiği",categories:"Harcama kategori dağılımı",table:"12 aylık bütçe / gerçekleşen tablosu",daily:"Günlük gelir – gider grafiği"})[kind];
   const close=document.createElement("button");close.type="button";close.className="btn btn-p btn-sm";
   close.textContent="✕ Kapat";close.addEventListener("click",window.overviewClose);
   header.append(title,close);
