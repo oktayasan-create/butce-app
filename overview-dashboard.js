@@ -104,7 +104,7 @@ export function renderOverviewDashboard(data){
   const netLabel=data.actualNet>=0?"Pozitif fark":"Negatif fark";
   const period=months[data.month]+" "+data.year;
   const hero='<header class="ov-hero glass-panel">'+
-    '<div><span class="ov-eyebrow">FİNANSAL KONTROL MERKEZİ</span>'+
+    '<div><span class="ov-eyebrow">Genel Bakış · Finansal Kontrol Merkezi</span>'+
     '<h2>Finansal görünümün</h2><p>Gelir, gider, borç ve nakit planının tek ekranda özeti.</p></div>'+
     '<div class="ov-period"><label>Dönem <span class="sr-only">Yıl ve ay</span></label>'+
     '<div class="ov-period-picker"><select aria-label="Yıl" onchange="overviewSetPeriod(this.value,null)">'+
