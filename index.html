@@ -1392,6 +1392,100 @@ var states={
   history: {filter:"all"}
 };
 
+// ── MAIN OVERVIEW: read-only, sourced from budget / transactions / cash plan ──
+const overviewPeriod={year:CUR_Y_REAL,month:CUR_M_REAL};
+window.overviewSetPeriod=function(year,month){
+  if(year!=null){
+    const y=Number(year);
+    if(!Number.isInteger(y)||y<2025||y>2030)return;
+    overviewPeriod.year=y;
+  }
+  if(month!=null){
+    const m=Number(month);
+    if(!Number.isInteger(m)||m<0||m>11)return;
+    overviewPeriod.month=m;
+  }
+  renderOverview();
+};
+function overviewForecastFor(month){
+  if(!cfPlan)return null;
+  const [year,mon]=cfPlan.startMonth.split("-").map(Number);
+  const [y,m]=month.split("-").map(Number);
+  const periods=(y-year)*12+(m-mon)+1;
+  if(periods<1||periods>24)return null;
+  try{
+    const budgetForecast=cfLinkedBudgetForecast(periods);
+    const projections=computeCashFlow(budgetForecast.plan,periods);
+    const derived=computeCashPositionTable(cfPlan,projections);
+    return derived.find(row=>row.month===month)||null;
+  }catch(e){return null;}
+}
+window.renderOverview=function(){
+  const container=document.getElementById("tab-overview");
+  if(!container)return;
+  const period=String(overviewPeriod.year)+"-"+String(overviewPeriod.month+1).padStart(2,"0");
+  try{
+    const model=buildOverviewData({
+      year:overviewPeriod.year,month:overviewPeriod.month,categories:cats,
+      transactions,investments,getBudget,forecast:overviewForecastFor(period)
+    });
+    container.innerHTML=renderOverviewDashboard(model);
+  }catch(error){
+    container.innerHTML='<div class="glass-panel" style="padding:22px">Genel bakış hazırlanamadı. Verilerde değişiklik yapılmadı.</div>';
+  }
+};
+let overviewModal=null;
+window.overviewClose=function(){
+  if(!overviewModal)return;
+  overviewModal.remove();overviewModal=null;
+  document.body.classList.remove("cf-forecast-overlay-open");
+};
+window.overviewExpand=function(kind){
+  if(!["trend","categories"].includes(kind))return;
+  const original=document.getElementById("overview-panel-"+kind);
+  if(!original)return;
+  window.overviewClose();
+  overviewModal=document.createElement("div");
+  overviewModal.className="cf-forecast-modal ov-modal-wrap";
+  overviewModal.setAttribute("role","dialog");
+  overviewModal.setAttribute("aria-modal","true");
+  overviewModal.setAttribute("aria-label","Geniş grafik görünümü");
+  const shell=document.createElement("div");shell.className="cf-forecast-modal-shell";
+  const header=document.createElement("div");header.className="cf-forecast-modal-head";
+  const title=document.createElement("strong");
+  title.textContent=kind==="trend"?"Yıllık gelir – gider grafiği":"Harcama kategori dağılımı";
+  const close=document.createElement("button");close.type="button";close.className="btn btn-p btn-sm";
+  close.textContent="✕ Kapat";close.addEventListener("click",window.overviewClose);
+  header.append(title,close);
+  const content=document.createElement("div");content.className="cf-forecast-modal-content";
+  const cloned=original.cloneNode(true);cloned.removeAttribute("id");
+  cloned.querySelectorAll(".ov-icon-btn").forEach(b=>b.remove());
+  content.appendChild(cloned);shell.append(header,content);overviewModal.appendChild(shell);
+  overviewModal.addEventListener("click",e=>{if(e.target===overviewModal)window.overviewClose();});
+  document.body.appendChild(overviewModal);
+  document.body.classList.add("cf-forecast-overlay-open");
+  close.focus();
+};
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&overviewModal)window.overviewClose();
+});
+
+// Coherent outline icons for navigation; category-specific saved emoji stay intact.
+const glyphPaths={
+  wallet:'<rect x="3" y="6" width="18" height="15" rx="3"/><path d="M3 10h18"/><path d="M6 6V4a2 2 0 0 1 2-2h10"/><path d="M16 15h3"/>',
+  layers:'<rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><path d="M7 7h6M7 17h6"/>',
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  sparkles:'<path d="m12 3 1.9 6.1L20 11l-6.1 1.9L12 19l-1.9-6.1L4 11l6.1-1.9L12 3Z"/><path d="m19 17 .8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8Z"/>',
+  history:'<path d="M3 11a9 9 0 1 1 2.6 6.4M3 4v7h7"/><path d="M12 7v5l3 2"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l2-1.5-2-3.4-2.3.7-2.7-1.5L13.5 2h-3L10 4.8 7.3 6.3 5 5.6 3 9l2 1.5v3L3 15l2 3.4 2.3-.7 2.7 1.5.5 2.8h3l.5-2.8 2.7-1.5 2.3.7 2-3.4-2-1.5Z"/>',
+  palette:'<circle cx="12" cy="12" r="9"/><circle cx="7.5" cy="11" r="1"/><circle cx="11" cy="7" r="1"/><circle cx="16" cy="9" r="1"/><path d="M17 16a2.5 2.5 0 0 1-2.5 2.5h-1a2 2 0 0 1-2-2c0-1.2 1-2 2-2H17"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>'
+};
+document.querySelectorAll("[data-glyph]").forEach(el=>{
+  const path=glyphPaths[el.dataset.glyph];
+  if(path)el.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+path+'</svg>';
+});
+
 // ── MONTH SELECTOR ─────────────────────────────────────────
 function moSelHtml(sk){
   var sel=states[sk].months;
