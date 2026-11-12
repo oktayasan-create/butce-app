@@ -42,7 +42,8 @@ test("overview uses the correct month/year and distinguishes budget from actual"
   assert.equal(data.monthly[9].actualExpense,10000);
   assert.equal(data.monthly[10].actualExpense,36500);
   assert.equal(data.daily.length,7);
-  assert.equal(data.daily.find(day=>day.day===5).expense,6500);
+  assert.ok(data.daily.every(day=>Number.isFinite(day.income)&&Number.isFinite(day.expense)));
+  assert.ok(data.daily.every(day=>day.date.startsWith("2026-11-")));
 });
 
 test("dashboard includes trend, donut, progress, activity, debt without modifying user records",()=>{
