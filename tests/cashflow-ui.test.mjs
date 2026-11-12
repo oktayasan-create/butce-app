@@ -59,7 +59,7 @@ assert(root.innerHTML.includes('Benim belirlediğim ek kart ödemesi')===false,
   'Use shorter manual extra payment label in compact plan');
 assert(root.innerHTML.includes('Senin belirlediğin ek kart ödemesi'));
 assert(root.innerHTML.includes('TCMB azami oranları'));
-assert(root.innerHTML.includes('Kalan Ekpara'));
+assert(root.innerHTML.includes('Fiili Ek Hesap borcu'));
 assert(root.innerHTML.includes('Kart faiz + vergi'));
 sandbox.window.cfAddCategory('expense');
 const p=vm.runInContext('cfPlan',sandbox);
