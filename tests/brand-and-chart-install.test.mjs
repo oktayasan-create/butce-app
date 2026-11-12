@@ -25,7 +25,7 @@ test("installed app and favicon use the generated wallet emblem",()=>{
   assert.match(file("index.html"),/rel="apple-touch-icon" href="icon-192\.png\?v=17"/);
   assert.match(file("index.html"),/rel="icon" type="image\/png" sizes="192x192"/);
   assert.match(file("index.html"),/logo-icon/);
-  assert.match(file("index.html"),/v18 · Borç öncelikli plan/);
+  assert.match(file("index.html"),/v19 · Borç öncelikli plan/);
   assert.match(file("sw.js"),/butceapp-shell-v19/);
   assert.match(file("sw.js"),/icon-512\.png\?v=17/);
 });
