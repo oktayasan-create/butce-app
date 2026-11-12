@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BütçeApp"/>
 <title>BütçeApp | Kişisel Finans</title>
-<link rel="manifest" href="manifest.json?v=18"/>
+<link rel="manifest" href="manifest.json?v=19"/>
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=17"/>
 <link rel="icon" type="image/svg+xml" href="icon.svg?v=17"/>
 <link rel="apple-touch-icon" href="icon-192.png?v=17"/>
@@ -507,7 +507,7 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
 .cf-chart-quick-actions .cf-chart-selection-count{margin-left:auto;font-size:12px}
 @media(max-width:650px){.cf-build-marker{margin-top:4px}.cf-chart-quick-actions .cf-chart-selection-count{width:100%;margin-left:0}}
 
-</style><link rel="stylesheet" href="./liquid-glass.css?v=18"/></head>
+</style><link rel="stylesheet" href="./liquid-glass.css?v=19"/></head>
 <body class="auth-locked" data-palette="aurora">
 <div id="auth-gate"><form class="auth-panel" id="auth-form"><div class="auth-app-logo"><img src="icon-192.png?v=17" width="62" height="62" alt="BütçeApp finans uygulaması amblemi"/></div><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-status" role="status"></div><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button><button id="auth-switch" class="secondary-action" type="button" hidden>Oturumu kapat / hesap değiştir</button></form></div>
 
@@ -516,7 +516,7 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   <nav class="sidebar">
     <div class="logo">
       <div class="logo-icon"><img src="icon-192.png?v=17" alt="" width="38" height="38"/></div>
-      <span class="logo-brand">Bütçe<em>App</em></span><small class="app-build-tag" title="Yeni genel bakış ve Liquid Glass görünüm">v18</small>
+      <span class="logo-brand">Bütçe<em>App</em></span><small class="app-build-tag" title="Sage Glass ve kişisel tema stüdyosu">v19</small>
       <div class="sync-dot" id="sync-dot" title="Bağlantı durumu"></div>
     </div>
     
@@ -582,8 +582,50 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
       <button type="button" data-palette-choice="ocean" onclick="setAppPalette('ocean')"><span class="palette-chip ocean"></span>Okyanus</button>
       <button type="button" data-palette-choice="orchid" onclick="setAppPalette('orchid')"><span class="palette-chip orchid"></span>Orkide</button>
       <button type="button" data-palette-choice="sunset" onclick="setAppPalette('sunset')"><span class="palette-chip sunset"></span>Gün Batımı</button>
+      <button type="button" data-palette-choice="sageglass" onclick="setAppPalette('sageglass')"><span class="palette-chip sageglass"></span>Sage Glass</button>
+      <button type="button" data-palette-choice="custom" onclick="setAppPalette('custom')"><span class="palette-chip custom"></span>Kendi Temam</button>
     </div>
-    <p style="margin-top:19px;color:var(--text3);font-size:12px;line-height:1.6">Bu ayarlar finansal kayıtlarını değiştirmez; yalnızca bu cihazın görünümünde saklanır.</p>
+    <section class="theme-studio" aria-label="Kişisel renk teması">
+      <div class="studio-h">Renk stüdyosu · Kendi temanı tasarla</div>
+      <p class="studio-desc">Renk kutularına dokunarak kombinasyonunu oluştur. Önizlemede gör, sonra “Temamı uygula” ile kaydet. Açık/koyu moddan bağımsız çalışır.</p>
+      <div class="studio-grid">
+        <div class="studio-color"><label for="studio-accent">Ana renk<small id="studio-label-accent">#517f72</small></label><input id="studio-accent" type="color" value="#517f72" oninput="studioColorChanged('accent',this.value)" aria-label="Ana renk seç"/></div>
+        <div class="studio-color"><label for="studio-secondary">İkinci renk<small id="studio-label-secondary">#91b0a6</small></label><input id="studio-secondary" type="color" value="#91b0a6" oninput="studioColorChanged('secondary',this.value)" aria-label="İkinci renk seç"/></div>
+        <div class="studio-color"><label for="studio-background">Arka plan<small id="studio-label-background">#dce9e5</small></label><input id="studio-background" type="color" value="#dce9e5" oninput="studioColorChanged('background',this.value)" aria-label="Arka plan rengini seç"/></div>
+        <div class="studio-color"><label for="studio-surface">Kart rengi<small id="studio-label-surface">#f6faf7</small></label><input id="studio-surface" type="color" value="#f6faf7" oninput="studioColorChanged('surface',this.value)" aria-label="Kart rengini seç"/></div>
+      </div>
+      <div class="studio-preview" id="studio-preview" aria-label="Kişisel tema önizlemesi">
+        <div class="studio-preview-card">
+          <div><small>ÖNİZLEME</small><div><strong>Finansal Genel Bakış</strong></div></div>
+          <span class="studio-preview-pill">BütçeApp</span>
+        </div>
+      </div>
+      <div class="studio-actions">
+        <button type="button" class="btn btn-p btn-sm" onclick="studioSaveColors()">Temamı uygula</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="studioRestoreColors()">Renkleri sıfırla</button>
+      </div>
+    </section>
+    <section class="theme-studio" aria-label="Kişisel ikon paketi">
+      <div class="studio-h">İkon stüdyosu · Kendi simge paketini oluştur</div>
+      <p class="studio-desc">Hazır bir stili seç veya altı menü simgesini tek tek özelleştir. Uygulamanın genel menüsünde ve mobil alt menüsünde aynı set kullanılır.</p>
+      <div class="icon-pack-grid" role="group" aria-label="Hazır ikon paketleri">
+        <button type="button" data-icon-pack-choice="outline" onclick="setAppIconPack('outline')"><span class="app-glyph" data-glyph="wallet"></span>İnce çizgi</button>
+        <button type="button" data-icon-pack-choice="soft" onclick="setAppIconPack('soft')"><span class="app-glyph" data-glyph="leaf"></span>Yumuşak</button>
+        <button type="button" data-icon-pack-choice="bold" onclick="setAppIconPack('bold')"><span class="app-glyph" data-glyph="shield"></span>Kalın çizgi</button>
+        <button type="button" data-icon-pack-choice="custom" onclick="setAppIconPack('custom')"><span class="app-glyph" data-glyph="sliders"></span>Benim paketim</button>
+      </div>
+      <div class="studio-icon-settings">
+        <label for="studio-icon-name">Paketin adı<input class="studio-name" id="studio-icon-name" type="text" maxlength="28" placeholder="Örn. Benim simgelerim" value="İkon Setim"/></label>
+        <label for="studio-icon-style">İkon görünümü<select class="studio-icon-style" id="studio-icon-style"><option value="outline">İnce çizgi</option><option value="soft">Yuvarlak zemin</option><option value="bold">Kalın çizgi</option></select></label>
+      </div>
+      <div id="studio-icon-list" class="studio-icon-list" style="margin-top:12px" aria-label="Menü simgelerini seç"></div>
+      <div class="studio-actions">
+        <button type="button" class="btn btn-p btn-sm" onclick="studioSaveIcons()">Kendi ikon paketimi kaydet</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="studioResetIcons()">İkonları varsayılana döndür</button>
+      </div>
+      <p class="studio-note">Renk ve simge tercihleri yalnızca bu tarayıcıda/cihazda saklanır. Finansal kayıtların ve Firebase veritabanın değişmez.</p>
+    </section>
+    <p style="margin-top:19px;color:var(--text3);font-size:12px;line-height:1.6">Görünüm ayarlarını dilediğin zaman değiştirebilirsin.</p>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -772,6 +814,8 @@ import { createStatementInboxUI } from "./statement-ui.js";
 import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
 import {createCashflowForecastUI} from "./cashflow-forecast-ui.js?v=17";
 import {buildOverviewData,renderOverviewDashboard} from "./overview-dashboard.js?v=18";
+import {PALETTES,ICON_STYLES,NAV_KEYS,GLYPH_LABELS,NAV_DEFAULT,DEFAULT_COLORS,CUSTOM_THEME_CSS_VARS,
+  sanitizeCustomColors,sanitizeIconConfig,resolvedNavIcons,customThemeVars,safeHex} from "./appearance-config.js?v=19";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
