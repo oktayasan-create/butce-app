@@ -347,3 +347,38 @@ body[data-icon-style="bold"] .nav-btn.active .app-glyph{filter:drop-shadow(0 2px
  .theme-studio .studio-icon-settings{grid-template-columns:1fr}
  .theme-studio .studio-preview-card{padding:11px}
 }
+
+
+/* Reference-inspired raised glass dock on portrait mobile screens. */
+@media(max-width:768px){
+  body[data-palette="sageglass"] .bottom-nav{
+    left:9px;right:9px;bottom:6px;
+    border-radius:28px;
+    padding:5px 3px calc(5px + env(safe-area-inset-bottom));
+    box-shadow:0 11px 36px rgba(43,87,72,.2);
+    border:1px solid var(--glass-outline);
+    overflow:visible;
+  }
+  body[data-palette="sageglass"] .bottom-nav-inner{
+    border-radius:24px;overflow:visible;align-items:center;
+  }
+  body[data-palette="sageglass"] .bnav-btn{min-width:0;position:relative}
+  body[data-palette="sageglass"] .bnav-btn.active{
+    background:transparent!important;box-shadow:none;color:var(--accent)!important
+  }
+  body[data-palette="sageglass"] .bnav-btn.active .bi{
+    display:flex;align-items:center;justify-content:center;
+    width:44px;height:44px;min-height:44px;
+    margin-top:-16px;margin-bottom:-3px;
+    border-radius:50%;
+    background:var(--accent-grad);
+    color:#ffffff;
+    box-shadow:0 7px 17px rgba(39,96,78,.27),0 0 0 4px var(--bg2);
+  }
+  body[data-palette="sageglass"] .bnav-btn.active .bi svg{
+    width:23px;height:23px;stroke-width:2.25
+  }
+}
+@media(max-width:380px){
+  body[data-palette="sageglass"] .bnav-btn.active .bi{width:40px;height:40px;min-height:40px}
+}
