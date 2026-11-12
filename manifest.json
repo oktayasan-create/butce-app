@@ -1,12 +1,12 @@
 {
   "name": "BütçeApp",
   "short_name": "BütçeApp",
-  "description": "Kişisel bütçe, kredi kartı ve Ekpara nakit akışı yönetimi",
-  "start_url": "./?app=v17",
+  "description": "Kişisel finans kokpiti: bütçe, gerçekleşen, nakit akışı ve kart borçları",
+  "start_url": "./?app=v18",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#06192b",
-  "theme_color": "#06192b",
+  "background_color": "#eef4f8",
+  "theme_color": "#142c45",
   "lang": "tr",
   "icons": [
     {
