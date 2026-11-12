@@ -37,8 +37,21 @@ export function buildOverviewData(input){
       categoryIcon:categoryMap.get(t.cat)?.icon||"•"}));
   const investmentMonth=r2(yearInvestments.filter(t=>Number(String(t.date).slice(5,7))===month+1)
       .reduce((sum,t)=>sum+pos(t.amt),0));
+  // Seven calendar days ending at the selected period's latest available day.
+  const today=new Date();
+  const lastDay=new Date(year,month+1,0).getDate();
+  const isCurrent=year===today.getFullYear()&&month===today.getMonth();
+  const dayEnd=isCurrent?Math.min(lastDay,today.getDate()):lastDay;
+  const daily=Array.from({length:Math.min(7,dayEnd)},(_,offset)=>{
+    const day=dayEnd-Math.min(7,dayEnd)+offset+1;
+    const date=String(year)+"-"+String(month+1).padStart(2,"0")+"-"+String(day).padStart(2,"0");
+    const tx=yearTransactions.filter(t=>t.date===date);
+    return {date,day,income:r2(tx.filter(t=>t.type==="income").reduce((sum,t)=>sum+pos(t.amt),0)),
+      expense:r2(tx.filter(t=>t.type==="expense").reduce((sum,t)=>sum+pos(t.amt),0))};
+  });
+
   const forecastPeriod=String(year)+"-"+String(month+1).padStart(2,"0");
-  return {year,month,forecastPeriod,current,monthly,categoryExpenses,recent,
+  return {year,month,forecastPeriod,current,monthly,daily,categoryExpenses,recent,
     investmentMonth,forecast:forecast&&forecast.month===forecastPeriod?forecast:null,
     actualNet:r2(current.actualIncome-current.actualExpense),
     budgetNet:r2(current.budgetIncome-current.budgetExpense)};
@@ -161,11 +174,37 @@ export function renderOverviewDashboard(data){
       '<strong class="'+(inc?"ov-positive":"ov-negative")+'">'+(inc?"+":"−")+money(t.amt)+'</strong></div>';
     }).join("")+'</div>':'<div class="ov-empty">Bu ay henüz gerçekleşmiş işlem kaydı bulunmuyor.</div>')+
     '</section>';
+  const monthlyTable='<section class="glass-panel ov-panel" id="overview-panel-table">'+
+    '<div class="ov-panel-heading"><div><span class="ov-eyebrow">12 AYLIK KARŞILAŞTIRMA</span>'+
+    '<h3>Bütçe ve gerçekleşen tablosu</h3></div>'+
+    '<button class="ov-icon-btn" aria-label="Aylık tabloyu genişlet" onclick="overviewExpand(\'table\')">⛶</button></div>'+
+    '<div class="ov-table-scroll" role="region" tabindex="0" aria-label="Aylık bütçe ve gerçekleşen karşılaştırması">'+
+    '<table class="ov-monthly-table"><thead><tr>'+
+    '<th>Ay</th><th>Gelir bütçesi</th><th>Gerçek gelir</th><th>Gider bütçesi</th><th>Gerçek gider</th><th>Gerçek net</th></tr></thead><tbody>'+
+    data.monthly.map(r=>'<tr'+(r.month===data.month?' class="selected"':'')+'>'+
+      '<td>'+shortMonths[r.month]+'</td><td>'+money(r.budgetIncome)+'</td>'+
+      '<td>'+money(r.actualIncome)+'</td><td>'+money(r.budgetExpense)+'</td>'+
+      '<td>'+money(r.actualExpense)+'</td><td class="'+(r.actualIncome>=r.actualExpense?"ov-positive":"ov-negative")+'">'+
+      money(r.actualIncome-r.actualExpense)+'</td></tr>').join("")+
+    '</tbody></table></div></section>';
+  const maxDay=Math.max(1,...data.daily.flatMap(r=>[r.income,r.expense]));
+  const dailyBars='<section class="glass-panel ov-panel" id="overview-panel-daily">'+
+    '<div class="ov-panel-heading"><div><span class="ov-eyebrow">GÜNLÜK HAREKET</span>'+
+    '<h3>Son '+data.daily.length+' gün</h3></div>'+
+    '<button class="ov-icon-btn" aria-label="Günlük grafiği genişlet" onclick="overviewExpand(\'daily\')">⛶</button></div>'+
+    '<div class="ov-day-legend"><span><i class="ov-dot" style="background:#26c7ad"></i>Gelir</span>'+
+    '<span><i class="ov-dot" style="background:#fa807f"></i>Gider</span></div>'+
+    '<div class="ov-day-chart" role="img" aria-label="Son günlerin gelir ve gider çubuk grafiği">'+
+    data.daily.map(r=>'<div class="ov-day-column"><div class="ov-day-columns">'+
+      '<div title="'+esc(r.date)+' gelir: '+money(r.income)+'" class="ov-day-bar income" style="height:'+Math.max(r.income>0?3:0,r.income/maxDay*100)+'%"></div>'+
+      '<div title="'+esc(r.date)+' gider: '+money(r.expense)+'" class="ov-day-bar expense" style="height:'+Math.max(r.expense>0?3:0,r.expense/maxDay*100)+'%"></div></div>'+
+      '<span>'+r.day+' '+shortMonths[data.month]+'</span></div>').join("")+
+    '</div></section>';
   const cash='<section class="glass-panel ov-panel ov-cash-panel"><div class="ov-panel-heading"><div>'+
     '<span class="ov-eyebrow">ÖDEME ÖNCELİĞİ</span><h3>Borç ve nakit görünümü <small>Tahmini</small></h3></div>'+
     act("cashflow","Nakit akışı")+'</div>'+fBlock+'</section>';
   const intro='<div class="ov-headline"><h3>Tek bakışta '+esc(period)+'</h3>'+
     '<span class="ov-subtle">Bütçe, gerçekleşen ve nakit planı farklı kaynaklardan gösterilir; aynı tutar ikinci kez eklenmez.</span></div>';
   return '<div class="overview-dashboard fade">'+hero+intro+currentKPIs+
-    '<div class="ov-dashboard-grid">'+chart+spending+budgets+timeline+'</div>'+cash+'</div>';
+    '<div class="ov-dashboard-grid">'+chart+spending+budgets+timeline+monthlyTable+dailyBars+'</div>'+cash+'</div>';
 }
