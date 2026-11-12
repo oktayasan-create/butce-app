@@ -38,7 +38,11 @@ assert(!/allow\s+read\s*,\s*write\s*:\s*if\s+true/.test(rules), 'Unrestricted da
 
 assert.equal(manifest.display, 'standalone');
 assert(manifest.icons.length > 0);
-for (const icon of manifest.icons) assert(fs.existsSync(icon.src), 'Manifest icon missing: '+icon.src);
+for (const icon of manifest.icons) {
+  const localFile=icon.src.split('?')[0].split('#')[0];
+  assert(localFile && !localFile.includes('..'), 'Invalid icon path: '+icon.src);
+  assert(fs.existsSync(localFile), 'Manifest icon missing: '+icon.src);
+}
 assert(html.includes('navigator.serviceWorker.register("./sw.js")'), 'PWA shell must be registered');
 assert(sw.includes('self.addEventListener(\'fetch\''), 'Service worker must handle navigation');
 console.log('PASS: JS syntax, auth gate, ownership rules template, app manifest, service worker');

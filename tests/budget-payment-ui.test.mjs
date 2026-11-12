@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import vm from "node:vm";
 import assert from "node:assert/strict";
+import {createCashflowForecastUI} from "../cashflow-forecast-ui.js";
 const modelUrl="data:text/javascript;charset=utf-8,"+
  encodeURIComponent(fs.readFileSync("cashflow-model.js","utf8"));
 const model=await import(modelUrl);
@@ -42,7 +43,7 @@ const inputs={
  "cf-paid-date":{value:"2026-11-09"},
  "cf-paid-amount":{value:""}
 };
-const root={innerHTML:""};
+const root={innerHTML:"",querySelectorAll(){return []}};
 const messages=[],writes=[];
 const sandbox={
  window:{},auth:{currentUser:{uid:"owner"}},authRevision:0,
@@ -55,6 +56,7 @@ const sandbox={
  showToast:x=>messages.push(x),setSyncStatus:()=>{},confirm:()=>true,
  safeHtml:x=>String(x||"").replace(/[&<>"']/g,k=>({
   "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[k])),
+ createCashflowForecastUI,
  createStatementInboxUI:()=>({render(){},reset(){},getOverview(){
   return {count:0,loading:false,error:"",debt:0,minimum:0,statements:[]};
  }})
@@ -121,8 +123,8 @@ assert.equal(row.cards[1].closing,0,"Enpara statement fully settled");
 sandbox.window.cfSetView("summary");
 assert(root.innerHTML.includes("Gerçekte ödenen"));
 assert(root.innerHTML.includes("Kalan asgari"));
-assert(root.innerHTML.includes("Ödenen kart"));
-assert(root.innerHTML.includes("Devreden kart borcu"));
+assert(root.innerHTML.includes("Planlanan kart ödemesi"));
+assert(root.innerHTML.includes("Ödenmeden devreden kart borcu"));
 await sandbox.window.cfSavePlan();
 assert.equal(writes.length,1,"Only explicit Plan Save writes Firebase");
 assert.equal(writes[0][1].plan.entries.length,3);

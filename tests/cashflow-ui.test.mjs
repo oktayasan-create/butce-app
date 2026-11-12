@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
+import {createCashflowForecastUI} from "../cashflow-forecast-ui.js";
 
 const html=fs.readFileSync('index.html','utf8');
 const start=html.indexOf('// ── INDEPENDENT CASH & CREDIT CARD SCENARIO');
@@ -13,7 +14,7 @@ initial.startMonth='2026-11';
 initial.autoExtra=false;
 initial.cards=[{id:'visa',name:'Test Visa',active:true,openingDebt:1000,minPct:40,interestPct:0,interestMode:'manual'}];
 initial.months['2026-11']={income:1000,fixedCash:0,otherCash:0,cardSpends:{},minOverrides:{}};
-const root={innerHTML:''};
+const root={innerHTML:'',querySelectorAll(){return []}};
 const inputs={
  'cf-entry-date':{value:'2026-11-10'},
  'cf-entry-amount':{value:'80'},
@@ -29,7 +30,8 @@ const sandbox={
  document:{getElementById(id){return id==='tab-cashflow'?root:inputs[id]||null}},
  safeHtml(v){return String(v??'').replace(/[&<>"']/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]))},
  showToast(x){messages.push(x)},confirm(){return true},Date,Math,Intl,Number,String,Array,Object,
- structuredClone,createStatementInboxUI:()=>({render(){},reset(){},getOverview(){return {count:0,loading:false,error:"",debt:0,minimum:0,statements:[]}},selectFile(){},saveDraft(){},saveCategories(){},categoryEdit(){},cancelDraft(){}}),...model
+ structuredClone,createCashflowForecastUI,
+ createStatementInboxUI:()=>({render(){},reset(){},getOverview(){return {count:0,loading:false,error:"",debt:0,minimum:0,statements:[]}},selectFile(){},saveDraft(){},saveCategories(){},categoryEdit(){},cancelDraft(){}}),...model
 };
 vm.createContext(sandbox);
 vm.runInContext(html.slice(start,end),sandbox,{filename:'cashflow-ui.js'});
@@ -39,7 +41,7 @@ assert(root.innerHTML.includes('Özet'));
 assert(root.innerHTML.includes('Ekstreler'));
 assert(root.innerHTML.includes('Taksitler'));
 assert(root.innerHTML.includes('Nakit Planı'));
-assert(root.innerHTML.includes('Krediler TAM'));
+assert(root.innerHTML.includes('Ev + araba + diğer kredi'));
 assert(root.innerHTML.includes('Ev / Araba / Diğer krediler'));
 assert(root.innerHTML.includes('12 ay'));
 assert(!root.innerHTML.includes('undefined TL'));
@@ -57,8 +59,8 @@ assert(root.innerHTML.includes('Benim belirlediğim ek kart ödemesi')===false,
   'Use shorter manual extra payment label in compact plan');
 assert(root.innerHTML.includes('Senin belirlediğin ek kart ödemesi'));
 assert(root.innerHTML.includes('TCMB azami oranları'));
-assert(root.innerHTML.includes('Kalan Ekpara'));
-assert(root.innerHTML.includes('Kart faiz + vergi'));
+assert(root.innerHTML.includes('Fiili Ek Hesap borcu'));
+assert(root.innerHTML.includes('KKDF') && root.innerHTML.includes('BSMV'), 'Interest tax settings stay visible');
 sandbox.window.cfAddCategory('expense');
 const p=vm.runInContext('cfPlan',sandbox);
 assert(p.categories.expense.some(c=>c.name==='Yeni Harcama'));

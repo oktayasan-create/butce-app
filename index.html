@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BütçeApp"/>
 <title>BütçeApp | Kişisel Finans</title>
-<link rel="manifest" href="manifest.json?v=17"/>
+<link rel="manifest" href="manifest.json?v=18"/>
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=17"/>
 <link rel="icon" type="image/svg+xml" href="icon.svg?v=17"/>
 <link rel="apple-touch-icon" href="icon-192.png?v=17"/>
@@ -507,8 +507,8 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
 .cf-chart-quick-actions .cf-chart-selection-count{margin-left:auto;font-size:12px}
 @media(max-width:650px){.cf-build-marker{margin-top:4px}.cf-chart-quick-actions .cf-chart-selection-count{width:100%;margin-left:0}}
 
-</style></head>
-<body class="auth-locked">
+</style><link rel="stylesheet" href="./liquid-glass.css?v=18"/></head>
+<body class="auth-locked" data-palette="aurora">
 <div id="auth-gate"><form class="auth-panel" id="auth-form"><div class="auth-app-logo"><img src="icon-192.png?v=17" width="62" height="62" alt="BütçeApp finans uygulaması amblemi"/></div><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-status" role="status"></div><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button><button id="auth-switch" class="secondary-action" type="button" hidden>Oturumu kapat / hesap değiştir</button></form></div>
 
 <div class="app-layout">
@@ -516,26 +516,22 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   <nav class="sidebar">
     <div class="logo">
       <div class="logo-icon"><img src="icon-192.png?v=17" alt="" width="38" height="38"/></div>
-      <span class="logo-brand">Bütçe<em>App</em></span><small class="app-build-tag" title="Güncel nakit akışı modeli">v17</small>
+      <span class="logo-brand">Bütçe<em>App</em></span><small class="app-build-tag" title="Yeni genel bakış ve Liquid Glass görünüm">v18</small>
       <div class="sync-dot" id="sync-dot" title="Bağlantı durumu"></div>
     </div>
     
     <div class="nav">
-      <button class="nav-btn active" id="dnav-budget" onclick="goTab('budget',this)">📊 Genel Bakış (Bütçe)</button>
-      <button class="nav-btn" id="dnav-actual" onclick="goTab('actual',this)">✅ Gerçekleşen</button>
-      <button class="nav-btn" id="dnav-variance" onclick="goTab('variance',this)">📐 Fark Analizi</button>
-      <button class="nav-btn" id="dnav-invest" onclick="goTab('invest',this)">💎 Yatırımlar</button>
-       <button class="nav-btn" id="dnav-cashflow" onclick="goTab('cashflow',this)">💳 Nakit Akışı & Kartlar</button>
-      <button class="nav-btn" id="dnav-analiz" onclick="goTab('analiz',this)">🧠 Detaylı Analiz</button>
-      <button class="nav-btn" id="dnav-history" onclick="goTab('history',this)">📋 İşlem Geçmişi</button>
-      
-      <div style="height: 1px; background: var(--border); margin: 12px 0;"></div>
-      <button class="nav-btn" id="dnav-txadd" onclick="goTab('txadd',this)">⚙️ Ayarlar & Veri</button>
+      <button class="nav-btn active" id="dnav-cashflow" onclick="goTab('cashflow',this)"><span class="app-glyph" data-glyph="wallet"></span>Nakit Akışı & Kartlar</button>
+      <button class="nav-btn" id="dnav-planning" onclick="goTab('planning',this)"><span class="app-glyph" data-glyph="layers"></span>Bütçe / Gerçekleşen</button>
+      <button class="nav-btn" id="dnav-overview" onclick="goTab('overview',this)"><span class="app-glyph" data-glyph="grid"></span>Genel Bakış</button>
+      <button class="nav-btn" id="dnav-invest" onclick="goTab('invest',this)"><span class="app-glyph" data-glyph="sparkles"></span>Yatırımlar</button>
+      <button class="nav-btn" id="dnav-history" onclick="goTab('history',this)"><span class="app-glyph" data-glyph="history"></span>İşlem Geçmişi</button>
+      <div style="height:1px;background:var(--border);margin:12px 4px"></div>
+      <button class="nav-btn" id="dnav-txadd" onclick="goTab('txadd',this)"><span class="app-glyph" data-glyph="settings"></span>Ayarlar & Veri</button>
     </div>
-    
-    <div style="margin-top: auto;">
-      <button class="theme-btn-sidebar" id="theme-btn" onclick="toggleTheme()" title="Tema değiştir">
-        🌙 Koyu Tema
+    <div style="margin-top:auto">
+      <button class="theme-btn-sidebar" id="theme-btn" onclick="openThemePanel()" title="Görünüm ve renk paleti">
+        <span class="app-glyph" data-glyph="palette"></span><span>Görünümü özelleştir</span>
       </button>
     </div>
   </nav>
@@ -543,52 +539,63 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   <main class="main-content">
     
     <header class="page-header">
-      <h1 class="page-title" id="page-title-text">📊 Genel Bakış (Bütçe)</h1>
+      <h1 class="page-title" id="page-title-text">Nakit Akışı & Kartlar</h1>
+      <div class="app-header-tools">
+        <button type="button" title="Açık/koyu mod ve renk paleti" onclick="openThemePanel()">◐ Görünüm</button>
+      </div>
     </header>
-
-    <div class="wrap" id="tab-budget"><div class="loading"><div class="spinner"></div>Veriler Yükleniyor...</div></div>
-    <div class="wrap" id="tab-actual" style="display:none"></div>
-    <div class="wrap" id="tab-variance" style="display:none"></div>
+    <div class="wrap" id="tab-cashflow"><div class="loading"><div class="spinner"></div>Plan yükleniyor...</div></div>
+    <div class="wrap" id="tab-planning" style="display:none">
+      <div class="planning-header">
+        <h2>Bütçe & Gerçekleşen</h2>
+        <div class="planning-switch" role="tablist" aria-label="Bütçe ve gerçekleşen bölümleri">
+          <button type="button" id="plan-switch-budget" role="tab" onclick="planningSwitch('budget')">Bütçe</button>
+          <button type="button" id="plan-switch-actual" role="tab" onclick="planningSwitch('actual')">Gerçekleşen</button>
+          <button type="button" id="plan-switch-variance" role="tab" onclick="planningSwitch('variance')">Fark Analizi</button>
+        </div>
+      </div>
+      <div class="wrap" id="tab-budget"></div>
+      <div class="wrap" id="tab-actual" style="display:none"></div>
+      <div class="wrap" id="tab-variance" style="display:none"></div>
+    </div>
+    <div class="wrap" id="tab-overview" style="display:none"></div>
     <div class="wrap" id="tab-invest" style="display:none"></div>
-     <div class="wrap" id="tab-cashflow" style="display:none"></div>
-    <div class="wrap" id="tab-analiz" style="display:none"></div>
-    <div class="wrap" id="tab-txadd" style="display:none"></div>
     <div class="wrap" id="tab-history" style="display:none"></div>
-
+    <div class="wrap" id="tab-txadd" style="display:none"></div>
   </main>
 </div>
 
 <button class="fab-btn" onclick="goTab('txadd', document.getElementById('dnav-txadd'))" title="Hızlı Ekle & Yönet">+</button>
 
+<div class="theme-sheet" id="appearance-sheet" role="dialog" aria-modal="true" aria-label="Görünüm ayarları" aria-hidden="true">
+  <div class="theme-sheet-inner">
+    <div class="theme-sheet-head"><h2>Görünüm ayarları</h2><button type="button" aria-label="Kapat" onclick="closeThemePanel()">×</button></div>
+    <div style="font-weight:750">Açık / koyu görünüm</div>
+    <div class="theme-choice-group" role="group" aria-label="Ekran modu">
+      <button type="button" data-mode-choice="light" onclick="setAppMode('light')">☀️ Açık</button>
+      <button type="button" data-mode-choice="dark" onclick="setAppMode('dark')">🌙 Koyu</button>
+      <button type="button" data-mode-choice="system" onclick="setAppMode('system')">◐ Sistem</button>
+    </div>
+    <div style="font-weight:750">Renk paleti</div>
+    <div class="palette-grid" role="group" aria-label="Renk paleti">
+      <button type="button" data-palette-choice="aurora" onclick="setAppPalette('aurora')"><span class="palette-chip aurora"></span>Aurora</button>
+      <button type="button" data-palette-choice="ocean" onclick="setAppPalette('ocean')"><span class="palette-chip ocean"></span>Okyanus</button>
+      <button type="button" data-palette-choice="orchid" onclick="setAppPalette('orchid')"><span class="palette-chip orchid"></span>Orkide</button>
+      <button type="button" data-palette-choice="sunset" onclick="setAppPalette('sunset')"><span class="palette-chip sunset"></span>Gün Batımı</button>
+    </div>
+    <p style="margin-top:19px;color:var(--text3);font-size:12px;line-height:1.6">Bu ayarlar finansal kayıtlarını değiştirmez; yalnızca bu cihazın görünümünde saklanır.</p>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
-<nav class="bottom-nav">
+<nav class="bottom-nav" aria-label="Mobil gezinme">
   <div class="bottom-nav-inner">
-    <button class="bnav-btn active" id="mnav-budget" onclick="mGoTab('budget',this)">
-      <span class="bi">📊</span><span class="bl">Bütçe</span>
-    </button>
-    <button class="bnav-btn" id="mnav-actual" onclick="mGoTab('actual',this)">
-      <span class="bi">✅</span><span class="bl">Gerçekleşen</span>
-    </button>
-    <button class="bnav-btn" id="mnav-invest" onclick="mGoTab('invest',this)">
-      <span class="bi">💎</span><span class="bl">Yatırım</span>
-    </button>
-    <button class="bnav-btn" id="mnav-cashflow" onclick="mGoTab('cashflow',this)">
-       <span class="bi">💳</span><span class="bl">Nakit</span>
-     </button>
-     <button class="bnav-btn" id="mnav-analiz" onclick="mGoTab('analiz',this)">
-      <span class="bi">🧠</span><span class="bl">Analiz</span>
-    </button>
-    <button class="bnav-btn" id="mnav-txadd" onclick="mGoTab('txadd',this)">
-      <span class="bi">➕</span><span class="bl">Ekle</span>
-    </button>
-    <button class="bnav-btn" id="mnav-history" onclick="mGoTab('history',this)">
-      <span class="bi">📋</span><span class="bl">Geçmiş</span>
-    </button>
-    <div class="bnav-sep"></div>
-    <button class="bnav-btn" id="mnav-theme" onclick="toggleTheme()">
-      <span class="bi" id="mnav-theme-icon">🌙</span><span class="bl">Tema</span>
-    </button>
+    <button class="bnav-btn active" id="mnav-cashflow" onclick="mGoTab('cashflow',this)"><span class="bi" data-glyph="wallet"></span><span class="bl">Nakit</span></button>
+    <button class="bnav-btn" id="mnav-planning" onclick="mGoTab('planning',this)"><span class="bi" data-glyph="layers"></span><span class="bl">Bütçe</span></button>
+    <button class="bnav-btn" id="mnav-overview" onclick="mGoTab('overview',this)"><span class="bi" data-glyph="grid"></span><span class="bl">Genel</span></button>
+    <button class="bnav-btn" id="mnav-invest" onclick="mGoTab('invest',this)"><span class="bi" data-glyph="sparkles"></span><span class="bl">Yatırım</span></button>
+    <button class="bnav-btn" id="mnav-history" onclick="mGoTab('history',this)"><span class="bi" data-glyph="history"></span><span class="bl">Geçmiş</span></button>
+    <button class="bnav-btn" id="mnav-txadd" onclick="mGoTab('txadd',this)"><span class="bi" data-glyph="plus"></span><span class="bl">Ekle</span></button>
   </div>
 </nav>
 
@@ -764,6 +771,7 @@ import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, stat
 import { createStatementInboxUI } from "./statement-ui.js";
 import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
 import {createCashflowForecastUI} from "./cashflow-forecast-ui.js?v=17";
+import {buildOverviewData,renderOverviewDashboard} from "./overview-dashboard.js?v=18";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, setPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getFirestore, doc, setDoc, getDoc, getDocFromServer, onSnapshot, collection, addDoc, deleteDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
@@ -992,20 +1000,68 @@ async function deleteInvestment(firebaseId){
   catch(e){setSyncStatus("error");showToast("⚠️ Silinemedi");}
 }
 
-// ── THEME ──────────────────────────────────────────────────
-var _theme=localStorage.getItem("butce-theme")||"dark";
-function applyTheme(t){
-  _theme=t;
-  var isLight=t==="light";
-  if(isLight) document.body.classList.add("light");
-  else document.body.classList.remove("light");
-  var txt=isLight?"☀️ Açık Tema":"🌙 Koyu Tema";
-  var btn=document.getElementById("theme-btn");if(btn)btn.innerHTML=txt;
-  var micon=document.getElementById("mnav-theme-icon");if(micon)micon.textContent=isLight?"☀️":"🌙";
-  localStorage.setItem("butce-theme",t);
+// ── APPEARANCE: independent palette + light/dark/system ──
+const themeModes=["light","dark","system"];
+const palettes=["aurora","ocean","orchid","sunset"];
+let _preferredTheme=localStorage.getItem("butce-theme")||"light";
+if(!themeModes.includes(_preferredTheme))_preferredTheme="light";
+let _theme="dark";
+let _palette=localStorage.getItem("butce-palette")||"aurora";
+if(!palettes.includes(_palette))_palette="aurora";
+function resolvedMode(mode){
+  if(mode!=="system")return mode;
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches?"dark":"light";
 }
-window.toggleTheme=function(){applyTheme(_theme==="dark"?"light":"dark");};
-applyTheme(_theme);
+function refreshAppearanceSheet(){
+  document.querySelectorAll("[data-mode-choice]").forEach(btn=>{
+    const active=btn.dataset.modeChoice===_preferredTheme;
+    btn.classList.toggle("selected",active);
+    btn.setAttribute("aria-pressed",String(active));
+  });
+  document.querySelectorAll("[data-palette-choice]").forEach(btn=>{
+    const active=btn.dataset.paletteChoice===_palette;
+    btn.classList.toggle("selected",active);
+    btn.setAttribute("aria-pressed",String(active));
+  });
+}
+function applyTheme(mode){
+  if(!themeModes.includes(mode))return;
+  _preferredTheme=mode;
+  _theme=resolvedMode(mode);
+  document.body.classList.toggle("light",_theme==="light");
+  document.documentElement.style.colorScheme=_theme;
+  document.body.dataset.palette=_palette;
+  localStorage.setItem("butce-theme",mode);
+  localStorage.setItem("butce-palette",_palette);
+  refreshAppearanceSheet();
+}
+window.setAppMode=mode=>{applyTheme(mode);render(curTab);};
+window.setAppPalette=palette=>{
+  if(!palettes.includes(palette))return;
+  _palette=palette;applyTheme(_preferredTheme);
+};
+window.toggleTheme=()=>window.setAppMode(_theme==="dark"?"light":"dark");
+window.openThemePanel=()=>{
+  const el=document.getElementById("appearance-sheet");
+  if(!el)return;
+  refreshAppearanceSheet();
+  el.classList.add("open");el.setAttribute("aria-hidden","false");
+  el.querySelector(".theme-sheet-head button")?.focus();
+};
+window.closeThemePanel=()=>{
+  const el=document.getElementById("appearance-sheet");
+  el?.classList.remove("open");el?.setAttribute("aria-hidden","true");
+};
+document.getElementById("appearance-sheet")?.addEventListener("click",event=>{
+  if(event.target.id==="appearance-sheet")window.closeThemePanel();
+});
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&document.getElementById("appearance-sheet")?.classList.contains("open"))window.closeThemePanel();
+});
+window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change",()=>{
+  if(_preferredTheme==="system")applyTheme("system");
+});
+applyTheme(_preferredTheme);
 
 // ── HELPERS ────────────────────────────────────────────────
 function safeHtml(value){
@@ -1317,63 +1373,58 @@ function drawPie(id,segs){
   ctx.beginPath();ctx.fillStyle=(_theme==="dark"?"#161821":"#ffffff");ctx.arc(60,60,34,0,Math.PI*2);ctx.fill();
 }
 
-// ── TABS & NAVIGATION ──────────────────────────────────────
-var tabTitles = {
-  budget: '📊 Genel Bakış (Bütçe)',
-  actual: '✅ Gerçekleşen',
-  variance: '📐 Fark Analizi',
-  invest: '💎 Yatırımlar',
-   cashflow: '💳 Nakit Akışı & Kartlar',
-  analiz: '🧠 Detaylı Analiz',
-  txadd: '⚙️ Yönet & Ekle',
-  history: '📋 İşlem Geçmişi'
+// ── TABS & NAVIGATION (cashflow-first; finance data untouched) ──
+const mainTabs=["cashflow","planning","overview","invest","history","txadd"];
+const tabTitles={
+  cashflow:"Nakit Akışı & Kartlar",
+  planning:"Bütçe / Gerçekleşen",
+  overview:"Genel Bakış",
+  invest:"Yatırımlar",
+  history:"İşlem Geçmişi",
+  txadd:"Ayarlar & Veri"
 };
-
-var curTab="budget";
-window.goTab=function(tab,btn){
-  document.querySelectorAll(".nav-btn").forEach(function(b){b.classList.remove("active");});
-  if(btn && btn.classList) btn.classList.add("active");
-  
-  var pt = document.getElementById("page-title-text");
-  if(pt) pt.textContent = tabTitles[tab] || tab;
-
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var mb=document.getElementById("mnav-"+t);
-    if(mb) mb.className="bnav-btn"+(t===tab?" active":"");
+let curTab="cashflow";
+let planningMode="budget";
+function showMainTab(tab){
+  if(["budget","actual","variance"].includes(tab)){
+    planningMode=tab;tab="planning";
+  }
+  if(!mainTabs.includes(tab))return;
+  mainTabs.forEach(name=>{
+    const desktop=document.getElementById("dnav-"+name);
+    const mobile=document.getElementById("mnav-"+name);
+    const pane=document.getElementById("tab-"+name);
+    desktop?.classList.toggle("active",tab===name);
+    mobile?.classList.toggle("active",tab===name);
+    if(pane)pane.style.display=tab===name?"flex":"none";
   });
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var pane=document.getElementById("tab-"+t);
-    if(pane) pane.style.display=t===tab?"flex":"none"; 
+  const header=document.getElementById("page-title-text");
+  if(header)header.textContent=tabTitles[tab];
+  curTab=tab;
+  render(tab);
+}
+window.goTab=function(tab){showMainTab(tab);};
+window.mGoTab=function(tab){showMainTab(tab);window.scrollTo?.(0,0);};
+window.planningSwitch=function(mode){
+  if(!["budget","actual","variance"].includes(mode))return;
+  planningMode=mode;
+  ["budget","actual","variance"].forEach(name=>{
+    const child=document.getElementById("tab-"+name);
+    const button=document.getElementById("plan-switch-"+name);
+    if(child)child.style.display=mode===name?"flex":"none";
+    button?.classList.toggle("active",mode===name);
+    button?.setAttribute("aria-selected",String(mode===name));
   });
-  curTab=tab;render(tab);
+  if(mode==="budget")renderBudget();
+  else if(mode==="actual")renderActual();
+  else renderVariance();
 };
-window.mGoTab=function(tab,btn){
-  var pt = document.getElementById("page-title-text");
-  if(pt) pt.textContent = tabTitles[tab] || tab;
-
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var b=document.getElementById("mnav-"+t);
-    if(b) b.className="bnav-btn"+(t===tab?" active":"");
-  });
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var b=document.getElementById("dnav-"+t);
-    if(b) b.className="nav-btn"+(t===tab?" active":"");
-  });
-  ["budget","actual","variance","invest","cashflow","analiz","txadd","history"].forEach(function(t){
-    var pane=document.getElementById("tab-"+t);
-    if(pane) pane.style.display=t===tab?"flex":"none";
-  });
-  curTab=tab;render(tab);
-  window.scrollTo(0,0);
-};
-
+function renderPlanning(){window.planningSwitch(planningMode);}
 function render(tab){
-  if(tab==="budget")renderBudget();
-  else if(tab==="actual")renderActual();
-  else if(tab==="variance")renderVariance();
+  if(tab==="cashflow")renderCashflow();
+  else if(tab==="planning")renderPlanning();
+  else if(tab==="overview")renderOverview();
   else if(tab==="invest")renderInvest();
-   else if(tab==="cashflow")renderCashflow();
-  else if(tab==="analiz")renderAnaliz();
   else if(tab==="txadd")renderTxAdd();
   else if(tab==="history")renderHistory();
 }
@@ -1388,6 +1439,100 @@ var states={
   txadd:   {type:"expense",cat:"food"},
   history: {filter:"all"}
 };
+
+// ── MAIN OVERVIEW: read-only, sourced from budget / transactions / cash plan ──
+const overviewPeriod={year:CUR_Y_REAL,month:CUR_M_REAL};
+window.overviewSetPeriod=function(year,month){
+  if(year!=null){
+    const y=Number(year);
+    if(!Number.isInteger(y)||y<2025||y>2030)return;
+    overviewPeriod.year=y;
+  }
+  if(month!=null){
+    const m=Number(month);
+    if(!Number.isInteger(m)||m<0||m>11)return;
+    overviewPeriod.month=m;
+  }
+  renderOverview();
+};
+function overviewForecastFor(month){
+  if(!cfPlan)return null;
+  const [year,mon]=cfPlan.startMonth.split("-").map(Number);
+  const [y,m]=month.split("-").map(Number);
+  const periods=(y-year)*12+(m-mon)+1;
+  if(periods<1||periods>24)return null;
+  try{
+    const budgetForecast=cfLinkedBudgetForecast(periods);
+    const projections=computeCashFlow(budgetForecast.plan,periods);
+    const derived=computeCashPositionTable(cfPlan,projections);
+    return derived.find(row=>row.month===month)||null;
+  }catch(e){return null;}
+}
+window.renderOverview=function(){
+  const container=document.getElementById("tab-overview");
+  if(!container)return;
+  const period=String(overviewPeriod.year)+"-"+String(overviewPeriod.month+1).padStart(2,"0");
+  try{
+    const model=buildOverviewData({
+      year:overviewPeriod.year,month:overviewPeriod.month,categories:cats,
+      transactions,investments,getBudget,forecast:overviewForecastFor(period)
+    });
+    container.innerHTML=renderOverviewDashboard(model);
+  }catch(error){
+    container.innerHTML='<div class="glass-panel" style="padding:22px">Genel bakış hazırlanamadı. Verilerde değişiklik yapılmadı.</div>';
+  }
+};
+let overviewModal=null;
+window.overviewClose=function(){
+  if(!overviewModal)return;
+  overviewModal.remove();overviewModal=null;
+  document.body.classList.remove("cf-forecast-overlay-open");
+};
+window.overviewExpand=function(kind){
+  if(!["trend","categories","table","daily"].includes(kind))return;
+  const original=document.getElementById("overview-panel-"+kind);
+  if(!original)return;
+  window.overviewClose();
+  overviewModal=document.createElement("div");
+  overviewModal.className="cf-forecast-modal ov-modal-wrap";
+  overviewModal.setAttribute("role","dialog");
+  overviewModal.setAttribute("aria-modal","true");
+  overviewModal.setAttribute("aria-label","Geniş grafik görünümü");
+  const shell=document.createElement("div");shell.className="cf-forecast-modal-shell";
+  const header=document.createElement("div");header.className="cf-forecast-modal-head";
+  const title=document.createElement("strong");
+  title.textContent=({trend:"Yıllık gelir – gider grafiği",categories:"Harcama kategori dağılımı",table:"12 aylık bütçe / gerçekleşen tablosu",daily:"Günlük gelir – gider grafiği"})[kind];
+  const close=document.createElement("button");close.type="button";close.className="btn btn-p btn-sm";
+  close.textContent="✕ Kapat";close.addEventListener("click",window.overviewClose);
+  header.append(title,close);
+  const content=document.createElement("div");content.className="cf-forecast-modal-content";
+  const cloned=original.cloneNode(true);cloned.removeAttribute("id");
+  cloned.querySelectorAll(".ov-icon-btn").forEach(b=>b.remove());
+  content.appendChild(cloned);shell.append(header,content);overviewModal.appendChild(shell);
+  overviewModal.addEventListener("click",e=>{if(e.target===overviewModal)window.overviewClose();});
+  document.body.appendChild(overviewModal);
+  document.body.classList.add("cf-forecast-overlay-open");
+  close.focus();
+};
+document.addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&overviewModal)window.overviewClose();
+});
+
+// Coherent outline icons for navigation; category-specific saved emoji stay intact.
+const glyphPaths={
+  wallet:'<rect x="3" y="6" width="18" height="15" rx="3"/><path d="M3 10h18"/><path d="M6 6V4a2 2 0 0 1 2-2h10"/><path d="M16 15h3"/>',
+  layers:'<rect x="3" y="3" width="18" height="8" rx="2"/><rect x="3" y="13" width="18" height="8" rx="2"/><path d="M7 7h6M7 17h6"/>',
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  sparkles:'<path d="m12 3 1.9 6.1L20 11l-6.1 1.9L12 19l-1.9-6.1L4 11l6.1-1.9L12 3Z"/><path d="m19 17 .8 2.2L22 20l-2.2.8L19 23l-.8-2.2L16 20l2.2-.8Z"/>',
+  history:'<path d="M3 11a9 9 0 1 1 2.6 6.4M3 4v7h7"/><path d="M12 7v5l3 2"/>',
+  settings:'<circle cx="12" cy="12" r="3"/><path d="M19 13.5v-3l2-1.5-2-3.4-2.3.7-2.7-1.5L13.5 2h-3L10 4.8 7.3 6.3 5 5.6 3 9l2 1.5v3L3 15l2 3.4 2.3-.7 2.7 1.5.5 2.8h3l.5-2.8 2.7-1.5 2.3.7 2-3.4-2-1.5Z"/>',
+  palette:'<circle cx="12" cy="12" r="9"/><circle cx="7.5" cy="11" r="1"/><circle cx="11" cy="7" r="1"/><circle cx="16" cy="9" r="1"/><path d="M17 16a2.5 2.5 0 0 1-2.5 2.5h-1a2 2 0 0 1-2-2c0-1.2 1-2 2-2H17"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>'
+};
+document.querySelectorAll("[data-glyph]").forEach(el=>{
+  const path=glyphPaths[el.dataset.glyph];
+  if(path)el.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true">'+path+'</svg>';
+});
 
 // ── MONTH SELECTOR ─────────────────────────────────────────
 function moSelHtml(sk){
@@ -3610,6 +3755,8 @@ async function renderCashflow(){
       cfSelectedMonth=cfPlan.startMonth;
       cfLoading=null;
       renderCashflow();
+      // Refresh read-only dashboard if user opened it while the plan loaded.
+      if(curTab==="overview")renderOverview();
     }).catch(()=>{
       if(revision!==authRevision)return;
       cfLoading=null;
@@ -3782,7 +3929,7 @@ async function renderCashflow(){
      cfView==="installments"?installmentView:planView;
 
   root.innerHTML='<div class="fade cf-dashboard">'+
-    '<div class="cf-dashboard-header"><div><h2>💳 Bütçe & Nakit Akışı <span class="cf-build-marker">v17 · Borç öncelikli plan</span></h2>'+
+    '<div class="cf-dashboard-header"><div><h2>💳 Bütçe & Nakit Akışı <span class="cf-build-marker">v18 · Borç öncelikli plan</span></h2>'+
     '<p class="cf-muted">Kasım 2026 ve sonrası için ödeme ayına göre nakit akışı. Eski kayıtlar korunur.</p></div>'+
     '<div class="cf-header-status"><button class="btn btn-ghost btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap Bakiyesi</button>'+(cfDirty?'<span class="cf-tag cf-tag-warning">Kaydedilmemiş değişiklikler</span>':
       '<span class="cf-tag cf-tag-success">Plan görüntüleniyor</span>')+'</div></div>'+
@@ -4235,7 +4382,9 @@ async function initAppLifecycle(isCurrent){
   if (!isCurrent()) return false;
   listenTransactions();
   listenInvestments();
+  // Preserve old budget grid and load the cashflow landing page on login.
   renderBudget();
+  renderCashflow();
   return true;
 }
 </script>
