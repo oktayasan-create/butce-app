@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import vm from "node:vm";
 import assert from "node:assert/strict";
+import {createCashflowForecastUI} from "../cashflow-forecast-ui.js";
 const html=fs.readFileSync("index.html","utf8");
 const begin=html.indexOf("// ── INDEPENDENT CASH & CREDIT CARD SCENARIO");
 const end=html.indexOf("// ── MODAL UTILS",begin);
@@ -31,7 +32,7 @@ assert.equal(row.minimumTotal,4300);
 assert.equal(row.extraTotal,2000);
 assert(model.validCashFlowPlan(p));
 
-const root={innerHTML:""};
+const root={innerHTML:"",querySelectorAll(){return []}};
 let statementRenderCount=0;
 const stOverview={count:3,loading:false,error:"",debt:30000,minimum:12000,statements:[
  {id:"s1",cardLabel:"Garanti",balance:10000,minimum:4000,dueDate:"2026-11-09",
@@ -55,6 +56,7 @@ const sandbox={
    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[k])),
  showToast:v=>messages.push(v),setSyncStatus:()=>{},confirm:()=>true,
  prompt:()=>"2027-01",
+ createCashflowForecastUI,
  createStatementInboxUI:uiStub,
  Date,Intl,Math,Number,String,Array,Object,JSON,structuredClone,...model
 };
