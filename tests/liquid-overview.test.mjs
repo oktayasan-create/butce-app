@@ -41,6 +41,8 @@ test("overview uses the correct month/year and distinguishes budget from actual"
   assert.equal(data.recent.length,4);
   assert.equal(data.monthly[9].actualExpense,10000);
   assert.equal(data.monthly[10].actualExpense,36500);
+  assert.equal(data.daily.length,7);
+  assert.equal(data.daily.find(day=>day.day===5).expense,6500);
 });
 
 test("dashboard includes trend, donut, progress, activity, debt without modifying user records",()=>{
@@ -48,7 +50,8 @@ test("dashboard includes trend, donut, progress, activity, debt without modifyin
   const html=renderOverviewDashboard(buildOverviewData(input));
   for(const needle of ["Gelir – gider trendi","Harcamalar nereye gidiyor?",
     "Bütçe kullanımın","Son işlemler","Borç ve nakit görünümü",
-    "Genel Bakış","overviewExpand('trend')","overviewExpand('categories')",
+    "Genel Bakış","Bütçe ve gerçekleşen tablosu","Son 7 gün",
+    "overviewExpand('table')","overviewExpand('daily')","overviewExpand('trend')","overviewExpand('categories')",
     "54.692","133.500","2026"]){
     assert.ok(html.includes(needle),"Missing "+needle);
   }
