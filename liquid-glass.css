@@ -225,3 +225,11 @@ button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid 
   .ov-day-column>span{font-size:8px}
   .ov-modal-wrap .ov-day-chart{height:245px}
 }
+
+.ov-card-breakdown{margin-top:18px;border-top:1px solid var(--border);padding-top:15px}
+.ov-card-breakdown h4{font-size:12px;letter-spacing:.3px;color:var(--text2);margin:0 0 10px}
+.ov-card-breakdown-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px 20px;align-items:center;font-size:11px;color:var(--text3);padding:9px 2px;border-bottom:1px solid var(--border)}
+.ov-card-breakdown-row:last-child{border-bottom:0}
+.ov-card-breakdown-row>span:first-child{color:var(--text);font-weight:730;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.ov-card-breakdown-row strong{color:var(--text);font-variant-numeric:tabular-nums}
+@media(max-width:550px){.ov-card-breakdown-row{grid-template-columns:1fr 1fr}.ov-card-breakdown-row>span:first-child{grid-column:1/-1}.ov-card-breakdown-row span:last-child{text-align:right}}
