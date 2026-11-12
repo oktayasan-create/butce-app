@@ -507,8 +507,8 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
 .cf-chart-quick-actions .cf-chart-selection-count{margin-left:auto;font-size:12px}
 @media(max-width:650px){.cf-build-marker{margin-top:4px}.cf-chart-quick-actions .cf-chart-selection-count{width:100%;margin-left:0}}
 
-</style></head>
-<body class="auth-locked">
+</style><link rel="stylesheet" href="./liquid-glass.css?v=18"/></head>
+<body class="auth-locked" data-palette="aurora">
 <div id="auth-gate"><form class="auth-panel" id="auth-form"><div class="auth-app-logo"><img src="icon-192.png?v=17" width="62" height="62" alt="BütçeApp finans uygulaması amblemi"/></div><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-status" role="status"></div><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button><button id="auth-switch" class="secondary-action" type="button" hidden>Oturumu kapat / hesap değiştir</button></form></div>
 
 <div class="app-layout">
@@ -521,21 +521,17 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
     </div>
     
     <div class="nav">
-      <button class="nav-btn active" id="dnav-budget" onclick="goTab('budget',this)">📊 Genel Bakış (Bütçe)</button>
-      <button class="nav-btn" id="dnav-actual" onclick="goTab('actual',this)">✅ Gerçekleşen</button>
-      <button class="nav-btn" id="dnav-variance" onclick="goTab('variance',this)">📐 Fark Analizi</button>
-      <button class="nav-btn" id="dnav-invest" onclick="goTab('invest',this)">💎 Yatırımlar</button>
-       <button class="nav-btn" id="dnav-cashflow" onclick="goTab('cashflow',this)">💳 Nakit Akışı & Kartlar</button>
-      <button class="nav-btn" id="dnav-analiz" onclick="goTab('analiz',this)">🧠 Detaylı Analiz</button>
-      <button class="nav-btn" id="dnav-history" onclick="goTab('history',this)">📋 İşlem Geçmişi</button>
-      
-      <div style="height: 1px; background: var(--border); margin: 12px 0;"></div>
-      <button class="nav-btn" id="dnav-txadd" onclick="goTab('txadd',this)">⚙️ Ayarlar & Veri</button>
+      <button class="nav-btn active" id="dnav-cashflow" onclick="goTab('cashflow',this)"><span class="app-glyph" data-glyph="wallet"></span>Nakit Akışı & Kartlar</button>
+      <button class="nav-btn" id="dnav-planning" onclick="goTab('planning',this)"><span class="app-glyph" data-glyph="layers"></span>Bütçe / Gerçekleşen</button>
+      <button class="nav-btn" id="dnav-overview" onclick="goTab('overview',this)"><span class="app-glyph" data-glyph="grid"></span>Genel Bakış</button>
+      <button class="nav-btn" id="dnav-invest" onclick="goTab('invest',this)"><span class="app-glyph" data-glyph="sparkles"></span>Yatırımlar</button>
+      <button class="nav-btn" id="dnav-history" onclick="goTab('history',this)"><span class="app-glyph" data-glyph="history"></span>İşlem Geçmişi</button>
+      <div style="height:1px;background:var(--border);margin:12px 4px"></div>
+      <button class="nav-btn" id="dnav-txadd" onclick="goTab('txadd',this)"><span class="app-glyph" data-glyph="settings"></span>Ayarlar & Veri</button>
     </div>
-    
-    <div style="margin-top: auto;">
-      <button class="theme-btn-sidebar" id="theme-btn" onclick="toggleTheme()" title="Tema değiştir">
-        🌙 Koyu Tema
+    <div style="margin-top:auto">
+      <button class="theme-btn-sidebar" id="theme-btn" onclick="openThemePanel()" title="Görünüm ve renk paleti">
+        <span class="app-glyph" data-glyph="palette"></span><span>Görünümü özelleştir</span>
       </button>
     </div>
   </nav>
@@ -543,52 +539,63 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   <main class="main-content">
     
     <header class="page-header">
-      <h1 class="page-title" id="page-title-text">📊 Genel Bakış (Bütçe)</h1>
+      <h1 class="page-title" id="page-title-text">Nakit Akışı & Kartlar</h1>
+      <div class="app-header-tools">
+        <button type="button" title="Açık/koyu mod ve renk paleti" onclick="openThemePanel()">◐ Görünüm</button>
+      </div>
     </header>
-
-    <div class="wrap" id="tab-budget"><div class="loading"><div class="spinner"></div>Veriler Yükleniyor...</div></div>
-    <div class="wrap" id="tab-actual" style="display:none"></div>
-    <div class="wrap" id="tab-variance" style="display:none"></div>
+    <div class="wrap" id="tab-cashflow"><div class="loading"><div class="spinner"></div>Plan yükleniyor...</div></div>
+    <div class="wrap" id="tab-planning" style="display:none">
+      <div class="planning-header">
+        <h2>Bütçe & Gerçekleşen</h2>
+        <div class="planning-switch" role="tablist" aria-label="Bütçe ve gerçekleşen bölümleri">
+          <button type="button" id="plan-switch-budget" role="tab" onclick="planningSwitch('budget')">Bütçe</button>
+          <button type="button" id="plan-switch-actual" role="tab" onclick="planningSwitch('actual')">Gerçekleşen</button>
+          <button type="button" id="plan-switch-variance" role="tab" onclick="planningSwitch('variance')">Fark Analizi</button>
+        </div>
+      </div>
+      <div class="wrap" id="tab-budget"></div>
+      <div class="wrap" id="tab-actual" style="display:none"></div>
+      <div class="wrap" id="tab-variance" style="display:none"></div>
+    </div>
+    <div class="wrap" id="tab-overview" style="display:none"></div>
     <div class="wrap" id="tab-invest" style="display:none"></div>
-     <div class="wrap" id="tab-cashflow" style="display:none"></div>
-    <div class="wrap" id="tab-analiz" style="display:none"></div>
-    <div class="wrap" id="tab-txadd" style="display:none"></div>
     <div class="wrap" id="tab-history" style="display:none"></div>
-
+    <div class="wrap" id="tab-txadd" style="display:none"></div>
   </main>
 </div>
 
 <button class="fab-btn" onclick="goTab('txadd', document.getElementById('dnav-txadd'))" title="Hızlı Ekle & Yönet">+</button>
 
+<div class="theme-sheet" id="appearance-sheet" role="dialog" aria-modal="true" aria-label="Görünüm ayarları" aria-hidden="true">
+  <div class="theme-sheet-inner">
+    <div class="theme-sheet-head"><h2>Görünüm ayarları</h2><button type="button" aria-label="Kapat" onclick="closeThemePanel()">×</button></div>
+    <div style="font-weight:750">Açık / koyu görünüm</div>
+    <div class="theme-choice-group" role="group" aria-label="Ekran modu">
+      <button type="button" data-mode-choice="light" onclick="setAppMode('light')">☀️ Açık</button>
+      <button type="button" data-mode-choice="dark" onclick="setAppMode('dark')">🌙 Koyu</button>
+      <button type="button" data-mode-choice="system" onclick="setAppMode('system')">◐ Sistem</button>
+    </div>
+    <div style="font-weight:750">Renk paleti</div>
+    <div class="palette-grid" role="group" aria-label="Renk paleti">
+      <button type="button" data-palette-choice="aurora" onclick="setAppPalette('aurora')"><span class="palette-chip aurora"></span>Aurora</button>
+      <button type="button" data-palette-choice="ocean" onclick="setAppPalette('ocean')"><span class="palette-chip ocean"></span>Okyanus</button>
+      <button type="button" data-palette-choice="orchid" onclick="setAppPalette('orchid')"><span class="palette-chip orchid"></span>Orkide</button>
+      <button type="button" data-palette-choice="sunset" onclick="setAppPalette('sunset')"><span class="palette-chip sunset"></span>Gün Batımı</button>
+    </div>
+    <p style="margin-top:19px;color:var(--text3);font-size:12px;line-height:1.6">Bu ayarlar finansal kayıtlarını değiştirmez; yalnızca bu cihazın görünümünde saklanır.</p>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
-<nav class="bottom-nav">
+<nav class="bottom-nav" aria-label="Mobil gezinme">
   <div class="bottom-nav-inner">
-    <button class="bnav-btn active" id="mnav-budget" onclick="mGoTab('budget',this)">
-      <span class="bi">📊</span><span class="bl">Bütçe</span>
-    </button>
-    <button class="bnav-btn" id="mnav-actual" onclick="mGoTab('actual',this)">
-      <span class="bi">✅</span><span class="bl">Gerçekleşen</span>
-    </button>
-    <button class="bnav-btn" id="mnav-invest" onclick="mGoTab('invest',this)">
-      <span class="bi">💎</span><span class="bl">Yatırım</span>
-    </button>
-    <button class="bnav-btn" id="mnav-cashflow" onclick="mGoTab('cashflow',this)">
-       <span class="bi">💳</span><span class="bl">Nakit</span>
-     </button>
-     <button class="bnav-btn" id="mnav-analiz" onclick="mGoTab('analiz',this)">
-      <span class="bi">🧠</span><span class="bl">Analiz</span>
-    </button>
-    <button class="bnav-btn" id="mnav-txadd" onclick="mGoTab('txadd',this)">
-      <span class="bi">➕</span><span class="bl">Ekle</span>
-    </button>
-    <button class="bnav-btn" id="mnav-history" onclick="mGoTab('history',this)">
-      <span class="bi">📋</span><span class="bl">Geçmiş</span>
-    </button>
-    <div class="bnav-sep"></div>
-    <button class="bnav-btn" id="mnav-theme" onclick="toggleTheme()">
-      <span class="bi" id="mnav-theme-icon">🌙</span><span class="bl">Tema</span>
-    </button>
+    <button class="bnav-btn active" id="mnav-cashflow" onclick="mGoTab('cashflow',this)"><span class="bi" data-glyph="wallet"></span><span class="bl">Nakit</span></button>
+    <button class="bnav-btn" id="mnav-planning" onclick="mGoTab('planning',this)"><span class="bi" data-glyph="layers"></span><span class="bl">Bütçe</span></button>
+    <button class="bnav-btn" id="mnav-overview" onclick="mGoTab('overview',this)"><span class="bi" data-glyph="grid"></span><span class="bl">Genel</span></button>
+    <button class="bnav-btn" id="mnav-invest" onclick="mGoTab('invest',this)"><span class="bi" data-glyph="sparkles"></span><span class="bl">Yatırım</span></button>
+    <button class="bnav-btn" id="mnav-history" onclick="mGoTab('history',this)"><span class="bi" data-glyph="history"></span><span class="bl">Geçmiş</span></button>
+    <button class="bnav-btn" id="mnav-txadd" onclick="mGoTab('txadd',this)"><span class="bi" data-glyph="plus"></span><span class="bl">Ekle</span></button>
   </div>
 </nav>
 
