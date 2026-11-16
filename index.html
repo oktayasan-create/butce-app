@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BütçeApp"/>
 <title>BütçeApp | Kişisel Finans</title>
-<link rel="manifest" href="manifest.json?v=19"/>
+<link rel="manifest" href="manifest.json?v=20"/>
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=17"/>
 <link rel="icon" type="image/svg+xml" href="icon.svg?v=17"/>
 <link rel="apple-touch-icon" href="icon-192.png?v=17"/>
@@ -507,7 +507,7 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
 .cf-chart-quick-actions .cf-chart-selection-count{margin-left:auto;font-size:12px}
 @media(max-width:650px){.cf-build-marker{margin-top:4px}.cf-chart-quick-actions .cf-chart-selection-count{width:100%;margin-left:0}}
 
-</style><link rel="stylesheet" href="./liquid-glass.css?v=19"/></head>
+</style><link rel="stylesheet" href="./liquid-glass.css?v=20"/></head>
 <body class="auth-locked" data-palette="aurora">
 <div id="auth-gate"><form class="auth-panel" id="auth-form"><div class="auth-app-logo"><img src="icon-192.png?v=17" width="62" height="62" alt="BütçeApp finans uygulaması amblemi"/></div><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-status" role="status"></div><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button><button id="auth-switch" class="secondary-action" type="button" hidden>Oturumu kapat / hesap değiştir</button></form></div>
 
@@ -516,7 +516,7 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   <nav class="sidebar">
     <div class="logo">
       <div class="logo-icon"><img src="icon-192.png?v=17" alt="" width="38" height="38"/></div>
-      <span class="logo-brand">Bütçe<em>App</em></span><small class="app-build-tag" title="Sage Glass ve kişisel tema stüdyosu">v19</small>
+      <span class="logo-brand">Bütçe<em>App</em></span><small class="app-build-tag" title="Kasım taksitleri, dönem aralığı ve veri kaynakları">v20</small>
       <div class="sync-dot" id="sync-dot" title="Bağlantı durumu"></div>
     </div>
     
@@ -4212,7 +4212,7 @@ async function renderCashflow(){
      cfView==="installments"?installmentView:planView;
 
   root.innerHTML='<div class="fade cf-dashboard">'+
-    '<div class="cf-dashboard-header"><div><h2>💳 Bütçe & Nakit Akışı <span class="cf-build-marker">v19 · Borç öncelikli plan</span></h2>'+
+    '<div class="cf-dashboard-header"><div><h2>💳 Bütçe & Nakit Akışı <span class="cf-build-marker">v20 · Taksit ve veri kaynağı</span></h2>'+
     '<p class="cf-muted">Kasım 2026 ve sonrası için ödeme ayına göre nakit akışı. Eski kayıtlar korunur.</p></div>'+
     '<div class="cf-header-status">'+(cfDirty?'<span class="cf-tag cf-tag-warning">Kaydedilmemiş değişiklikler</span>':
       '<span class="cf-tag cf-tag-success">Plan görüntüleniyor</span>')+'</div></div>'+
