@@ -71,12 +71,12 @@ test("Studio has visible color pickers, custom icon selectors and installed-app 
  assert.match(html,/data-icon-pack-choice="custom"/);
  assert.match(html,/butce-custom-colors-v1/);
  assert.match(html,/butce-icon-config-v1/);
- assert.match(html,/liquid-glass\.css\?v=19/);
+ assert.match(html,/liquid-glass\.css\?v=20/);
  assert.match(html,/appearance-config\.js\?v=19/);
  assert.match(html,/Sage Glass ve kişisel tema stüdyosu/);
- assert.match(read("sw.js"),/butceapp-shell-v19/);
+ assert.match(read("sw.js"),/butceapp-shell-v20/);
  assert.match(read("sw.js"),/appearance-config\.js\?v=19/);
- assert.equal(JSON.parse(read("manifest.json")).start_url,"./?app=v19");
+ assert.equal(JSON.parse(read("manifest.json")).start_url,"./?app=v20");
 });
 
 test("financial calculations, balances, Firebase document writes are not changed",()=>{
