@@ -3376,7 +3376,7 @@ window.addCat=function(){
 // ── INDEPENDENT CASH & CREDIT CARD SCENARIO ─────────────────
 let cfPlan = null, cfLoading = null, cfSelectedMonth = null, cfDirty = false, cfEntryType = "card_expense";
 let cfView="summary",cfEditInstallmentId=null;
-let cfRenderedRow=null,cfMissingBudgetCards=[],cfForecastStartMonth=null;
+let cfRenderedRow=null,cfMissingBudgetCards=[],cfForecastStartMonth=null,cfFutureRows=[];
 function cfLinkedBudgetForecast(periods=12){
   if(!cfPlan)return {plan:cfPlan,linked:false,missingCards:[],breakdown:[]};
   if(typeof projectBudgetToCashFlow!=="function"||typeof cats==="undefined"||typeof getBudget!=="function")
@@ -3425,6 +3425,7 @@ window.cfForecastFullscreen=()=>cfForecastUI.open();
 window.cfForecastClose=()=>cfForecastUI.close();
 window.cfChartToggle=(metric,enabled)=>cfForecastUI.toggle(metric,enabled);
 window.cfChartPreset=(which)=>cfForecastUI.preset(which);
+window.cfChartRangeChange=(edge,month)=>cfForecastUI.setRange(edge,month);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
 const cfText = (v) => safeHtml(v);
@@ -3637,6 +3638,19 @@ function cfLoanEditor(){
     '<button class="btn btn-p btn-sm" onclick="cfAddLoan(\'Araba Kredisi\')">+ Araba kredisi</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="cfAddLoan(\'Diğer Kredi\')">+ Diğer kredi</button></div>';
 }
+function cfBilledMonthBreakdown(overview){
+  const byMonth=new Map(),missing=[];
+  for(const st of overview?.statements||[]){
+    if(!(st.billedInstallmentCount>0))continue;
+    if(!st.dueMonth){
+      missing.push({card:st.cardLabel,amount:st.billedInstallmentTotal||0});
+      continue;
+    }
+    const amount=Number(st.billedInstallmentTotal)||0;
+    byMonth.set(st.dueMonth,Math.round(((byMonth.get(st.dueMonth)||0)+amount)*100)/100);
+  }
+  return {byMonth,missing};
+}
 function cfInstallmentEditor(){
   const active=cfPlan.installments.filter(x=>x.active!==false);
   const archived=cfPlan.installments.filter(x=>x.active===false);
@@ -3813,7 +3827,7 @@ function cfActivityLog(current){
   }).join(''):'<div class="cf-muted">Henüz bu ay işlem kaydı yok.</div>';
 }
 function cfCompactForecast(rows){
-  return cfForecastUI.render(rows,cfPlan);
+  return cfForecastUI.render(rows,cfPlan,cfFutureRows.length?cfFutureRows:rows);
 }
 function cfPriorityDiagnostics(rows){
   const values=computeCashPositionTable(cfPlan,rows);
@@ -3952,10 +3966,12 @@ async function renderCashflow(){
     const [year,month]=cfPlan.startMonth.split("-").map(Number);
     const gap=(2026-year)*12+11-month;
     const showFrom=gap>0&&gap<=24?"2026-11":cfPlan.startMonth;
-    const periods=showFrom==="2026-11"&&gap>0?12+gap:12;
+    // Keep the dashboard table at 12 months, but compute up to 36 months
+    // continuously so users can choose later start/end dates in the graph.
+    const periods=36;
     const forecast=cfLinkedBudgetForecast(periods);
-    rows=computeCashFlow(forecast.plan,periods)
-      .filter(row=>row.month>=showFrom).slice(0,12);
+    cfFutureRows=computeCashFlow(forecast.plan,periods).filter(row=>row.month>=showFrom);
+    rows=cfFutureRows.slice(0,12);
     cfMissingBudgetCards=forecast.missingCards;
     cfForecastStartMonth=rows[0]?.month||null;
   }catch(err){
@@ -3991,7 +4007,8 @@ async function renderCashflow(){
       '<div class="cf-muted" style="align-self:end">Boş bırakılırsa tahmini oran kullanılır. Kategorili kayıtlarda olan harcamaları buraya yeniden girme. Ek tahmini alışverişleri gir; mevcut hareketler gelecek aya devreder.</div>'+
       '</div></div>';
   }).join("");
-  const overview=cfView==="summary"&&statementUI.getOverview?statementUI.getOverview():null;
+  const overview=(cfView==="summary"||cfView==="installments")&&statementUI.getOverview?
+    statementUI.getOverview():null;
   const missingCurrent=cfMissingBudgetCards.filter(x=>x.month===cfSelectedMonth);
   const missingNames=[...new Set(cfMissingBudgetCards.map(x=>x.category))];
   const budgetWarning=missingNames.length?
@@ -4030,18 +4047,29 @@ async function renderCashflow(){
   const statementView='<div id="cf-statement-panel"></div>';
 
   const installmentView=
-    (statementUI.getOverview()?.pendingCount?'<div class="cf-sync-alert"><strong>Arşivdeki taksitler henüz nakit planında değil.</strong>'+
+    (overview?.pendingCount?'<div class="cf-sync-alert"><strong>Arşivdeki taksitler henüz nakit planında değil.</strong>'+
       '<span>Ekstre tutarlarını nakit tahminine yansıtmak için aktarım yap.</span>'+
       '<button class="btn btn-p btn-sm" onclick="cfImportArchivedStatements()">Ekstreleri nakit planına aktar</button></div>':'')+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Gelecek kart taksitleri</h3>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'statements\')">Ekstre yükle</button></div>'+
       '<p class="cf-muted">Kartı açarak taksitleri gör. Düzenlemek için yalnızca ilgili satırdaki düğmeyi kullan.</p>'+
       cfInstallmentEditor()+'</div>'+
-    '<div class="card cb cf-section"><h3>Aylık taksit yükü</h3>'+
-      '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
-      '<th>Ödeme ayı</th><th>Kart taksitleri</th><th>Ev / Araba kredisi (tam)</th>'+
-      '</tr></thead><tbody>'+rows.map(r=>'<tr><td>'+cfText(r.month)+'</td>'+
-      '<td>'+cfMoney(r.installmentTotal)+'</td><td>'+cfMoney(r.loanPayments)+'</td></tr>').join('')+
+    '<div class="card cb cf-section"><h3>Aylık taksit yükü · Ekstre ayrımı</h3>'+
+      '<p class="cf-muted">Bankanın kesinleşmiş ekstresine yansıyan taksitler, o ekstre borcunun içindedir. İkinci kez eklenmez. Gelecek planlanan taksitler ayrı gösterilir. Tablodaki tutarlara çift tıklayarak kaynak sayfasını açabilirsin.</p>'+
+      (cfBilledMonthBreakdown(overview).missing.length?
+        '<div class="cf-sync-alert"><strong>⚠️ Vadesi eksik ekstrelerde taksit var</strong>'+
+        '<span>Ödeme tarihi belli olmayan '+cfBilledMonthBreakdown(overview).missing.length+
+        ' ekstre var. Banka kaydındaki son ödeme tarihini Ekstreler alanında tamamla; tahmini ay kaydırılmadı.</span>'+
+        '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'statements\')">Ekstreleri kontrol et</button></div>':'')+
+      '<div class="cf-scroll"><table class="cf-table cf-compact-table cf-installment-source-table"><thead><tr>'+
+      '<th>Ödeme ayı</th><th>Ekstreye yansımış taksitler</th>'+
+      '<th>Geleceğe planlanan taksitler</th><th>Ev / Araba kredisi (tam)</th>'+
+      '</tr></thead><tbody>'+rows.map(r=>'<tr data-forecast-month="'+cfText(r.month)+'">'+
+      '<td>'+cfText(cfMonthLabel(r.month))+'</td>'+
+      '<td title="Kaynak: bankanın ilgili ay vadeli ekstrelerindeki taksit satırları (çift tık: Ekstreler)">'+
+        cfMoney(cfBilledMonthBreakdown(overview).byMonth.get(r.month)||0)+'</td>'+
+      '<td title="Kaynak: Nakit Planı gelecek taksit kayıtları (çift tık: Taksitler)">'+cfMoney(r.installmentTotal)+'</td>'+
+      '<td title="Kaynak: Ev/araç kredisi planı (çift tık: Nakit Planı)">'+cfMoney(r.loanPayments)+'</td></tr>').join('')+
       '</tbody></table></div></div>';
 
   const planView=
