@@ -22,7 +22,11 @@ export function createCashflowForecastUI({money,monthLabel}){
   const available=new Map(metricDefs.map(m=>[m.key,m]));
   const visible=new Set(["income","totalExpenses","monthlyNet","closingSavings"]);
   const compactNumber=new Intl.NumberFormat("tr-TR",{notation:"compact",maximumFractionDigits:1});
-  let data=[],modal=null,previousFocus=null;
+  let data=[],futureData=[],modal=null,previousFocus=null;
+  let chartRange={start:null,end:null};
+  const chartData=()=>futureData.filter(r=>
+    (!chartRange.start||r.month>=chartRange.start)&&
+    (!chartRange.end||r.month<=chartRange.end));
 
   const numeric=x=>Number.isFinite(Number(x))?Number(x):0;
   const signed=x=>(x<0?"−":"")+money(Math.abs(x));
@@ -37,32 +41,35 @@ export function createCashflowForecastUI({money,monthLabel}){
     if(key==="statementTotal")return r.card.statementTotal;
     return numeric(r[key]);
   };
-  const detail=(label,value,css="")=>
-    '<div class="cf-mobile-metric"><span>'+label+'</span><strong class="'+css+'">'+value+'</strong></div>';
+  const detail=(label,value,css="",source="plan",month="")=>
+    '<div class="cf-mobile-metric" data-source="'+source+'" data-source-month="'+month+
+    '" title="Kaynağı açmak için çift tıkla"><span>'+label+'</span><strong class="'+css+'">'+value+'</strong></div>';
 
   function table(){
     return '<div class="cf-forecast-scroll cf-forecast-desktop" role="region" tabindex="0" aria-label="12 aylık detaylı nakit tablosu, yatay kaydırılabilir">'+
+      '<p class="cf-muted" style="margin:8px 0">Bilgi: sütun değerlerine çift tıklayarak verinin geldiği sayfaya gidebilirsin.</p>'+
       '<table class="cf-table cf-compact-forecast"><thead><tr>'+
       '<th>Ay</th><th>Gelir</th><th>Krediler</th>'+
       '<th>Faizli devreden kart borcu</th><th>Ay içi kart harcaması</th>'+
-      '<th>Gelecek taksitler</th><th>Kart ödeme hedefi</th><th>Planlanan kart ödemesi</th><th>Ödenmeden kalan kart</th>'+
-      '<th>Gelecek ay asgari</th><th>Nakit gider</th>'+
+      '<th>Gelecek taksitler</th><th>Kart ödeme hedefi</th><th>Gelecek ay asgari</th>'+
+      '<th>Planlanan kart ödemesi</th><th>Ödenmeden kalan kart</th><th>Nakit gider</th>'+
       '<th>Devreden Ek Hesap</th><th>Ek Hesap geri ödemesi</th><th>Toplam nakit çıkışı</th>'+
       '<th>Sonraki aya Ek Hesap</th><th>Aylık net (Gelir − Harcama)</th>'+
       '<th>Toplam birikim</th></tr></thead><tbody>'+
       data.map(r=>{
         const paidMonth=period(r.dueMonth);
         const verified=r.card.hasVerified?" · Banka ekstresi":"";
-        return '<tr class="'+(r.closingOverdraft>0?"cf-overdraft-month":r.closingSavings>0?"cf-savings-month":"")+'">'+
+        return '<tr data-forecast-month="'+r.month+'" class="'+(r.closingOverdraft>0?"cf-overdraft-month":r.closingSavings>0?"cf-savings-month":"")+'">'+
           '<td><strong>'+period(r.month)+'</strong><small>Kart ödeme hedefi</small></td>'+
           '<td>'+money(r.income)+'</td><td>'+money(r.loans)+'</td>'+
           '<td>'+money(r.card.carryover)+'</td>'+
           '<td>'+money(r.card.purchases)+'</td>'+
           '<td>'+money(r.card.installments)+'</td>'+
           '<td><strong>'+money(r.card.statementTotal)+'</strong><small>'+verified+'</small></td>'+
+          '<td>'+money(r.minimum)+'</td>'+
           '<td>'+money(r.cardPayments)+'</td>'+
           '<td class="'+(r.closingCardDebt>0?"cf-bad":"") +'"><strong>'+money(r.closingCardDebt)+'</strong></td>'+
-          '<td>'+money(r.minimum)+'</td><td>'+money(r.cashExpenses)+'</td>'+
+          '<td>'+money(r.cashExpenses)+'</td>'+
           '<td>'+(r.netOpening<0?signed(r.netOpening):money(0))+'</td>'+
           '<td>'+money(r.overdraftRepaid)+'</td>'+
           '<td><strong>'+money(r.totalExpenses)+'</strong></td>'+
@@ -84,9 +91,9 @@ export function createCashflowForecastUI({money,monthLabel}){
           ["Ay içi kart harcaması",money(card.purchases)],
           ["Gelecek taksitler",money(card.installments)],
           ["Bu ay kart ödeme hedefi",money(card.statementTotal)],
+          ["Gelecek ay asgari",money(r.minimum)],
           ["Planlanan kart ödemesi",money(r.cardPayments)],
           ["Ödenmeden kalan kart",money(r.closingCardDebt)],
-          ["Gelecek ay asgari",money(r.minimum)],
           ["Nakit gider",money(r.cashExpenses)],
           ["Devreden Ek Hesap",r.netOpening<0?signed(r.netOpening):money(0)],
           ["Ek Hesap geri ödemesi",money(r.overdraftRepaid)],
@@ -102,22 +109,27 @@ export function createCashflowForecastUI({money,monthLabel}){
           '<strong class="'+colorClass(r.monthlyNet)+'">'+signed(r.monthlyNet)+'</strong>'+
           '<span>Toplam birikim: '+money(r.closingSavings)+'</span></span>'+
           '</summary><div class="cf-month-metrics">'+
-          fields.map(([label,value])=>detail(label,value,label==="Aylık net fark"?colorClass(r.monthlyNet):"")).join('')+
+          fields.map(([label,value],i)=>detail(label,value,
+            label==="Aylık net fark"?colorClass(r.monthlyNet):"",
+            ["budget","loans","card","budget","installments","statements","statements",
+             "plan","plan","budget","overdraft","overdraft","plan","overdraft","plan","plan"][i],
+            r.month)).join('')+
           '</div></details>';
       }).join('')+'</div>';
   }
 
   function chartSvg(){
+    const plot=chartData();
     const metrics=metricDefs.filter(m=>visible.has(m.key));
     if(!metrics.length)return '<p class="cf-muted" style="padding:24px 10px">Grafikte göstermek istediğin verileri aşağıdan seç.</p>';
-    if(!data.length)return '<p class="cf-muted">Tahmin verisi yok.</p>';
+    if(!plot.length)return '<p class="cf-muted">Seçili dönemde tahmin yok.</p>';
     const width=960,height=310,left=78,right=22,top=20,bottom=50;
     const pw=width-left-right,ph=height-top-bottom;
-    const all=metrics.flatMap(m=>data.map(r=>metricValue(r,m.key)));
+    const all=metrics.flatMap(m=>plot.map(r=>metricValue(r,m.key)));
     const low=Math.min(0,...all),high=Math.max(0,...all);
     const extent=high-low||1;
     const pad=extent*.07,min=low-pad,max=high+pad;
-    const sx=i=>left+(data.length<=1?pw/2:pw*i/(data.length-1));
+    const sx=i=>left+(plot.length<=1?pw/2:pw*i/(plot.length-1));
     const sy=value=>top+(max-numeric(value))/(max-min)*ph;
     const zero=sy(0);
     const grid=Array.from({length:5},(_,i)=>{
@@ -127,11 +139,12 @@ export function createCashflowForecastUI({money,monthLabel}){
         '<text x="'+(left-12)+'" y="'+(y+4).toFixed(2)+'" text-anchor="end" font-size="12" fill="currentColor" fill-opacity=".72">'+
         compactNumber.format(value)+'</text>';
     }).join('');
-    const xLabels=data.map((r,i)=>
+    const every=Math.max(1,Math.ceil(plot.length/14));
+    const xLabels=plot.map((r,i)=>i%every!==0&&i!==plot.length-1?"": 
       '<text x="'+sx(i).toFixed(1)+'" y="'+(height-19)+'" text-anchor="middle" font-size="11" fill="currentColor" fill-opacity=".78">'+
       shortMonth(r.month)+(r.month.endsWith("-01")?" '"+r.month.slice(2,4):"")+'</text>').join('');
     const lines=metrics.map(m=>{
-      const points=data.map((r,i)=>({x:sx(i),y:sy(metricValue(r,m.key)),v:metricValue(r,m.key),month:r.month}));
+      const points=plot.map((r,i)=>({x:sx(i),y:sy(metricValue(r,m.key)),v:metricValue(r,m.key),month:r.month}));
       const path=points.map((p,i)=>(i?"L":"M")+p.x.toFixed(2)+" "+p.y.toFixed(2)).join(" ");
       return '<path d="'+path+'" fill="none" stroke="'+m.color+'" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>'+
         points.map(p=>'<circle cx="'+p.x.toFixed(2)+'" cy="'+p.y.toFixed(2)+'" r="4" fill="'+m.color+
@@ -149,9 +162,18 @@ export function createCashflowForecastUI({money,monthLabel}){
       '<label><input type="checkbox" data-cf-chart-key="'+m.key+'" '+
       (visible.has(m.key)?"checked ":"")+'onchange="cfChartToggle(\''+m.key+'\',this.checked)">'+
       '<span class="cf-chart-dot" style="background:'+m.color+'"></span>'+m.label+'</label>').join('');
+    const monthOptions=(selected)=>futureData.map(r=>'<option value="'+r.month+'"'+
+      (r.month===selected?' selected':'')+'>'+period(r.month)+'</option>').join('');
+    const periodControls='<div class="cf-chart-range"><label>Başlangıç ayı'+
+      '<select data-cf-range="start" aria-label="Grafik başlangıç ayı" onchange="cfChartRangeChange(\'start\',this.value)">'+
+      monthOptions(chartRange.start)+'</select></label>'+
+      '<label>Bitiş ayı<select data-cf-range="end" aria-label="Grafik bitiş ayı" onchange="cfChartRangeChange(\'end\',this.value)">'+
+      monthOptions(chartRange.end)+'</select></label>'+
+      '<span class="cf-muted">Desteklenen dönem: '+(futureData.length?period(futureData[0].month)+' – '+period(futureData[futureData.length-1].month):'—')+'</span></div>';
     return '<section class="cf-trend" aria-label="Nakit akışı grafiği">'+
-      '<div class="cf-trend-title">12 aylık finansal görünüm</div>'+
-      '<p class="cf-muted">Çizgilerin üzerine gelerek tutarları görebilirsin. Sıfırın altı, o gösterge için eksi değeri ifade eder.</p>'+
+      '<div class="cf-trend-title">Seçilen dönem için finansal görünüm</div>'+
+      periodControls+
+      '<p class="cf-muted">Başlangıç ve bitiş ayını bağımsız seçebilirsin. Veriler seçili dönem boyunca hesaplanır; sıfırın altı eksi değerdir.</p>'+
       '<div class="cf-trend-chart" id="'+chartId+'">'+chartSvg()+'</div>'+
       '<div class="cf-chart-quick-actions" role="group" aria-label="Grafik veri seçimleri">'+
       '<button type="button" class="btn btn-ghost btn-sm" onclick="cfChartPreset(\'all\')">✓ Hepsini seç</button>'+
@@ -171,6 +193,10 @@ export function createCashflowForecastUI({money,monthLabel}){
     document.querySelectorAll(".cf-chart-selection-count").forEach(el=>{
       el.textContent=visible.size+" / "+metricDefs.length+" gösterge";
     });
+    document.querySelectorAll("select[data-cf-range]").forEach(el=>{
+      const value=chartRange[el.dataset.cfRange];
+      if(value&&el.value!==value)el.value=value;
+    });
   }
 
   function toggle(key,checked){
@@ -186,25 +212,43 @@ export function createCashflowForecastUI({money,monthLabel}){
     syncCharts();
   }
 
-  function render(rows,plan){
+  function setRange(edge,month){
+    if(!["start","end"].includes(edge)||!futureData.some(r=>r.month===month))return;
+    chartRange[edge]=month;
+    if(chartRange.start>chartRange.end){
+      // Adjust the other boundary, never generate an invalid time interval.
+      chartRange[edge==="start"?"end":"start"]=month;
+    }
+    syncCharts();
+  }
+  function render(rows,plan,extendedRows=rows){
     data=computeCashPositionTable(plan,rows);
-    const snapshot=plan.overdraft.actualSnapshot;
-    const note=snapshot?
-      '<div class="cf-compact-callout"><strong>Fiili Ek Hesap referansı ('+period(snapshot.month)+
-      '):</strong> <strong class="cf-bad">'+signed(-snapshot.debt)+'</strong></div>':
-      '<div class="cf-sync-alert"><strong>⚠️ Fiili Ek Hesap bakiyesi henüz girilmemiş.</strong>'+
-      '<span>Eski tahmin gerçek bakiye olmayabilir.</span>'+
-      '<button class="btn btn-p btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap bakiyesi gir / Excel yükle</button></div>';
+    futureData=computeCashPositionTable(plan,extendedRows);
+    const available=new Set(futureData.map(r=>r.month));
+    if(!available.has(chartRange.start))chartRange.start=futureData[0]?.month||null;
+    if(!available.has(chartRange.end)||chartRange.end<chartRange.start)
+      chartRange.end=futureData[Math.min(11,futureData.length-1)]?.month||null;
+    // KMH actual balance is edited manually under Nakit Planı > KMH.
+    // No separate upload banner is shown in the forecast.
+    const note="";
     const helper='<p class="cf-muted"><strong>Ödeme sırası:</strong> Krediler ve nakit giderler → kart asgarileri → varsa Ek Hesap borcunu kapatma → kartlara tüm fazla nakdi aktarma → ancak tüm borçlar ödendiyse birikim. '+
       '<strong>Aylık net = gelir − gerçekleşebilir nakit çıkışı</strong> (kartlara ödenen tutar ve Ek Hesap geri ödemesi dahil). '+
       'Kart tamamen kapanmadan birikim yazılmaz. Ödenemeyen kart borcu, faiz ve vergi tahminiyle sonraki aya devredilir.</p>'+
       (data.some(r=>r.unfundedMandatory>0)?
         '<div class="cf-sync-alert"><strong>⚠️ Ek Hesap limiti yetersiz</strong><span>Zorunlu ödemelerin tamamı karşılanamıyor. Lütfen kırmızı satırları kontrol et.</span></div>':'')+
       '<p class="cf-muted">Kart ödeme hedefi ayın yeni harcamaları ve ilgili taksit tahminini de içerir; bankanın kesinleşmiş son ödeme tarihleri farklı olabilir. KMH faizi yaklaşık hesaplanıp sonraki aya eklenir.</p>';
+    const sourceDetails='<details class="cf-forecast-sources"><summary>ⓘ Tablo verilerinin kaynakları · Çift tıklayarak aç</summary>'+
+      '<div class="cf-source-grid">'+
+      '<div><strong>Gelir / Nakit gider</strong><span>Bütçe / Gerçekleşen → Aylık bütçe kategorileri ve ödeme türü</span></div>'+
+      '<div><strong>Krediler / Ek Hesap</strong><span>Nakit Planı → Kredi ödeme planı, Ekpara ayarları ve borç devri</span></div>'+
+      '<div><strong>Kart hedefi / Asgari</strong><span>Ekstreler → Banka dönemi; kesinleşmemiş aylar Nakit Planı faiz ve asgari varsayımları</span></div>'+
+      '<div><strong>Gelecek taksitler</strong><span>Taksitler → Başlangıç ayı ve kalan ödeme sayısı; mevcut ekstre taksitleri ayrıca görüntülenir</span></div>'+
+      '<div><strong>Aylık net / Birikim</strong><span>Nakit akışı ödeme önceliği modeli: zorunlu giderler, Ekpara, kart ödemeleri, kalan borç</span></div>'+
+      '</div></details>';
     const toolbar='<div class="cf-forecast-actions">'+
-      '<span class="cf-muted">12 ay · TL · Önce tüm borçlar, sonra birikim</span>'+
+      '<span class="cf-muted">12 aylık tablo · grafikte ileri tarih aralığı seçilebilir · TL</span>'+
       '<button type="button" class="btn btn-p btn-sm" onclick="cfForecastFullscreen()">⛶ Geniş ekranda aç</button></div>';
-    return note+helper+toolbar+table()+mobileCards()+chart("dash");
+    return note+helper+toolbar+table()+mobileCards()+sourceDetails+chart("dash");
   }
 
   function open(){
@@ -240,5 +284,5 @@ export function createCashflowForecastUI({money,monthLabel}){
     if(e.key==="Escape"&&modal){close();}
   }
   if(typeof document!=="undefined")document.addEventListener("keydown",onKeydown);
-  return {render,open,close,toggle,preset};
+  return {render,open,close,toggle,preset,setRange};
 }

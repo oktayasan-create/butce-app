@@ -77,10 +77,11 @@ test("unsafe category or transaction strings are encoded, not inserted as HTML",
   assert.ok(!html.includes('<img src=x onerror'));
 });
 
-test("cashflow-first navigation, combined tabs and theme controls are wired",()=>{
+test("overview-first navigation, combined tabs and theme controls are wired",()=>{
   const html=file("index.html"),css=file("liquid-glass.css");
   assert.ok(html.indexOf('id="dnav-cashflow"')<html.indexOf('id="dnav-planning"'));
-  assert.ok(html.indexOf('id="dnav-planning"')<html.indexOf('id="dnav-overview"'));
+  assert.ok(html.indexOf('id="dnav-overview"')<html.indexOf('id="dnav-cashflow"'));
+  assert.ok(html.indexOf('id="mnav-overview"')<html.indexOf('id="mnav-cashflow"'));
   assert.ok(!html.includes('id="dnav-analiz"'));
   assert.ok(!html.includes('id="mnav-analiz"'));
   assert.match(html,/id="tab-planning"/);
@@ -96,7 +97,7 @@ test("cashflow-first navigation, combined tabs and theme controls are wired",()=
   assert.match(css,/backdrop-filter:blur/);
   assert.match(html,/window\.planningSwitch=function/);
   assert.match(html,/window\.renderOverview=function/);
-  assert.match(html,/liquid-glass\.css\?v=19/);
-  assert.match(file("sw.js"),/butceapp-shell-v19/);
+  assert.match(html,/liquid-glass\.css\?v=20/);
+  assert.match(file("sw.js"),/butceapp-shell-v20/);
   assert.match(file("sw.js"),/overview-dashboard\.js\?v=18/);
 });

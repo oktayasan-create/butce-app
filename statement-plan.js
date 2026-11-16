@@ -42,6 +42,22 @@ export function statementInstallmentSchedule(st,cardId){
   }
   return rows;
 }
+/**
+ * Already billed card instalments live INSIDE the confirmed statement balance.
+ * This is a reporting-only breakdown, not a future cashflow schedule.
+ * Statement due dates determine the PAYMENT month; unknown dates stay
+ * unassigned rather than silently shifting the user's bank transactions.
+ */
+export function statementBilledInstallments(st){
+  const lines=(st?.transactions||[]).filter(tx=>tx.type==="purchase"&&
+    Number.isInteger(tx.installmentCurrent)&&tx.installmentCurrent>=1&&
+    Number.isInteger(tx.installmentTotal)&&tx.installmentTotal>1&&
+    Number.isFinite(tx.amount)&&tx.amount>0);
+  const amount=Math.round(lines.reduce((sum,tx)=>sum+tx.amount,0)*100)/100;
+  return {dueMonth:statementDueMonth(st),amount,count:lines.length,
+    sourceStatementId:st?.id||null};
+}
+
 export function calculateInstallmentTimeline(items){
   const months={};
   for(const row of items){

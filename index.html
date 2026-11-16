@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="apple-mobile-web-app-title" content="BütçeApp"/>
 <title>BütçeApp | Kişisel Finans</title>
-<link rel="manifest" href="manifest.json?v=19"/>
+<link rel="manifest" href="manifest.json?v=20"/>
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png?v=17"/>
 <link rel="icon" type="image/svg+xml" href="icon.svg?v=17"/>
 <link rel="apple-touch-icon" href="icon-192.png?v=17"/>
@@ -507,7 +507,7 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
 .cf-chart-quick-actions .cf-chart-selection-count{margin-left:auto;font-size:12px}
 @media(max-width:650px){.cf-build-marker{margin-top:4px}.cf-chart-quick-actions .cf-chart-selection-count{width:100%;margin-left:0}}
 
-</style><link rel="stylesheet" href="./liquid-glass.css?v=19"/></head>
+</style><link rel="stylesheet" href="./liquid-glass.css?v=20"/></head>
 <body class="auth-locked" data-palette="aurora">
 <div id="auth-gate"><form class="auth-panel" id="auth-form"><div class="auth-app-logo"><img src="icon-192.png?v=17" width="62" height="62" alt="BütçeApp finans uygulaması amblemi"/></div><h2>BütçeApp</h2><p style="color:#94a3b8;font-size:14px">Kişisel bütçene güvenli giriş yap.</p><label for="auth-email">E-posta</label><input id="auth-email" type="email" autocomplete="username" required/><label for="auth-password">Şifre</label><input id="auth-password" type="password" autocomplete="current-password" required/><div id="auth-status" role="status"></div><div id="auth-error" role="alert"></div><button id="auth-submit" type="submit">Giriş yap</button><button id="auth-switch" class="secondary-action" type="button" hidden>Oturumu kapat / hesap değiştir</button></form></div>
 
@@ -516,14 +516,14 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   <nav class="sidebar">
     <div class="logo">
       <div class="logo-icon"><img src="icon-192.png?v=17" alt="" width="38" height="38"/></div>
-      <span class="logo-brand">Bütçe<em>App</em></span><small class="app-build-tag" title="Sage Glass ve kişisel tema stüdyosu">v19</small>
+      <span class="logo-brand">Bütçe<em>App</em></span><small class="app-build-tag" title="Kasım taksitleri, dönem aralığı ve veri kaynakları">v20</small>
       <div class="sync-dot" id="sync-dot" title="Bağlantı durumu"></div>
     </div>
     
     <div class="nav">
-      <button class="nav-btn active" id="dnav-cashflow" onclick="goTab('cashflow',this)"><span class="app-glyph" data-glyph="wallet"></span>Nakit Akışı & Kartlar</button>
+      <button class="nav-btn active" id="dnav-overview" onclick="goTab('overview',this)"><span class="app-glyph" data-glyph="grid"></span>Genel Bakış</button>
+      <button class="nav-btn" id="dnav-cashflow" onclick="goTab('cashflow',this)"><span class="app-glyph" data-glyph="wallet"></span>Nakit Akışı & Kartlar</button>
       <button class="nav-btn" id="dnav-planning" onclick="goTab('planning',this)"><span class="app-glyph" data-glyph="layers"></span>Bütçe / Gerçekleşen</button>
-      <button class="nav-btn" id="dnav-overview" onclick="goTab('overview',this)"><span class="app-glyph" data-glyph="grid"></span>Genel Bakış</button>
       <button class="nav-btn" id="dnav-invest" onclick="goTab('invest',this)"><span class="app-glyph" data-glyph="sparkles"></span>Yatırımlar</button>
       <button class="nav-btn" id="dnav-history" onclick="goTab('history',this)"><span class="app-glyph" data-glyph="history"></span>İşlem Geçmişi</button>
       <div style="height:1px;background:var(--border);margin:12px 4px"></div>
@@ -539,12 +539,12 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   <main class="main-content">
     
     <header class="page-header">
-      <h1 class="page-title" id="page-title-text">Nakit Akışı & Kartlar</h1>
+      <h1 class="page-title" id="page-title-text">Genel Bakış</h1>
       <div class="app-header-tools">
         <button type="button" title="Açık/koyu mod ve renk paleti" onclick="openThemePanel()">◐ Görünüm</button>
       </div>
     </header>
-    <div class="wrap" id="tab-cashflow"><div class="loading"><div class="spinner"></div>Plan yükleniyor...</div></div>
+    <div class="wrap" id="tab-cashflow" style="display:none"><div class="loading"><div class="spinner"></div>Plan yükleniyor...</div></div>
     <div class="wrap" id="tab-planning" style="display:none">
       <div class="planning-header">
         <h2>Bütçe & Gerçekleşen</h2>
@@ -558,7 +558,7 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
       <div class="wrap" id="tab-actual" style="display:none"></div>
       <div class="wrap" id="tab-variance" style="display:none"></div>
     </div>
-    <div class="wrap" id="tab-overview" style="display:none"></div>
+    <div class="wrap" id="tab-overview"></div>
     <div class="wrap" id="tab-invest" style="display:none"></div>
     <div class="wrap" id="tab-history" style="display:none"></div>
     <div class="wrap" id="tab-txadd" style="display:none"></div>
@@ -632,9 +632,9 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
 
 <nav class="bottom-nav" aria-label="Mobil gezinme">
   <div class="bottom-nav-inner">
-    <button class="bnav-btn active" id="mnav-cashflow" onclick="mGoTab('cashflow',this)"><span class="bi" data-glyph="wallet"></span><span class="bl">Nakit</span></button>
+    <button class="bnav-btn active" id="mnav-overview" onclick="mGoTab('overview',this)"><span class="bi" data-glyph="grid"></span><span class="bl">Genel</span></button>
+    <button class="bnav-btn" id="mnav-cashflow" onclick="mGoTab('cashflow',this)"><span class="bi" data-glyph="wallet"></span><span class="bl">Nakit</span></button>
     <button class="bnav-btn" id="mnav-planning" onclick="mGoTab('planning',this)"><span class="bi" data-glyph="layers"></span><span class="bl">Bütçe</span></button>
-    <button class="bnav-btn" id="mnav-overview" onclick="mGoTab('overview',this)"><span class="bi" data-glyph="grid"></span><span class="bl">Genel</span></button>
     <button class="bnav-btn" id="mnav-invest" onclick="mGoTab('invest',this)"><span class="bi" data-glyph="sparkles"></span><span class="bl">Yatırım</span></button>
     <button class="bnav-btn" id="mnav-history" onclick="mGoTab('history',this)"><span class="bi" data-glyph="history"></span><span class="bl">Geçmiş</span></button>
     <button class="bnav-btn" id="mnav-txadd" onclick="mGoTab('txadd',this)"><span class="bi" data-glyph="plus"></span><span class="bl">Ekle</span></button>
@@ -812,7 +812,8 @@ import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, no
 import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, statementPlanMonth, suggestStatementInstallments } from "./statement-import.js";
 import { createStatementInboxUI } from "./statement-ui.js";
 import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
-import {createCashflowForecastUI} from "./cashflow-forecast-ui.js?v=17";
+import {createCashflowForecastUI} from "./cashflow-forecast-ui.js?v=20";
+import {sourceForForecastColumn,sourceForInstallmentColumn,sourceForOverviewColumn,summarySource} from "./finance-source-map.js?v=20";
 import {buildOverviewData,renderOverviewDashboard} from "./overview-dashboard.js?v=18";
 import {PALETTES,ICON_STYLES,NAV_KEYS,GLYPH_LABELS,NAV_DEFAULT,DEFAULT_COLORS,CUSTOM_THEME_CSS_VARS,
   sanitizeCustomColors,sanitizeIconConfig,resolvedNavIcons,customThemeVars,safeHex} from "./appearance-config.js?v=19";
@@ -1526,7 +1527,7 @@ function drawPie(id,segs){
 }
 
 // ── TABS & NAVIGATION (cashflow-first; finance data untouched) ──
-const mainTabs=["cashflow","planning","overview","invest","history","txadd"];
+const mainTabs=["overview","cashflow","planning","invest","history","txadd"];
 const tabTitles={
   cashflow:"Nakit Akışı & Kartlar",
   planning:"Bütçe / Gerçekleşen",
@@ -1535,7 +1536,7 @@ const tabTitles={
   history:"İşlem Geçmişi",
   txadd:"Ayarlar & Veri"
 };
-let curTab="cashflow";
+let curTab="overview";
 let planningMode="budget";
 function showMainTab(tab){
   if(["budget","actual","variance"].includes(tab)){
@@ -1591,6 +1592,88 @@ var states={
   txadd:   {type:"expense",cat:"food"},
   history: {filter:"all"}
 };
+
+// ── SOURCE TRANSPARENCY: double-click figures to open their owning screen ──
+// No source navigation changes persisted account balances or transaction values.
+window.cfOpenDataSource=function(kind,month){
+  const m=/^20\d{2}-(0[1-9]|1[0-2])$/.test(month||"")?month:null;
+  const monthNo=m?Number(m.slice(5))-1:null;
+  const year=m?Number(m.slice(0,4)):null;
+  if(["budget","actual","variance"].includes(kind)){
+    if(m){
+      states[kind].year=year;
+      states[kind].months=[monthNo];
+    }
+    planningMode=kind;showMainTab("planning");
+    window.planningSwitch(kind);
+  }else if(kind==="investment"){
+    showMainTab("invest");
+  }else if(kind==="history"){
+    showMainTab("history");
+  }else if(kind==="overview"){
+    if(m){overviewPeriod.year=year;overviewPeriod.month=monthNo;}
+    showMainTab("overview");
+  }else{
+    showMainTab("cashflow");
+    if(m)cfSelectedMonth=m;
+    if(kind==="statements"||kind==="card")cfView="statements";
+    else if(kind==="installments")cfView="installments";
+    else{
+      cfView="plan";
+      if(kind==="loans")cfOpenPanels.add("loans");
+      if(kind==="overdraft")cfOpenPanels.add("overdraft");
+      if(kind==="plan")cfOpenPanels.add("strategy");
+    }
+    renderCashflow();
+  }
+  window.scrollTo?.({top:0,behavior:"smooth"});
+};
+function provenanceForTarget(target){
+  const td=target.closest("td,th");
+  if(td){
+    const forecast=td.closest("table.cf-compact-forecast");
+    if(forecast)return {source:sourceForForecastColumn(td.cellIndex),
+      month:td.closest("tr")?.dataset.forecastMonth||null};
+    const installment=td.closest("table.cf-installment-source-table");
+    if(installment)return {source:sourceForInstallmentColumn(td.cellIndex),
+      month:td.closest("tr")?.dataset.forecastMonth||null};
+    const overviewTable=td.closest("table.ov-monthly-table");
+    if(overviewTable){
+      const row=td.closest("tr");
+      const monthNo=row?.sectionRowIndex;
+      return {source:sourceForOverviewColumn(td.cellIndex),
+        month:Number.isInteger(monthNo)?String(overviewPeriod.year)+"-"+String(monthNo+1).padStart(2,"0"):null};
+    }
+  }
+  const mobileMetric=target.closest(".cf-mobile-metric[data-source]");
+  if(mobileMetric)return {source:mobileMetric.dataset.source,
+    month:mobileMetric.dataset.sourceMonth||null};
+  const month=String(overviewPeriod.year)+"-"+String(overviewPeriod.month+1).padStart(2,"0");
+  const card=target.closest(".ov-kpi");
+  if(card)return {source:summarySource(card.querySelector(".ov-kpi-top")?.textContent),month};
+  if(target.closest(".ov-card-breakdown-row,.ov-cash-grid>div"))return {source:"plan",month};
+  if(target.closest(".ov-progress-row,.ov-donut-wrap,.ov-chart-scroll,.ov-monthly-table"))return {source:"budget",month};
+  if(target.closest(".ov-activity-item,.ov-day-chart"))return {source:"actual",month};
+  return null;
+}
+document.addEventListener("dblclick",event=>{
+  const source=provenanceForTarget(event.target);
+  if(source){
+    event.preventDefault();
+    window.cfOpenDataSource(source.source,source.month);
+  }
+});
+document.addEventListener("mouseover",event=>{
+  const el=event.target.closest("td,th,.cf-mobile-metric,.ov-kpi,.ov-progress-row,.ov-activity-item,.ov-cash-grid>div");
+  if(!el||el.title)return;
+  const source=provenanceForTarget(el);
+  const names={budget:"Bütçe / Gerçekleşen (Bütçe)",actual:"Bütçe / Gerçekleşen (Gerçekleşen)",
+    plan:"Nakit Planı",loans:"Nakit Planı / Krediler",overdraft:"Nakit Planı / Ek Hesap",
+    card:"Ekstreler",statements:"Ekstreler",installments:"Taksitler",
+    investment:"Yatırımlar",history:"İşlem Geçmişi",overview:"Genel Bakış"};
+  if(source)el.title="Kaynak: "+(names[source.source]||"Nakit Planı")+
+    (source.month?" · "+source.month:"")+" — çift tıkla aç";
+});
 
 // ── MAIN OVERVIEW: read-only, sourced from budget / transactions / cash plan ──
 const overviewPeriod={year:CUR_Y_REAL,month:CUR_M_REAL};
@@ -3376,7 +3459,7 @@ window.addCat=function(){
 // ── INDEPENDENT CASH & CREDIT CARD SCENARIO ─────────────────
 let cfPlan = null, cfLoading = null, cfSelectedMonth = null, cfDirty = false, cfEntryType = "card_expense";
 let cfView="summary",cfEditInstallmentId=null;
-let cfRenderedRow=null,cfMissingBudgetCards=[],cfForecastStartMonth=null;
+let cfRenderedRow=null,cfMissingBudgetCards=[],cfForecastStartMonth=null,cfFutureRows=[];
 function cfLinkedBudgetForecast(periods=12){
   if(!cfPlan)return {plan:cfPlan,linked:false,missingCards:[],breakdown:[]};
   if(typeof projectBudgetToCashFlow!=="function"||typeof cats==="undefined"||typeof getBudget!=="function")
@@ -3425,6 +3508,7 @@ window.cfForecastFullscreen=()=>cfForecastUI.open();
 window.cfForecastClose=()=>cfForecastUI.close();
 window.cfChartToggle=(metric,enabled)=>cfForecastUI.toggle(metric,enabled);
 window.cfChartPreset=(which)=>cfForecastUI.preset(which);
+window.cfChartRangeChange=(edge,month)=>cfForecastUI.setRange(edge,month);
 const cfNumber = v => Number.isFinite(Number(v)) ? Number(v) : 0;
 const cfLimit = (v,min=0,max=1000000000000) => Math.min(max,Math.max(min,cfNumber(v)));
 const cfText = (v) => safeHtml(v);
@@ -3637,6 +3721,19 @@ function cfLoanEditor(){
     '<button class="btn btn-p btn-sm" onclick="cfAddLoan(\'Araba Kredisi\')">+ Araba kredisi</button>'+
     '<button class="btn btn-ghost btn-sm" onclick="cfAddLoan(\'Diğer Kredi\')">+ Diğer kredi</button></div>';
 }
+function cfBilledMonthBreakdown(overview){
+  const byMonth=new Map(),missing=[];
+  for(const st of overview?.statements||[]){
+    if(!(st.billedInstallmentCount>0))continue;
+    if(!st.dueMonth){
+      missing.push({card:st.cardLabel,amount:st.billedInstallmentTotal||0});
+      continue;
+    }
+    const amount=Number(st.billedInstallmentTotal)||0;
+    byMonth.set(st.dueMonth,Math.round(((byMonth.get(st.dueMonth)||0)+amount)*100)/100);
+  }
+  return {byMonth,missing};
+}
 function cfInstallmentEditor(){
   const active=cfPlan.installments.filter(x=>x.active!==false);
   const archived=cfPlan.installments.filter(x=>x.active===false);
@@ -3688,13 +3785,12 @@ function cfInstallmentEditor(){
 function cfOverdraftEditor(){
   const snapshot=cfPlan.overdraft.actualSnapshot;
   const month=snapshot?.month||cfForecastStartMonth||cfSelectedMonth||cfPlan.startMonth;
-  return '<p class="cf-muted">Fiili Ek Hesap bakiyesini eski plan başlangıcından ayrı kaydet. Bu tutar Excel tipi dönem planının açılış bakiyesidir; daha önce alınmış maaşı veya ödenmiş faturaları aynı dönem için yeniden planlarsan tahmin hatalı olur. Excel dosyası cihazında okunur ve sadece onaylanan bakiye Planı Kaydet ile saklanır.</p>'+
+  return '<p class="cf-muted">Fiili Ek Hesap bakiyesini geçmiş plan başlangıcından ayrı, istersen elle kaydet. İleri dönem tahmininde aynı maaş ve ödemeleri ikinci kez işleme almamaya dikkat et.</p>'+
     '<div class="cf-inputs">'+
       cfField("Fiili Ek Hesap borcu (₺) — borç pozitif girilir",snapshot?.debt??"","cfSnapshot('debt',this.value)")+
       cfField("Fiili bakiyenin baz alınacağı ay",month,"cfSnapshot('month',this.value)","month")+
     '</div>'+
-    '<label class="cf-muted" style="display:block;margin-top:12px">Mevcut Durum Excel dosyasından fiili bakiyeyi aktar (G3 hücresi, gelir-kredi-asgari kontrol edilir)'+
-      '<input type="file" accept=".xlsx,.xls" onchange="cfImportSnapshotExcel(this)" style="display:block;margin-top:6px;max-width:100%"></label>'+
+
     (snapshot?'<div class="cf-inline-summary"><span>Onaylanacak fiili borç · <strong>'+cfText(cfMonthLabel(snapshot.month))+
        '</strong>: <strong>'+cfMoney(snapshot.debt)+'</strong></span>'+
        '<button class="btn btn-ghost btn-sm" onclick="cfClearSnapshot()">Fiili bakiye kaydını kaldır</button></div>':
@@ -3813,7 +3909,7 @@ function cfActivityLog(current){
   }).join(''):'<div class="cf-muted">Henüz bu ay işlem kaydı yok.</div>';
 }
 function cfCompactForecast(rows){
-  return cfForecastUI.render(rows,cfPlan);
+  return cfForecastUI.render(rows,cfPlan,cfFutureRows.length?cfFutureRows:rows);
 }
 function cfPriorityDiagnostics(rows){
   const values=computeCashPositionTable(cfPlan,rows);
@@ -3952,10 +4048,12 @@ async function renderCashflow(){
     const [year,month]=cfPlan.startMonth.split("-").map(Number);
     const gap=(2026-year)*12+11-month;
     const showFrom=gap>0&&gap<=24?"2026-11":cfPlan.startMonth;
-    const periods=showFrom==="2026-11"&&gap>0?12+gap:12;
+    // Keep the dashboard table at 12 months, but compute up to 36 months
+    // continuously so users can choose later start/end dates in the graph.
+    const periods=36;
     const forecast=cfLinkedBudgetForecast(periods);
-    rows=computeCashFlow(forecast.plan,periods)
-      .filter(row=>row.month>=showFrom).slice(0,12);
+    cfFutureRows=computeCashFlow(forecast.plan,periods).filter(row=>row.month>=showFrom);
+    rows=cfFutureRows.slice(0,12);
     cfMissingBudgetCards=forecast.missingCards;
     cfForecastStartMonth=rows[0]?.month||null;
   }catch(err){
@@ -3991,7 +4089,8 @@ async function renderCashflow(){
       '<div class="cf-muted" style="align-self:end">Boş bırakılırsa tahmini oran kullanılır. Kategorili kayıtlarda olan harcamaları buraya yeniden girme. Ek tahmini alışverişleri gir; mevcut hareketler gelecek aya devreder.</div>'+
       '</div></div>';
   }).join("");
-  const overview=cfView==="summary"&&statementUI.getOverview?statementUI.getOverview():null;
+  const overview=(cfView==="summary"||cfView==="installments")&&statementUI.getOverview?
+    statementUI.getOverview():null;
   const missingCurrent=cfMissingBudgetCards.filter(x=>x.month===cfSelectedMonth);
   const missingNames=[...new Set(cfMissingBudgetCards.map(x=>x.category))];
   const budgetWarning=missingNames.length?
@@ -4030,18 +4129,29 @@ async function renderCashflow(){
   const statementView='<div id="cf-statement-panel"></div>';
 
   const installmentView=
-    (statementUI.getOverview()?.pendingCount?'<div class="cf-sync-alert"><strong>Arşivdeki taksitler henüz nakit planında değil.</strong>'+
+    (overview?.pendingCount?'<div class="cf-sync-alert"><strong>Arşivdeki taksitler henüz nakit planında değil.</strong>'+
       '<span>Ekstre tutarlarını nakit tahminine yansıtmak için aktarım yap.</span>'+
       '<button class="btn btn-p btn-sm" onclick="cfImportArchivedStatements()">Ekstreleri nakit planına aktar</button></div>':'')+
     '<div class="card cb cf-section"><div class="cf-section-head"><h3>Gelecek kart taksitleri</h3>'+
       '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'statements\')">Ekstre yükle</button></div>'+
       '<p class="cf-muted">Kartı açarak taksitleri gör. Düzenlemek için yalnızca ilgili satırdaki düğmeyi kullan.</p>'+
       cfInstallmentEditor()+'</div>'+
-    '<div class="card cb cf-section"><h3>Aylık taksit yükü</h3>'+
-      '<div class="cf-scroll"><table class="cf-table cf-compact-table"><thead><tr>'+
-      '<th>Ödeme ayı</th><th>Kart taksitleri</th><th>Ev / Araba kredisi (tam)</th>'+
-      '</tr></thead><tbody>'+rows.map(r=>'<tr><td>'+cfText(r.month)+'</td>'+
-      '<td>'+cfMoney(r.installmentTotal)+'</td><td>'+cfMoney(r.loanPayments)+'</td></tr>').join('')+
+    '<div class="card cb cf-section"><h3>Aylık taksit yükü · Ekstre ayrımı</h3>'+
+      '<p class="cf-muted">Bankanın kesinleşmiş ekstresine yansıyan taksitler, o ekstre borcunun içindedir. İkinci kez eklenmez. Gelecek planlanan taksitler ayrı gösterilir. Tablodaki tutarlara çift tıklayarak kaynak sayfasını açabilirsin.</p>'+
+      (cfBilledMonthBreakdown(overview).missing.length?
+        '<div class="cf-sync-alert"><strong>⚠️ Vadesi eksik ekstrelerde taksit var</strong>'+
+        '<span>Ödeme tarihi belli olmayan '+cfBilledMonthBreakdown(overview).missing.length+
+        ' ekstre var. Banka kaydındaki son ödeme tarihini Ekstreler alanında tamamla; tahmini ay kaydırılmadı.</span>'+
+        '<button class="btn btn-ghost btn-sm" onclick="cfSetView(\'statements\')">Ekstreleri kontrol et</button></div>':'')+
+      '<div class="cf-scroll"><table class="cf-table cf-compact-table cf-installment-source-table"><thead><tr>'+
+      '<th>Ödeme ayı</th><th>Ekstreye yansımış taksitler</th>'+
+      '<th>Geleceğe planlanan taksitler</th><th>Ev / Araba kredisi (tam)</th>'+
+      '</tr></thead><tbody>'+rows.map(r=>'<tr data-forecast-month="'+cfText(r.month)+'">'+
+      '<td>'+cfText(cfMonthLabel(r.month))+'</td>'+
+      '<td title="Kaynak: bankanın ilgili ay vadeli ekstrelerindeki taksit satırları (çift tık: Ekstreler)">'+
+        cfMoney(cfBilledMonthBreakdown(overview).byMonth.get(r.month)||0)+'</td>'+
+      '<td title="Kaynak: Nakit Planı gelecek taksit kayıtları (çift tık: Taksitler)">'+cfMoney(r.installmentTotal)+'</td>'+
+      '<td title="Kaynak: Ev/araç kredisi planı (çift tık: Nakit Planı)">'+cfMoney(r.loanPayments)+'</td></tr>').join('')+
       '</tbody></table></div></div>';
 
   const planView=
@@ -4110,9 +4220,9 @@ async function renderCashflow(){
      cfView==="installments"?installmentView:planView;
 
   root.innerHTML='<div class="fade cf-dashboard">'+
-    '<div class="cf-dashboard-header"><div><h2>💳 Bütçe & Nakit Akışı <span class="cf-build-marker">v19 · Borç öncelikli plan</span></h2>'+
+    '<div class="cf-dashboard-header"><div><h2>💳 Bütçe & Nakit Akışı <span class="cf-build-marker">v20 · Taksit ve veri kaynağı</span></h2>'+
     '<p class="cf-muted">Kasım 2026 ve sonrası için ödeme ayına göre nakit akışı. Eski kayıtlar korunur.</p></div>'+
-    '<div class="cf-header-status"><button class="btn btn-ghost btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap Bakiyesi</button>'+(cfDirty?'<span class="cf-tag cf-tag-warning">Kaydedilmemiş değişiklikler</span>':
+    '<div class="cf-header-status">'+(cfDirty?'<span class="cf-tag cf-tag-warning">Kaydedilmemiş değişiklikler</span>':
       '<span class="cf-tag cf-tag-success">Plan görüntüleniyor</span>')+'</div></div>'+
     nav+budgetWarning+body+
     '<div id="cf-error" role="alert" style="color:#fca5a5;font-size:13px;margin-bottom:10px"></div>'+
@@ -4354,34 +4464,6 @@ window.cfClearSnapshot=function(){
   if(!confirm("Fiili Ek Hesap bakiyesi plan tahmininden kaldırılsın mı? Gerçek banka hesabında hiçbir işlem yapılmaz."))return;
   cfPlan.overdraft.actualSnapshot=null;
   cfDirty=true;cfOpenPanels.add("overdraft");renderCashflow();
-};
-window.cfImportSnapshotExcel=async function(input){
-  const file=input?.files?.[0];
-  if(!cfPlan||!file)return;
-  try{
-    if(!/\.xlsx?$/i.test(file.name)||file.size>8e6)throw Error("XLSX/XLS biçiminde en fazla 8 MB dosya seç.");
-    if(typeof XLSX==="undefined")throw Error("Excel okuyucu yüklenemedi; manuel tutar girebilirsin.");
-    const book=XLSX.read(await file.arrayBuffer(),{type:"array"});
-    const ws=book.Sheets["Mevcut Durum"];
-    if(!ws)throw Error("'Mevcut Durum' sayfası bulunamadı.");
-    const label=String(ws.G2?.v||"").toLocaleLowerCase("tr-TR");
-    if(!label.includes("enpara ek hesap"))throw Error("G2 sütunu Ek Hesap alanı değil.");
-    const income=Number(ws.B3?.v),loan=Number(ws.C3?.v),minimum=Number(ws.E3?.v);
-    const bank=Number(ws.G3?.v);
-    if(![income,loan,minimum,bank].every(Number.isFinite))throw Error("B3, C3, E3, G3 alanları sayısal olmalı.");
-    const recomputed=Math.round((income-loan-minimum)*100)/100;
-    if(Math.abs(recomputed-bank)>0.02)throw Error("G3 formülü B3-C3-E3 sonucuyla eşleşmiyor; Excel'i kontrol et.");
-    if(bank>0)throw Error("Excel G3 pozitif nakit gösteriyor; bu alan yalnızca KMH borcu için.");
-    const period=cfPlan.overdraft.actualSnapshot?.month||
-      cfForecastStartMonth||cfSelectedMonth||cfPlan.startMonth;
-    const debt=Math.round(Math.abs(bank)*100)/100;
-    cfPlan.overdraft.actualSnapshot={month:period,debt};
-    cfDirty=true;cfOpenPanels.add("overdraft");cfView="plan";
-    renderCashflow();
-    showToast("Fiili Ek Hesap borcu ("+period+"): "+cfMoney(debt)+". Kalıcı olması için Planı Kaydet'e bas.");
-  }catch(e){
-    showToast("Excel fiili bakiye okunamadı: "+String(e?.message||e).slice(0,160));
-  }finally{if(input)input.value="";}
 };
 window.cfOverdraft=function(field,value){
   if(!cfPlan||!["openingDebt","limit","interestPct"].includes(field))return;

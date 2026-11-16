@@ -1,6 +1,6 @@
 import {normalizeStatementBundle,mergeStatementInbox,reconcileStatement} from "./statement-import.js";
 import {parseStatementFile} from "./statement-file-reader.js";
-import {prepareStatementPlan,statementDueMonth,statementInstallmentSchedule,calculateInstallmentTimeline} from "./statement-plan.js";
+import {prepareStatementPlan,statementDueMonth,statementInstallmentSchedule,calculateInstallmentTimeline,statementBilledInstallments} from "./statement-plan.js";
 
 /**
  * Private, browser-only PDF/Excel/JSON statement review.
@@ -385,6 +385,7 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
       pendingWarnings:pending.warnings,
       statements:statements.map(st=>{
         const planned=(getPlan()?.statementSnapshots||[]).some(sn=>sn.sourceStatementId===st.id);
+        const billed=statementBilledInstallments(st);
         const future=st.transactions.filter(tx=>tx.type==="purchase"&&tx.remainingInstallments>0);
         const installmentCount=future.length;
         const installmentTotal=Math.round(future.reduce((v,tx)=>v+tx.amount*tx.remainingInstallments,0)*100)/100;
@@ -392,7 +393,8 @@ export function createStatementInboxUI({auth,db,doc,getDocFromServer,setDoc,safe
           Math.abs(st.remainingInstallmentsTotal-installmentTotal)>1;
         return {id:st.id,cardLabel:st.cardLabel,bank:st.bank,balance:st.balance,
           minimum:st.minimum,dueDate:st.dueDate,dueMonth:statementDueMonth(st),
-          statementDate:st.statementDate,planned,installmentCount,installmentTotal,mismatch};
+          statementDate:st.statementDate,planned,installmentCount,installmentTotal,mismatch,
+          billedInstallmentTotal:billed.amount,billedInstallmentCount:billed.count};
       })};
   }
   function card(st,source){

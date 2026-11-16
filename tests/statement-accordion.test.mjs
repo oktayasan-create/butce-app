@@ -29,6 +29,7 @@ const sandbox={auth,document:{getElementById(id){return id==="cf-statement-panel
  structuredClone,
  parseStatementFile:()=>{},prepareStatementPlan:()=>{},
  statementDueMonth:()=>null,statementInstallmentSchedule:()=>[],
+  statementBilledInstallments:st=>({dueMonth:st.dueDate?.slice(0,7)||null,amount:100,count:1}),
  calculateInstallmentTimeline:()=>[]};
 vm.createContext(sandbox);
 vm.runInContext(source,sandbox);

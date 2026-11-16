@@ -382,3 +382,26 @@ body[data-icon-style="bold"] .nav-btn.active .app-glyph{filter:drop-shadow(0 2px
 @media(max-width:380px){
   body[data-palette="sageglass"] .bnav-btn.active .bi{width:40px;height:40px;min-height:40px}
 }
+
+
+/* v20 — financial provenance, selectable future graph ranges */
+.cf-chart-range{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin:12px 0 17px}
+.cf-chart-range label{display:flex;flex-direction:column;gap:5px;font-size:11px;font-weight:730;color:var(--text2);min-width:160px}
+.cf-chart-range select{width:100%;border:1px solid var(--border2);border-radius:12px;background:var(--bg3);color:var(--text);padding:10px 11px;font-size:12px;cursor:pointer}
+.cf-chart-range>.cf-muted{font-size:11px;flex:1 1 210px;min-width:0;padding-bottom:7px}
+.cf-forecast-sources{border:1px solid var(--border2);border-radius:13px;margin:13px 0;padding:0 12px;background:var(--bg3)}
+.cf-forecast-sources>summary{padding:12px 3px;cursor:pointer;color:var(--text2);font-size:12px;font-weight:740}
+.cf-source-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;padding:4px 0 13px}
+.cf-source-grid>div{border:1px solid var(--border);background:var(--bg4);padding:11px;border-radius:10px;display:flex;flex-direction:column;gap:4px;font-size:11px}
+.cf-source-grid strong{font-size:11px;color:var(--text)}
+.cf-source-grid span{color:var(--text3);line-height:1.45}
+.cf-compact-forecast td,.cf-installment-source-table td,
+.ov-kpi,.ov-progress-row,.ov-activity-item,.ov-monthly-table td,.ov-cash-grid>div{cursor:zoom-in}
+.cf-compact-forecast td:active,.cf-installment-source-table td:active,
+.ov-kpi:active,.ov-progress-row:active{outline:1px solid var(--accent);outline-offset:-1px}
+@media(max-width:680px){
+  .cf-chart-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .cf-chart-range label{min-width:0}
+  .cf-chart-range>.cf-muted{grid-column:1/-1}
+  .cf-source-grid{grid-template-columns:1fr}
+}

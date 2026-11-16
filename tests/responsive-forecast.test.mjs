@@ -47,7 +47,7 @@ test("responsive forecast renders mobile cards, compact table, full-screen actio
   assert.match(html,/52036\.00 TL/);
   assert.match(html,/cf-mobile-month/);
   assert.match(html,/cfForecastFullscreen\(\)/);
-  assert.match(html,/12 aylık finansal görünüm/);
+  assert.match(html,/Seçilen dönem için finansal görünüm/);
   assert.match(html,/Grafikte görünmesini istediğin verileri seç/);
   assert.match(html,/cfChartToggle\('closingCardDebt'/);
   assert.match(html,/Hepsini seç/);
