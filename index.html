@@ -521,9 +521,9 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
     </div>
     
     <div class="nav">
-      <button class="nav-btn active" id="dnav-cashflow" onclick="goTab('cashflow',this)"><span class="app-glyph" data-glyph="wallet"></span>Nakit Akışı & Kartlar</button>
+      <button class="nav-btn active" id="dnav-overview" onclick="goTab('overview',this)"><span class="app-glyph" data-glyph="grid"></span>Genel Bakış</button>
+      <button class="nav-btn" id="dnav-cashflow" onclick="goTab('cashflow',this)"><span class="app-glyph" data-glyph="wallet"></span>Nakit Akışı & Kartlar</button>
       <button class="nav-btn" id="dnav-planning" onclick="goTab('planning',this)"><span class="app-glyph" data-glyph="layers"></span>Bütçe / Gerçekleşen</button>
-      <button class="nav-btn" id="dnav-overview" onclick="goTab('overview',this)"><span class="app-glyph" data-glyph="grid"></span>Genel Bakış</button>
       <button class="nav-btn" id="dnav-invest" onclick="goTab('invest',this)"><span class="app-glyph" data-glyph="sparkles"></span>Yatırımlar</button>
       <button class="nav-btn" id="dnav-history" onclick="goTab('history',this)"><span class="app-glyph" data-glyph="history"></span>İşlem Geçmişi</button>
       <div style="height:1px;background:var(--border);margin:12px 4px"></div>
@@ -539,12 +539,12 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
   <main class="main-content">
     
     <header class="page-header">
-      <h1 class="page-title" id="page-title-text">Nakit Akışı & Kartlar</h1>
+      <h1 class="page-title" id="page-title-text">Genel Bakış</h1>
       <div class="app-header-tools">
         <button type="button" title="Açık/koyu mod ve renk paleti" onclick="openThemePanel()">◐ Görünüm</button>
       </div>
     </header>
-    <div class="wrap" id="tab-cashflow"><div class="loading"><div class="spinner"></div>Plan yükleniyor...</div></div>
+    <div class="wrap" id="tab-cashflow" style="display:none"><div class="loading"><div class="spinner"></div>Plan yükleniyor...</div></div>
     <div class="wrap" id="tab-planning" style="display:none">
       <div class="planning-header">
         <h2>Bütçe & Gerçekleşen</h2>
@@ -558,7 +558,7 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
       <div class="wrap" id="tab-actual" style="display:none"></div>
       <div class="wrap" id="tab-variance" style="display:none"></div>
     </div>
-    <div class="wrap" id="tab-overview" style="display:none"></div>
+    <div class="wrap" id="tab-overview"></div>
     <div class="wrap" id="tab-invest" style="display:none"></div>
     <div class="wrap" id="tab-history" style="display:none"></div>
     <div class="wrap" id="tab-txadd" style="display:none"></div>
@@ -632,9 +632,9 @@ body.cf-forecast-overlay-open{overflow:hidden!important}
 
 <nav class="bottom-nav" aria-label="Mobil gezinme">
   <div class="bottom-nav-inner">
-    <button class="bnav-btn active" id="mnav-cashflow" onclick="mGoTab('cashflow',this)"><span class="bi" data-glyph="wallet"></span><span class="bl">Nakit</span></button>
+    <button class="bnav-btn active" id="mnav-overview" onclick="mGoTab('overview',this)"><span class="bi" data-glyph="grid"></span><span class="bl">Genel</span></button>
+    <button class="bnav-btn" id="mnav-cashflow" onclick="mGoTab('cashflow',this)"><span class="bi" data-glyph="wallet"></span><span class="bl">Nakit</span></button>
     <button class="bnav-btn" id="mnav-planning" onclick="mGoTab('planning',this)"><span class="bi" data-glyph="layers"></span><span class="bl">Bütçe</span></button>
-    <button class="bnav-btn" id="mnav-overview" onclick="mGoTab('overview',this)"><span class="bi" data-glyph="grid"></span><span class="bl">Genel</span></button>
     <button class="bnav-btn" id="mnav-invest" onclick="mGoTab('invest',this)"><span class="bi" data-glyph="sparkles"></span><span class="bl">Yatırım</span></button>
     <button class="bnav-btn" id="mnav-history" onclick="mGoTab('history',this)"><span class="bi" data-glyph="history"></span><span class="bl">Geçmiş</span></button>
     <button class="bnav-btn" id="mnav-txadd" onclick="mGoTab('txadd',this)"><span class="bi" data-glyph="plus"></span><span class="bl">Ekle</span></button>
@@ -1526,7 +1526,7 @@ function drawPie(id,segs){
 }
 
 // ── TABS & NAVIGATION (cashflow-first; finance data untouched) ──
-const mainTabs=["cashflow","planning","overview","invest","history","txadd"];
+const mainTabs=["overview","cashflow","planning","invest","history","txadd"];
 const tabTitles={
   cashflow:"Nakit Akışı & Kartlar",
   planning:"Bütçe / Gerçekleşen",
@@ -1535,7 +1535,7 @@ const tabTitles={
   history:"İşlem Geçmişi",
   txadd:"Ayarlar & Veri"
 };
-let curTab="cashflow";
+let curTab="overview";
 let planningMode="budget";
 function showMainTab(tab){
   if(["budget","actual","variance"].includes(tab)){
