@@ -46,27 +46,29 @@ export function createCashflowForecastUI({money,monthLabel}){
 
   function table(){
     return '<div class="cf-forecast-scroll cf-forecast-desktop" role="region" tabindex="0" aria-label="12 aylık detaylı nakit tablosu, yatay kaydırılabilir">'+
+      '<p class="cf-muted" style="margin:8px 0">Bilgi: sütun değerlerine çift tıklayarak verinin geldiği sayfaya gidebilirsin.</p>'+
       '<table class="cf-table cf-compact-forecast"><thead><tr>'+
       '<th>Ay</th><th>Gelir</th><th>Krediler</th>'+
       '<th>Faizli devreden kart borcu</th><th>Ay içi kart harcaması</th>'+
-      '<th>Gelecek taksitler</th><th>Kart ödeme hedefi</th><th>Planlanan kart ödemesi</th><th>Ödenmeden kalan kart</th>'+
-      '<th>Gelecek ay asgari</th><th>Nakit gider</th>'+
+      '<th>Gelecek taksitler</th><th>Kart ödeme hedefi</th><th>Gelecek ay asgari</th>'+
+      '<th>Planlanan kart ödemesi</th><th>Ödenmeden kalan kart</th><th>Nakit gider</th>'+
       '<th>Devreden Ek Hesap</th><th>Ek Hesap geri ödemesi</th><th>Toplam nakit çıkışı</th>'+
       '<th>Sonraki aya Ek Hesap</th><th>Aylık net (Gelir − Harcama)</th>'+
       '<th>Toplam birikim</th></tr></thead><tbody>'+
       data.map(r=>{
         const paidMonth=period(r.dueMonth);
         const verified=r.card.hasVerified?" · Banka ekstresi":"";
-        return '<tr class="'+(r.closingOverdraft>0?"cf-overdraft-month":r.closingSavings>0?"cf-savings-month":"")+'">'+
+        return '<tr data-forecast-month="'+r.month+'" class="'+(r.closingOverdraft>0?"cf-overdraft-month":r.closingSavings>0?"cf-savings-month":"")+'">'+
           '<td><strong>'+period(r.month)+'</strong><small>Kart ödeme hedefi</small></td>'+
           '<td>'+money(r.income)+'</td><td>'+money(r.loans)+'</td>'+
           '<td>'+money(r.card.carryover)+'</td>'+
           '<td>'+money(r.card.purchases)+'</td>'+
           '<td>'+money(r.card.installments)+'</td>'+
           '<td><strong>'+money(r.card.statementTotal)+'</strong><small>'+verified+'</small></td>'+
+          '<td>'+money(r.minimum)+'</td>'+
           '<td>'+money(r.cardPayments)+'</td>'+
           '<td class="'+(r.closingCardDebt>0?"cf-bad":"") +'"><strong>'+money(r.closingCardDebt)+'</strong></td>'+
-          '<td>'+money(r.minimum)+'</td><td>'+money(r.cashExpenses)+'</td>'+
+          '<td>'+money(r.cashExpenses)+'</td>'+
           '<td>'+(r.netOpening<0?signed(r.netOpening):money(0))+'</td>'+
           '<td>'+money(r.overdraftRepaid)+'</td>'+
           '<td><strong>'+money(r.totalExpenses)+'</strong></td>'+
@@ -88,9 +90,9 @@ export function createCashflowForecastUI({money,monthLabel}){
           ["Ay içi kart harcaması",money(card.purchases)],
           ["Gelecek taksitler",money(card.installments)],
           ["Bu ay kart ödeme hedefi",money(card.statementTotal)],
+          ["Gelecek ay asgari",money(r.minimum)],
           ["Planlanan kart ödemesi",money(r.cardPayments)],
           ["Ödenmeden kalan kart",money(r.closingCardDebt)],
-          ["Gelecek ay asgari",money(r.minimum)],
           ["Nakit gider",money(r.cashExpenses)],
           ["Devreden Ek Hesap",r.netOpening<0?signed(r.netOpening):money(0)],
           ["Ek Hesap geri ödemesi",money(r.overdraftRepaid)],
@@ -221,23 +223,27 @@ export function createCashflowForecastUI({money,monthLabel}){
     if(!available.has(chartRange.start))chartRange.start=futureData[0]?.month||null;
     if(!available.has(chartRange.end)||chartRange.end<chartRange.start)
       chartRange.end=futureData[Math.min(11,futureData.length-1)]?.month||null;
-    const snapshot=plan.overdraft.actualSnapshot;
-    const note=snapshot?
-      '<div class="cf-compact-callout"><strong>Fiili Ek Hesap referansı ('+period(snapshot.month)+
-      '):</strong> <strong class="cf-bad">'+signed(-snapshot.debt)+'</strong></div>':
-      '<div class="cf-sync-alert"><strong>⚠️ Fiili Ek Hesap bakiyesi henüz girilmemiş.</strong>'+
-      '<span>Eski tahmin gerçek bakiye olmayabilir.</span>'+
-      '<button class="btn btn-p btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap bakiyesi gir / Excel yükle</button></div>';
+    // KMH actual balance is edited manually under Nakit Planı > KMH.
+    // No separate upload banner is shown in the forecast.
+    const note="";
     const helper='<p class="cf-muted"><strong>Ödeme sırası:</strong> Krediler ve nakit giderler → kart asgarileri → varsa Ek Hesap borcunu kapatma → kartlara tüm fazla nakdi aktarma → ancak tüm borçlar ödendiyse birikim. '+
       '<strong>Aylık net = gelir − gerçekleşebilir nakit çıkışı</strong> (kartlara ödenen tutar ve Ek Hesap geri ödemesi dahil). '+
       'Kart tamamen kapanmadan birikim yazılmaz. Ödenemeyen kart borcu, faiz ve vergi tahminiyle sonraki aya devredilir.</p>'+
       (data.some(r=>r.unfundedMandatory>0)?
         '<div class="cf-sync-alert"><strong>⚠️ Ek Hesap limiti yetersiz</strong><span>Zorunlu ödemelerin tamamı karşılanamıyor. Lütfen kırmızı satırları kontrol et.</span></div>':'')+
       '<p class="cf-muted">Kart ödeme hedefi ayın yeni harcamaları ve ilgili taksit tahminini de içerir; bankanın kesinleşmiş son ödeme tarihleri farklı olabilir. KMH faizi yaklaşık hesaplanıp sonraki aya eklenir.</p>';
+    const sourceDetails='<details class="cf-forecast-sources"><summary>ⓘ Tablo verilerinin kaynakları · Çift tıklayarak aç</summary>'+
+      '<div class="cf-source-grid">'+
+      '<div><strong>Gelir / Nakit gider</strong><span>Bütçe / Gerçekleşen → Aylık bütçe kategorileri ve ödeme türü</span></div>'+
+      '<div><strong>Krediler / Ek Hesap</strong><span>Nakit Planı → Kredi ödeme planı, Ekpara ayarları ve borç devri</span></div>'+
+      '<div><strong>Kart hedefi / Asgari</strong><span>Ekstreler → Banka dönemi; kesinleşmemiş aylar Nakit Planı faiz ve asgari varsayımları</span></div>'+
+      '<div><strong>Gelecek taksitler</strong><span>Taksitler → Başlangıç ayı ve kalan ödeme sayısı; mevcut ekstre taksitleri ayrıca görüntülenir</span></div>'+
+      '<div><strong>Aylık net / Birikim</strong><span>Nakit akışı ödeme önceliği modeli: zorunlu giderler, Ekpara, kart ödemeleri, kalan borç</span></div>'+
+      '</div></details>';
     const toolbar='<div class="cf-forecast-actions">'+
       '<span class="cf-muted">12 aylık tablo · grafikte ileri tarih aralığı seçilebilir · TL</span>'+
       '<button type="button" class="btn btn-p btn-sm" onclick="cfForecastFullscreen()">⛶ Geniş ekranda aç</button></div>';
-    return note+helper+toolbar+table()+mobileCards()+chart("dash");
+    return note+helper+toolbar+table()+mobileCards()+sourceDetails+chart("dash");
   }
 
   function open(){
