@@ -3702,13 +3702,12 @@ function cfInstallmentEditor(){
 function cfOverdraftEditor(){
   const snapshot=cfPlan.overdraft.actualSnapshot;
   const month=snapshot?.month||cfForecastStartMonth||cfSelectedMonth||cfPlan.startMonth;
-  return '<p class="cf-muted">Fiili Ek Hesap bakiyesini eski plan başlangıcından ayrı kaydet. Bu tutar Excel tipi dönem planının açılış bakiyesidir; daha önce alınmış maaşı veya ödenmiş faturaları aynı dönem için yeniden planlarsan tahmin hatalı olur. Excel dosyası cihazında okunur ve sadece onaylanan bakiye Planı Kaydet ile saklanır.</p>'+
+  return '<p class="cf-muted">Fiili Ek Hesap bakiyesini geçmiş plan başlangıcından ayrı, istersen elle kaydet. İleri dönem tahmininde aynı maaş ve ödemeleri ikinci kez işleme almamaya dikkat et.</p>'+
     '<div class="cf-inputs">'+
       cfField("Fiili Ek Hesap borcu (₺) — borç pozitif girilir",snapshot?.debt??"","cfSnapshot('debt',this.value)")+
       cfField("Fiili bakiyenin baz alınacağı ay",month,"cfSnapshot('month',this.value)","month")+
     '</div>'+
-    '<label class="cf-muted" style="display:block;margin-top:12px">Mevcut Durum Excel dosyasından fiili bakiyeyi aktar (G3 hücresi, gelir-kredi-asgari kontrol edilir)'+
-      '<input type="file" accept=".xlsx,.xls" onchange="cfImportSnapshotExcel(this)" style="display:block;margin-top:6px;max-width:100%"></label>'+
+
     (snapshot?'<div class="cf-inline-summary"><span>Onaylanacak fiili borç · <strong>'+cfText(cfMonthLabel(snapshot.month))+
        '</strong>: <strong>'+cfMoney(snapshot.debt)+'</strong></span>'+
        '<button class="btn btn-ghost btn-sm" onclick="cfClearSnapshot()">Fiili bakiye kaydını kaldır</button></div>':
@@ -4140,7 +4139,7 @@ async function renderCashflow(){
   root.innerHTML='<div class="fade cf-dashboard">'+
     '<div class="cf-dashboard-header"><div><h2>💳 Bütçe & Nakit Akışı <span class="cf-build-marker">v19 · Borç öncelikli plan</span></h2>'+
     '<p class="cf-muted">Kasım 2026 ve sonrası için ödeme ayına göre nakit akışı. Eski kayıtlar korunur.</p></div>'+
-    '<div class="cf-header-status"><button class="btn btn-ghost btn-sm" onclick="cfOpenSnapshotSettings()">Fiili Ek Hesap Bakiyesi</button>'+(cfDirty?'<span class="cf-tag cf-tag-warning">Kaydedilmemiş değişiklikler</span>':
+    '<div class="cf-header-status">'+(cfDirty?'<span class="cf-tag cf-tag-warning">Kaydedilmemiş değişiklikler</span>':
       '<span class="cf-tag cf-tag-success">Plan görüntüleniyor</span>')+'</div></div>'+
     nav+budgetWarning+body+
     '<div id="cf-error" role="alert" style="color:#fca5a5;font-size:13px;margin-bottom:10px"></div>'+
@@ -4382,34 +4381,6 @@ window.cfClearSnapshot=function(){
   if(!confirm("Fiili Ek Hesap bakiyesi plan tahmininden kaldırılsın mı? Gerçek banka hesabında hiçbir işlem yapılmaz."))return;
   cfPlan.overdraft.actualSnapshot=null;
   cfDirty=true;cfOpenPanels.add("overdraft");renderCashflow();
-};
-window.cfImportSnapshotExcel=async function(input){
-  const file=input?.files?.[0];
-  if(!cfPlan||!file)return;
-  try{
-    if(!/\.xlsx?$/i.test(file.name)||file.size>8e6)throw Error("XLSX/XLS biçiminde en fazla 8 MB dosya seç.");
-    if(typeof XLSX==="undefined")throw Error("Excel okuyucu yüklenemedi; manuel tutar girebilirsin.");
-    const book=XLSX.read(await file.arrayBuffer(),{type:"array"});
-    const ws=book.Sheets["Mevcut Durum"];
-    if(!ws)throw Error("'Mevcut Durum' sayfası bulunamadı.");
-    const label=String(ws.G2?.v||"").toLocaleLowerCase("tr-TR");
-    if(!label.includes("enpara ek hesap"))throw Error("G2 sütunu Ek Hesap alanı değil.");
-    const income=Number(ws.B3?.v),loan=Number(ws.C3?.v),minimum=Number(ws.E3?.v);
-    const bank=Number(ws.G3?.v);
-    if(![income,loan,minimum,bank].every(Number.isFinite))throw Error("B3, C3, E3, G3 alanları sayısal olmalı.");
-    const recomputed=Math.round((income-loan-minimum)*100)/100;
-    if(Math.abs(recomputed-bank)>0.02)throw Error("G3 formülü B3-C3-E3 sonucuyla eşleşmiyor; Excel'i kontrol et.");
-    if(bank>0)throw Error("Excel G3 pozitif nakit gösteriyor; bu alan yalnızca KMH borcu için.");
-    const period=cfPlan.overdraft.actualSnapshot?.month||
-      cfForecastStartMonth||cfSelectedMonth||cfPlan.startMonth;
-    const debt=Math.round(Math.abs(bank)*100)/100;
-    cfPlan.overdraft.actualSnapshot={month:period,debt};
-    cfDirty=true;cfOpenPanels.add("overdraft");cfView="plan";
-    renderCashflow();
-    showToast("Fiili Ek Hesap borcu ("+period+"): "+cfMoney(debt)+". Kalıcı olması için Planı Kaydet'e bas.");
-  }catch(e){
-    showToast("Excel fiili bakiye okunamadı: "+String(e?.message||e).slice(0,160));
-  }finally{if(input)input.value="";}
 };
 window.cfOverdraft=function(field,value){
   if(!cfPlan||!["openingDebt","limit","interestPct"].includes(field))return;
