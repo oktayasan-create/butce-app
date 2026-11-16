@@ -812,7 +812,8 @@ import { emptyCashFlowPlan, computeCashFlow, advanceMonth, validCashFlowPlan, no
 import { normalizeStatementBundle, mergeStatementInbox, reconcileStatement, statementPlanMonth, suggestStatementInstallments } from "./statement-import.js";
 import { createStatementInboxUI } from "./statement-ui.js";
 import {projectBudgetToCashFlow,budgetSourceConfig} from "./budget-bridge.js";
-import {createCashflowForecastUI} from "./cashflow-forecast-ui.js?v=17";
+import {createCashflowForecastUI} from "./cashflow-forecast-ui.js?v=20";
+import {sourceForForecastColumn,sourceForInstallmentColumn,sourceForOverviewColumn,summarySource} from "./finance-source-map.js?v=20";
 import {buildOverviewData,renderOverviewDashboard} from "./overview-dashboard.js?v=18";
 import {PALETTES,ICON_STYLES,NAV_KEYS,GLYPH_LABELS,NAV_DEFAULT,DEFAULT_COLORS,CUSTOM_THEME_CSS_VARS,
   sanitizeCustomColors,sanitizeIconConfig,resolvedNavIcons,customThemeVars,safeHex} from "./appearance-config.js?v=19";
@@ -1591,6 +1592,80 @@ var states={
   txadd:   {type:"expense",cat:"food"},
   history: {filter:"all"}
 };
+
+// ── SOURCE TRANSPARENCY: double-click figures to open their owning screen ──
+// No source navigation changes persisted account balances or transaction values.
+window.cfOpenDataSource=function(kind,month){
+  const m=/^20\d{2}-(0[1-9]|1[0-2])$/.test(month||"")?month:null;
+  const monthNo=m?Number(m.slice(5))-1:null;
+  const year=m?Number(m.slice(0,4)):null;
+  if(["budget","actual","variance"].includes(kind)){
+    if(m){
+      states[kind].year=year;
+      states[kind].months=[monthNo];
+    }
+    planningMode=kind;showMainTab("planning");
+    window.planningSwitch(kind);
+  }else if(kind==="investment"){
+    showMainTab("invest");
+  }else if(kind==="history"){
+    showMainTab("history");
+  }else if(kind==="overview"){
+    if(m){overviewPeriod.year=year;overviewPeriod.month=monthNo;}
+    showMainTab("overview");
+  }else{
+    showMainTab("cashflow");
+    if(m)cfSelectedMonth=m;
+    if(kind==="statements"||kind==="card")cfView="statements";
+    else if(kind==="installments")cfView="installments";
+    else{
+      cfView="plan";
+      if(kind==="loans")cfOpenPanels.add("loans");
+      if(kind==="overdraft")cfOpenPanels.add("overdraft");
+      if(kind==="plan")cfOpenPanels.add("strategy");
+    }
+    renderCashflow();
+  }
+  window.scrollTo?.({top:0,behavior:"smooth"});
+};
+function provenanceForTarget(target){
+  const td=target.closest("td");
+  if(td){
+    const forecast=td.closest("table.cf-compact-forecast");
+    if(forecast)return {source:sourceForForecastColumn(td.cellIndex),
+      month:td.closest("tr")?.dataset.forecastMonth||null};
+    const installment=td.closest("table.cf-installment-source-table");
+    if(installment)return {source:sourceForInstallmentColumn(td.cellIndex),
+      month:td.closest("tr")?.dataset.forecastMonth||null};
+    const overviewTable=td.closest("table.ov-monthly-table");
+    if(overviewTable){
+      const row=td.closest("tr");
+      const monthNo=row?.sectionRowIndex;
+      return {source:sourceForOverviewColumn(td.cellIndex),
+        month:Number.isInteger(monthNo)?String(overviewPeriod.year)+"-"+String(monthNo+1).padStart(2,"0"):null};
+    }
+  }
+  const month=String(overviewPeriod.year)+"-"+String(overviewPeriod.month+1).padStart(2,"0");
+  const card=target.closest(".ov-kpi");
+  if(card)return {source:summarySource(card.querySelector(".ov-kpi-top")?.textContent),month};
+  if(target.closest(".ov-card-breakdown-row,.ov-cash-grid>div"))return {source:"plan",month};
+  if(target.closest(".ov-progress-row,.ov-donut-wrap,.ov-chart-scroll,.ov-monthly-table"))return {source:"budget",month};
+  if(target.closest(".ov-activity-item,.ov-day-chart"))return {source:"actual",month};
+  return null;
+}
+document.addEventListener("dblclick",event=>{
+  const source=provenanceForTarget(event.target);
+  if(source){
+    event.preventDefault();
+    window.cfOpenDataSource(source.source,source.month);
+  }
+});
+document.addEventListener("mouseover",event=>{
+  const el=event.target.closest("td,.ov-kpi,.ov-progress-row,.ov-activity-item,.ov-cash-grid>div");
+  if(!el||el.title)return;
+  const source=provenanceForTarget(el);
+  if(source)el.title="Kaynak "+source.source+(source.month?" · "+source.month:"")+" — çift tıkla aç";
+});
 
 // ── MAIN OVERVIEW: read-only, sourced from budget / transactions / cash plan ──
 const overviewPeriod={year:CUR_Y_REAL,month:CUR_M_REAL};
