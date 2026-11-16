@@ -41,8 +41,9 @@ export function createCashflowForecastUI({money,monthLabel}){
     if(key==="statementTotal")return r.card.statementTotal;
     return numeric(r[key]);
   };
-  const detail=(label,value,css="")=>
-    '<div class="cf-mobile-metric"><span>'+label+'</span><strong class="'+css+'">'+value+'</strong></div>';
+  const detail=(label,value,css="",source="plan",month="")=>
+    '<div class="cf-mobile-metric" data-source="'+source+'" data-source-month="'+month+
+    '" title="Kaynağı açmak için çift tıkla"><span>'+label+'</span><strong class="'+css+'">'+value+'</strong></div>';
 
   function table(){
     return '<div class="cf-forecast-scroll cf-forecast-desktop" role="region" tabindex="0" aria-label="12 aylık detaylı nakit tablosu, yatay kaydırılabilir">'+
@@ -108,7 +109,11 @@ export function createCashflowForecastUI({money,monthLabel}){
           '<strong class="'+colorClass(r.monthlyNet)+'">'+signed(r.monthlyNet)+'</strong>'+
           '<span>Toplam birikim: '+money(r.closingSavings)+'</span></span>'+
           '</summary><div class="cf-month-metrics">'+
-          fields.map(([label,value])=>detail(label,value,label==="Aylık net fark"?colorClass(r.monthlyNet):"")).join('')+
+          fields.map(([label,value],i)=>detail(label,value,
+            label==="Aylık net fark"?colorClass(r.monthlyNet):"",
+            ["budget","loans","card","budget","installments","statements","statements",
+             "plan","plan","budget","overdraft","overdraft","plan","overdraft","plan","plan"][i],
+            r.month)).join('')+
           '</div></details>';
       }).join('')+'</div>';
   }
