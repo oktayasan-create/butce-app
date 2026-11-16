@@ -1629,7 +1629,7 @@ window.cfOpenDataSource=function(kind,month){
   window.scrollTo?.({top:0,behavior:"smooth"});
 };
 function provenanceForTarget(target){
-  const td=target.closest("td");
+  const td=target.closest("td,th");
   if(td){
     const forecast=td.closest("table.cf-compact-forecast");
     if(forecast)return {source:sourceForForecastColumn(td.cellIndex),
@@ -1645,6 +1645,9 @@ function provenanceForTarget(target){
         month:Number.isInteger(monthNo)?String(overviewPeriod.year)+"-"+String(monthNo+1).padStart(2,"0"):null};
     }
   }
+  const mobileMetric=target.closest(".cf-mobile-metric[data-source]");
+  if(mobileMetric)return {source:mobileMetric.dataset.source,
+    month:mobileMetric.dataset.sourceMonth||null};
   const month=String(overviewPeriod.year)+"-"+String(overviewPeriod.month+1).padStart(2,"0");
   const card=target.closest(".ov-kpi");
   if(card)return {source:summarySource(card.querySelector(".ov-kpi-top")?.textContent),month};
@@ -1661,10 +1664,15 @@ document.addEventListener("dblclick",event=>{
   }
 });
 document.addEventListener("mouseover",event=>{
-  const el=event.target.closest("td,.ov-kpi,.ov-progress-row,.ov-activity-item,.ov-cash-grid>div");
+  const el=event.target.closest("td,th,.cf-mobile-metric,.ov-kpi,.ov-progress-row,.ov-activity-item,.ov-cash-grid>div");
   if(!el||el.title)return;
   const source=provenanceForTarget(el);
-  if(source)el.title="Kaynak "+source.source+(source.month?" · "+source.month:"")+" — çift tıkla aç";
+  const names={budget:"Bütçe / Gerçekleşen (Bütçe)",actual:"Bütçe / Gerçekleşen (Gerçekleşen)",
+    plan:"Nakit Planı",loans:"Nakit Planı / Krediler",overdraft:"Nakit Planı / Ek Hesap",
+    card:"Ekstreler",statements:"Ekstreler",installments:"Taksitler",
+    investment:"Yatırımlar",history:"İşlem Geçmişi",overview:"Genel Bakış"};
+  if(source)el.title="Kaynak: "+(names[source.source]||"Nakit Planı")+
+    (source.month?" · "+source.month:"")+" — çift tıkla aç";
 });
 
 // ── MAIN OVERVIEW: read-only, sourced from budget / transactions / cash plan ──
